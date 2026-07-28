@@ -1,0 +1,8 @@
+.Contenedor__Producto {
+  display: flex;
+  flex-direction: row;
+}
+
+.Contenedor {
+  padding: 4rem 3rem;
+}

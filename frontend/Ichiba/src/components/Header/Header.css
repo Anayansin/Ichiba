@@ -1,0 +1,97 @@
+@font-face {
+  font-family: "Ichiba";
+  src: url("../../assets/fonts/Japan.ttf");
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 3rem;
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  margin: 0%;
+}
+
+.header__logo {
+  font-family: "Ichiba";
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #d90429;
+}
+
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.header__link {
+  cursor: pointer;
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+}
+
+.header__link:hover {
+  color: #d90429;
+}
+
+.header__vender {
+  background-color: #d90429;
+  color: white;
+  border: none;
+  padding: 0.9rem 2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.header__vender:hover {
+  background-color: #b8031f;
+}
+
+.header__menu-item {
+  color: #333;
+  display: flex;
+  flex-direction: row;
+  text-decoration: none;
+}
+
+.header__menu-item:hover {
+  color: #d90429;
+}
+
+.header__menu {
+  position: relative;
+}
+
+.header__menu-despliega {
+  position: absolute;
+  background-color: #ffffff;
+  padding: 1rem 3rem;
+  padding-left: 5%;
+  z-index: 10;
+  border-radius: 6px;
+}
