@@ -51,3 +51,7 @@
   font-weight: 700;
   margin-bottom: 0.8rem;
 }
+
+.CartaProducto__Link {
+  text-decoration: none;
+}

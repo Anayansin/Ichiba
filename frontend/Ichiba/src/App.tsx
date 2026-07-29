@@ -6,6 +6,7 @@ import Inicio from "./pages/Inicio/Inicio";
 import Ayuda from "./pages/Ayuda/Ayuda";
 import IniciarSesion from "./components/auth/IniciarSesionModal/IniciarSesion";
 import RegistarCuenta from "./pages/RegistrarCuenta/RegistrarCuenta";
+import ProductoCompleto from "./pages/ProductoCompleto/ProductoCompleto";
 import { useState } from "react";
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
         />
         <Route path="/ayuda" element={<Ayuda />} />
         <Route path="/registro" element={<RegistarCuenta />} />
+        <Route path="/producto/:id" element={<ProductoCompleto />} />
       </Routes>
 
       {inicioSesion && <IniciarSesion onClose={() => setInicioSesion(false)} />}

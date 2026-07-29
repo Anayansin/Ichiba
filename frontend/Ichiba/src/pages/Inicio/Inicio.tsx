@@ -1,5 +1,4 @@
 import "./Inicio.css";
-import "../../components/CartaProducto/CartaProducto";
 import { mockProducts } from "../../Prueba/prueba";
 import CartaProducto from "../../components/CartaProducto/CartaProducto";
 
@@ -10,6 +9,7 @@ function Inicio() {
         {mockProducts.map((product) => (
           <CartaProducto
             key={product.id}
+            id={product.id}
             nombre={product.nombre}
             precio={product.precio}
             imagen={product.imagen}
