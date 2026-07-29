@@ -1,7 +1,8 @@
 .CartaProducto {
   box-sizing: border-box;
-  width: 190px;
-  height: 254px;
+  width: 260px;
+  min-height: 320px;
+  overflow: hidden;
   background: rgba(217, 217, 217, 0.58);
   border: 1px solid white;
   box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
@@ -17,7 +18,7 @@
   font-weight: bolder;
   color: black;
   flex-direction: column;
-  padding: 10px;
+  padding: 14px;
   margin: 10px;
 }
 
@@ -32,7 +33,7 @@
 
 .CartaProducto__Imagen {
   width: 100%;
-  height: 180px;
+  height: 220px;
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 0.8rem;
@@ -40,13 +41,14 @@
 }
 
 .CartaProducto__Nombre {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #1a1a1a;
   margin-bottom: 0.4rem;
 }
 
 .CartaProducto__Precio {
+  font-size: 1.1rem;
   color: #d90429;
   font-weight: 700;
   margin-bottom: 0.8rem;

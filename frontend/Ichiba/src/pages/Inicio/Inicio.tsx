@@ -12,7 +12,7 @@ function Inicio() {
             id={product.id}
             nombre={product.nombre}
             precio={product.precio}
-            imagen={product.imagen}
+            imagenes={product.imagenes}
           />
         ))}
       </div>
