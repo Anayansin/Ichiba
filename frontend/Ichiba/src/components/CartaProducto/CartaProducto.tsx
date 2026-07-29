@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import "./CartaProducto.css";
 
 type CartaProductoProps = {
-  id: number;
+  id: string;
   nombre: string;
   precio: number;
   imagenes: string[];
