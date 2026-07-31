@@ -1,37 +1,23 @@
-.chat-formulario {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background-color: #f0f2f5;
-  padding: 10px 15px;
-  border-top: 1px solid #e0e0e0;
+p {
+  color: black;
 }
 
-.chat-input {
-  flex: 1;
-  padding: 10px 15px;
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  outline: none;
-  background-color: white;
-}
-
-.chat-boton-enviar {
-  background-color: #0053fa;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
+.chat-pagina {
   display: flex;
   justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.2s;
+  width: 100%;
+  min-height: calc(100vh - 70px);
+  padding: 20px 0;
+  box-sizing: border-box;
 }
 
-.chat-boton-enviar:hover {
-  background-color: #003db3;
+.contenedor-chat {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background-color: transparent;
+  padding: 10px;
+  box-sizing: border-box;
 }
