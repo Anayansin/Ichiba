@@ -95,3 +95,58 @@ body {
   z-index: 10;
   border-radius: 6px;
 }
+
+.header__usuario {
+  position: relative;
+  cursor: pointer;
+}
+
+.header__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background-color: #d90429;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.header__usuario-despliega {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 1rem;
+  min-width: 220px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.header__usuario-nombre {
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.header__usuario-correo {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0 0 0.4rem 0;
+}
+
+.header__logout {
+  background: none;
+  border: none;
+  text-align: left;
+  color: #d90429;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.4rem 0;
+}

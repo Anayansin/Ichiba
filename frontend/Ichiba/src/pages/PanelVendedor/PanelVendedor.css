@@ -1,0 +1,68 @@
+.panel-vendedor {
+  padding: 3rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.panel-vendedor h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.2rem;
+  color: #1a1a1a;
+}
+
+.panel-vendedor__correo {
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.panel-vendedor__stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.panel-vendedor__stat-card {
+  flex: 1;
+  min-width: 160px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.panel-vendedor__stat-numero {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #d90429;
+}
+
+.panel-vendedor__stat-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.panel-vendedor__boton-publicar {
+  display: inline-block;
+  background-color: #d90429;
+  color: white;
+  text-decoration: none;
+  padding: 0.9rem 1.8rem;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.panel-vendedor__boton-publicar:hover {
+  background-color: #b8031f;
+}
+
+.panel-vendedor__productos h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+}
+
+.panel-vendedor__sin-productos {
+  color: #888;
+}

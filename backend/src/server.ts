@@ -1,12 +1,11 @@
-import dotenv from "dotenv";
-// ¡Importante! dotenv.config() debe ir inmediatamente debajo de su import,
-// antes de importar la base de datos para que la URI esté disponible a tiempo.
-dotenv.config();
-
 import express from "express";
 import cors from "cors";
+import dotenv from "dotenv";
 import { coneccionDB } from "./configuracion/db.js";
 import productoRoutes from "./routes/productoRoutes.js";
+import usuarioRoutes from "./routes/usuarioRoutes.js";
+
+dotenv.config();
 
 const app = express();
 
@@ -14,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/productos", productoRoutes);
+app.use("/api/usuarios", usuarioRoutes);
 
 const PORT = process.env.PORT || 5000;
 

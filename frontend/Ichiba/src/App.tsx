@@ -7,13 +7,15 @@ import Ayuda from "./pages/Ayuda/Ayuda";
 import IniciarSesion from "./components/auth/IniciarSesionModal/IniciarSesion";
 import RegistarCuenta from "./pages/RegistrarCuenta/RegistrarCuenta";
 import ProductoCompleto from "./pages/ProductoCompleto/ProductoCompleto";
+import PanelVendedor from "./pages/PanelVendedor/PanelVendedor";
 import { useState } from "react";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
 
   return (
-    <div>
+    <AuthProvider>
       <Header onOpenLogin={() => setInicioSesion(true)} />
 
       <Routes>
@@ -26,10 +28,11 @@ function App() {
         <Route path="/ayuda" element={<Ayuda />} />
         <Route path="/registro" element={<RegistarCuenta />} />
         <Route path="/producto/:id" element={<ProductoCompleto />} />
+        <Route path="/panel-vendedor" element={<PanelVendedor />} />
       </Routes>
 
       {inicioSesion && <IniciarSesion onClose={() => setInicioSesion(false)} />}
-    </div>
+    </AuthProvider>
   );
 }
 

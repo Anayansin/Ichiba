@@ -94,3 +94,12 @@
 .requisitos-box li {
   margin-bottom: 0.2rem;
 }
+
+.registro-error {
+  background-color: #fdecea;
+  color: #d90429;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}

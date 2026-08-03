@@ -1,6 +1,7 @@
 import Boton from "../Boton/Boton";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import "./Header.css";
 
 const categorias = [
@@ -18,6 +19,17 @@ interface HeaderProps {
 
 function Header({ onOpenLogin }: HeaderProps) {
   const [categoriasAbiertas, setCategoriasAbiertas] = useState(false);
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const { usuario, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    setMenuUsuarioAbierto(false);
+    navigate("/");
+  }
+
+  const inicialNombre = usuario?.nombreCompleto.charAt(0).toUpperCase();
 
   return (
     <header className="header">
@@ -32,6 +44,7 @@ function Header({ onOpenLogin }: HeaderProps) {
         <Link to="/Chats" className="header__link">
           Chats
         </Link>
+
         <div
           className="header__menu"
           onClick={() => setCategoriasAbiertas(!categoriasAbiertas)}
@@ -52,6 +65,7 @@ function Header({ onOpenLogin }: HeaderProps) {
             </div>
           )}
         </div>
+
         <Link to="/" className="header__link">
           Nosotros
         </Link>
@@ -60,7 +74,42 @@ function Header({ onOpenLogin }: HeaderProps) {
         </Link>
       </nav>
 
-      <Boton texto="Iniciar Sesion" onClick={onOpenLogin}></Boton>
+      {usuario ? (
+        <div
+          className="header__usuario"
+          onClick={() => setMenuUsuarioAbierto(!menuUsuarioAbierto)}
+        >
+          <div className="header__avatar">{inicialNombre}</div>
+
+          {menuUsuarioAbierto && (
+            <div className="header__usuario-despliega">
+              <p className="header__usuario-nombre">{usuario.nombreCompleto}</p>
+              <p className="header__usuario-correo">{usuario.correo}</p>
+              <hr />
+              <Link to="/panel-vendedor" className="header__menu-item">
+                Mi panel
+              </Link>
+              <Link to="/panel-vendedor/publicar" className="header__menu-item">
+                Publicar producto
+              </Link>
+              <Link
+                to="/panel-vendedor/estadisticas"
+                className="header__menu-item"
+              >
+                Estadísticas
+              </Link>
+              <button
+                className="header__menu-item header__logout"
+                onClick={handleLogout}
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Boton texto="Iniciar Sesion" onClick={onOpenLogin} />
+      )}
     </header>
   );
 }

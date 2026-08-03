@@ -1,13 +1,14 @@
 interface BotonProps {
   texto: string;
   onClick: () => void;
+  type?: "button" | "submit";
 }
 
 import "./Boton.css";
 
-function Boton({ texto, onClick }: BotonProps) {
+function Boton({ texto, onClick, type = "button" }: BotonProps) {
   return (
-    <button className="btn" onClick={onClick}>
+    <button type={type} className="btn" onClick={onClick}>
       {texto}
     </button>
   );
