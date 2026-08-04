@@ -10,6 +10,7 @@ import ProductoCompleto from "./pages/ProductoCompleto/ProductoCompleto";
 import PanelVendedor from "./pages/PanelVendedor/PanelVendedor";
 import { useState } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import RegistarProducto from "./pages/RegistrarProducto/RegistrarProducto";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
@@ -29,6 +30,7 @@ function App() {
         <Route path="/registro" element={<RegistarCuenta />} />
         <Route path="/producto/:id" element={<ProductoCompleto />} />
         <Route path="/panel-vendedor" element={<PanelVendedor />} />
+        <Route path="/panel-vendedor/publicar" element={<RegistarProducto />} />
       </Routes>
 
       {inicioSesion && <IniciarSesion onClose={() => setInicioSesion(false)} />}
