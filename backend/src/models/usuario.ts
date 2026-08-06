@@ -9,6 +9,8 @@ const usuarioSchema = new Schema(
     rfc: { type: String, required: true },
     password: { type: String, required: true },
     tipo: { type: String, enum: ["vendedor"], default: "vendedor" },
+    ventasExitosas: { type: Number, default: 0 },
+    reportes: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

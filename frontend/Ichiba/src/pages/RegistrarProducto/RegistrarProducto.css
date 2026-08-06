@@ -1,61 +1,43 @@
-.producto-container {
+.registrar-producto-container {
   display: flex;
   justify-content: center;
-  align-items: center;
-  min-height: calc(100vh - 70px);
-  background-color: #f4f6f8;
-  padding: 2rem 1rem;
-  box-sizing: border-box;
+  padding: 3rem 1rem;
+  background-color: #f9f9f9;
+  min-height: 100vh;
 }
 
-/* Tarjeta del formulario con estilos limpios y modernos */
-.producto-card {
+.registrar-producto-card {
   background: #ffffff;
   padding: 2.5rem;
   border-radius: 24px;
   width: 100%;
-  max-width: 520px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  max-width: 600px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
   color: #333;
+  height: fit-content;
 }
 
-.producto-card h2 {
+.registrar-producto-card h2 {
   text-align: center;
-  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  margin: 0 0 0.5rem 0;
-  color: #111;
 }
 
-/* Mensaje de error independiente */
-.producto-error {
-  background-color: #fde8e8;
-  color: #d90429;
-  padding: 0.8rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  text-align: center;
-  font-weight: 600;
-  margin: 0;
-}
-
-/* Agrupación de cada campo */
-.producto-group {
+.form-group {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #444;
 }
 
-/* Inputs de texto y áreas de texto */
-.producto-input {
+.registrar-producto-input {
   padding: 0.8rem 1rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #cdcdcd;
   border-radius: 12px;
   font-size: 1rem;
   outline: none;
@@ -65,23 +47,66 @@
   font-family: inherit;
 }
 
-.producto-input:focus {
-  border-color: #d90429; /* Color corporativo de Ichiba */
+.registrar-producto-input:focus {
+  border-color: #d90429;
 }
 
-/* Área de texto con tamaño adaptable */
-.producto-textarea {
+.registrar-producto-textarea {
   resize: vertical;
-  min-height: 90px;
+  min-height: 80px;
 }
 
-/* Input de tipo archivo personalizado de forma limpia */
-.producto-input-file {
-  padding: 0.6rem;
-  border: 2px dashed #cdcdcd;
-  border-radius: 12px;
-  background-color: #fafafa;
-  cursor: pointer;
+.registrar-producto-btn-agregar:hover {
+  background-color: #333;
+}
+
+.registrar-producto-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+}
+
+.registrar-producto-preview-item {
+  position: relative;
+  width: 90px;
+  height: 90px;
+}
+
+.registrar-producto-preview-item img {
   width: 100%;
-  box-sizing: border-box;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.registrar-producto-preview-item button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #d90429;
+  color: white;
+  border: 2px solid white;
+  cursor: pointer;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.registrar-producto-error {
+  background-color: #fdecea;
+  color: #d90429;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.registrar-producto-dropzone {
+  cursor: pointer;
 }

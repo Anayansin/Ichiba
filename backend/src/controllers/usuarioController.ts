@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Usuario } from "../models/usuario.js";
+import { RequestConUsuario } from "../middleware/auth.js";
 
 export async function registrarUsuario(req: Request, res: Response) {
   try {
@@ -85,5 +86,18 @@ export async function iniciarSesion(req: Request, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al iniciar sesión" });
+  }
+}
+
+export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
+  try {
+    const usuario = await Usuario.findById(req.usuarioId).select("-password");
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    res.json(usuario);
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al obtener perfil" });
   }
 }

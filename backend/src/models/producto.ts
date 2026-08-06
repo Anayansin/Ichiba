@@ -8,6 +8,7 @@ const productoSchema = new Schema(
     categoria: { type: String, required: true },
     descripcion: { type: String, required: true },
     vendedor: { type: String, required: true },
+    vendedorId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
     datosDeEnvio: { type: String, required: true },
   },
   { timestamps: true },

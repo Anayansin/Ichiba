@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { URL_BACKEND } from "../../services/api";
 import "./Carrusel.css";
 
 interface CarruselProps {
@@ -33,7 +34,7 @@ function Carrusel({ imagenes, alt }: CarruselProps) {
 
       <div className="carrusel__imagen-wrapper">
         <img
-          src={imagenes[indiceActual]}
+          src={`${URL_BACKEND}${imagenes[indiceActual]}`}
           alt={`${alt} - imagen ${indiceActual + 1}`}
           className="carrusel__imagen"
         />

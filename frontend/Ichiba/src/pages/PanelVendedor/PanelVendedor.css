@@ -1,68 +1,50 @@
-.panel-vendedor {
-  padding: 3rem;
-  max-width: 900px;
-  margin: 0 auto;
+.panel-vendedor__cargando {
+  text-align: center;
+  padding: 4rem;
+  color: #888;
 }
 
-.panel-vendedor h1 {
-  font-size: 1.8rem;
-  margin-bottom: 0.2rem;
+.panel-vendedor__stat-card--reportes .panel-vendedor__stat-numero {
   color: #1a1a1a;
 }
 
-.panel-vendedor__correo {
-  color: #888;
-  margin-bottom: 2rem;
-}
-
-.panel-vendedor__stats {
+.panel-vendedor__lista-productos {
   display: flex;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.8rem;
 }
 
-.panel-vendedor__stat-card {
-  flex: 1;
-  min-width: 160px;
-  background-color: #f9f9f9;
-  border-radius: 16px;
-  padding: 1.5rem;
-  text-align: center;
-}
-
-.panel-vendedor__stat-numero {
-  display: block;
-  font-size: 2rem;
-  font-weight: 800;
-  color: #d90429;
-}
-
-.panel-vendedor__stat-label {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.panel-vendedor__boton-publicar {
-  display: inline-block;
-  background-color: #d90429;
-  color: white;
+.panel-vendedor__producto-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   text-decoration: none;
-  padding: 0.9rem 1.8rem;
-  border-radius: 10px;
+  color: inherit;
+  background-color: #f9f9f9;
+  padding: 0.8rem;
+  border-radius: 12px;
+  transition: background-color 0.2s;
+}
+
+.panel-vendedor__producto-item:hover {
+  background-color: #f1f1f1;
+}
+
+.panel-vendedor__producto-item img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.panel-vendedor__producto-nombre {
   font-weight: 600;
-  margin-bottom: 2rem;
+  margin: 0;
+  color: #1a1a1a;
 }
 
-.panel-vendedor__boton-publicar:hover {
-  background-color: #b8031f;
-}
-
-.panel-vendedor__productos h2 {
-  font-size: 1.3rem;
-  margin-bottom: 1rem;
-}
-
-.panel-vendedor__sin-productos {
-  color: #888;
+.panel-vendedor__producto-precio {
+  color: #d90429;
+  font-weight: 700;
+  margin: 0;
 }
