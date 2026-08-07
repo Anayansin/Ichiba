@@ -2,7 +2,6 @@ import { useState } from "react";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
 import "./Chats.css";
 
-// Lista de contactos de prueba (mock data)
 const contactosFalsos = [
   {
     id: 1,

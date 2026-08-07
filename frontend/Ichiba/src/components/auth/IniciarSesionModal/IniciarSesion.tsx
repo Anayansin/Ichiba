@@ -49,14 +49,14 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
 
         <h2>Bienvenido a Ichiba</h2>
         <p>
-          Introduce tu correo electrónico a continuación para iniciar sesión en
+          Introduce tu correo electronico a continuacion para iniciar sesion en
           tu cuenta.
         </p>
 
         {error && <p className="modal-error">{error}</p>}
 
         <div className="form-group">
-          <label>Correo electrónico</label>
+          <label>Correo electronico</label>
           <input
             type="email"
             placeholder="Correo"

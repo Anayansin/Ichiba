@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import { Producto } from "../models/producto.js";
 
 export async function registrarUsuario(req: Request, res: Response) {
   try {
@@ -99,5 +100,25 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener perfil" });
+  }
+}
+
+export async function obtenerPerfilPublico(req: Request, res: Response) {
+  try {
+    const usuario = await Usuario.findById(req.params.id).select(
+      "nombreCompleto ventasExitosas reportes createdAt",
+    );
+    if (!usuario) {
+      return res.status(404).json({ message: "Vendedor no encontrado" });
+    }
+
+    const productos = await Producto.find({ vendedorId: req.params.id });
+
+    res.json({ usuario, productos });
+  } catch (error) {
+    console.error("Error real:", error);
+    res
+      .status(500)
+      .json({ message: "Error al obtener el perfil del vendedor" });
   }
 }

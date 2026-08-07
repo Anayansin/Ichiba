@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { coneccionDB } from "./configuracion/db.js";
 import productoRoutes from "./routes/productoRoutes.js";
 import usuarioRoutes from "./routes/usuarioRoutes.js";
+import colaRoutes from "./routes/colaRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/productos", productoRoutes);
 app.use("/api/usuarios", usuarioRoutes);
+app.use("/api/colas", colaRoutes);
 
 const PORT = process.env.PORT || 5000;
 

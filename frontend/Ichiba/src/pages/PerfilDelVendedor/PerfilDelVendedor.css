@@ -1,0 +1,81 @@
+.vendedor-perfil {
+  padding: 3rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.vendedor-perfil h1 {
+  font-size: 1.8rem;
+  margin-bottom: 2rem;
+  color: #1a1a1a;
+}
+
+.vendedor-perfil__stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.vendedor-perfil__stat-card {
+  flex: 1;
+  min-width: 160px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.vendedor-perfil__stat-numero {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #d90429;
+}
+
+.vendedor-perfil__stat-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.vendedor-perfil__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.vendedor-perfil__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: inherit;
+  background-color: #f9f9f9;
+  padding: 0.8rem;
+  border-radius: 12px;
+}
+
+.vendedor-perfil__item img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.vendedor-perfil__item p {
+  margin: 0;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.vendedor-perfil__item span {
+  color: #d90429;
+  font-weight: 700;
+}
+
+.vendedor-perfil__cargando,
+.vendedor-perfil__sin-productos {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+}

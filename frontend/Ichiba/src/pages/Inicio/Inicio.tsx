@@ -37,7 +37,7 @@ function Inicio() {
   }, []);
 
   if (cargando) {
-    return <p className="Cargando">Cargando productos desde la tienda...</p>;
+    return <p className="Cargando">Cargando productos...</p>;
   }
 
   return (

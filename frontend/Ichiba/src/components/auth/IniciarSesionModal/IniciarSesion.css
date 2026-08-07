@@ -74,7 +74,7 @@
 }
 
 .modal-input:focus {
-  border-color: #0076d1; /* O tu color rojo corporativo #d90429 */
+  border-color: #d90429;
 }
 
 .recuperar-link {

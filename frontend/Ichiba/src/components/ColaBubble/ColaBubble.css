@@ -1,0 +1,87 @@
+.cola-bubble {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.cola-bubble__circulo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: #d90429;
+  color: white;
+  border: none;
+  font-size: 1.3rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(217, 4, 41, 0.4);
+}
+
+.cola-bubble__circulo:hover {
+  background-color: #b8031f;
+}
+
+.cola-bubble__panel {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1rem;
+  width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.cola-bubble__titulo {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #1a1a1a;
+  margin: 0 0 0.4rem 0;
+}
+
+.cola-bubble__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: #f9f9f9;
+  padding: 0.5rem;
+  border-radius: 10px;
+}
+
+.cola-bubble__item img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.cola-bubble__item-info {
+  flex: 1;
+}
+
+.cola-bubble__item-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cola-bubble__item-info span {
+  font-size: 0.75rem;
+  color: #d90429;
+  font-weight: 700;
+}
+
+.cola-bubble__item button {
+  background: none;
+  border: none;
+  color: #d90429;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}

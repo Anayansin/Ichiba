@@ -48,3 +48,18 @@
   font-weight: 700;
   margin: 0;
 }
+
+.panel-vendedor__boton-publicar {
+  display: inline-block;
+  background-color: #d90429;
+  color: white;
+  text-decoration: none;
+  padding: 0.9rem 1.8rem;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.panel-vendedor__boton-publicar:hover {
+  background-color: #b8031f;
+}

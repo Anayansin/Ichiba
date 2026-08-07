@@ -1,13 +1,20 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const carpetaUploads = path.join(__dirname, "../../uploads");
+
+if (!fs.existsSync(carpetaUploads)) {
+  fs.mkdirSync(carpetaUploads, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../../uploads"));
+    cb(null, carpetaUploads);
   },
   filename: (req, file, cb) => {
     const nombreUnico = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
