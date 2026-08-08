@@ -7,7 +7,11 @@ import {
   fetchProductoPorId,
   type Producto,
 } from "../../services/productoService";
-import { entrarEnFila } from "../../services/colaService";
+import {
+  entrarEnFila,
+  EstadoFila,
+  fetchEstadoDeMiFila,
+} from "../../services/colaService";
 import { useColas } from "../../context/ColasContext";
 import "./ProductoCompleto.css";
 
@@ -19,6 +23,14 @@ function ProductoCompleto() {
   const [cargando, setCargando] = useState(true);
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mensajeFila, setMensajeFila] = useState("");
+  const [estadoFila, setEstadoFila] = useState<EstadoFila | null>(null);
+
+  useEffect(() => {
+    if (!producto) return;
+    fetchEstadoDeMiFila(producto._id)
+      .then((data) => setEstadoFila(data))
+      .catch(() => setEstadoFila(null));
+  }, [producto, mensajeFila]);
 
   useEffect(() => {
     if (!id) return;
@@ -115,7 +127,26 @@ function ProductoCompleto() {
           <p className="producto-completo__mensaje-fila">{mensajeFila}</p>
         )}
 
-        <Boton texto="Entrar en la fila" onClick={handleEntrarFila} />
+        {estadoFila ? (
+          estadoFila.puedePagar ? (
+            <div className="producto-completo__pago-listo">
+              <p>¡Es tu turno! Estás en la posición 1.</p>
+              <Boton texto="Pagar con PayPal" onClick={() => {}} />
+            </div>
+          ) : (
+            <div className="producto-completo__esperando">
+              <p>Estás en la fila — posición {estadoFila.posicion}</p>
+              <span>Debes esperar tu turno para poder pagar</span>
+            </div>
+          )
+        ) : (
+          <>
+            {mensajeFila && (
+              <p className="producto-completo__mensaje-fila">{mensajeFila}</p>
+            )}
+            <Boton texto="Entrar en la fila" onClick={handleEntrarFila} />
+          </>
+        )}
       </div>
 
       {mostrarTerminos && (

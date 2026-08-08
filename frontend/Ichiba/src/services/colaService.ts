@@ -25,3 +25,16 @@ export async function salirDeFila(id: string) {
   const response = await api.patch(`/colas/${id}/salir`);
   return response.data;
 }
+
+export type EstadoFila = {
+  posicion: number;
+  puedePagar: boolean;
+  colaId: string;
+};
+
+export async function fetchEstadoDeMiFila(
+  productoId: string,
+): Promise<EstadoFila> {
+  const response = await api.get(`/colas/producto/${productoId}/estado`);
+  return response.data;
+}

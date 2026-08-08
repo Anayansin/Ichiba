@@ -156,3 +156,34 @@
   color: #d90429;
   font-weight: 600;
 }
+
+.producto-completo__pago-listo {
+  background-color: #eafbea;
+  border-left: 4px solid #2e7d32;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.producto-completo__pago-listo p {
+  margin: 0 0 0.6rem 0;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.producto-completo__esperando {
+  background-color: #f9f9f9;
+  border-left: 4px solid #d90429;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.producto-completo__esperando p {
+  margin: 0 0 0.2rem 0;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.producto-completo__esperando span {
+  font-size: 0.85rem;
+  color: #666;
+}

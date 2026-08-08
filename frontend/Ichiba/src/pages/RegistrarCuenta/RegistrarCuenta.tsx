@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import "./RegistrarCuenta.css";
 import Boton from "../../components/Boton/Boton";
 import { registrarUsuario } from "../../services/usuarioServices";
+import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
+import { useAuth } from "../../context/AuthContext";
 
 function RegistarCuenta() {
   const navigate = useNavigate();
-
+  const { login } = useAuth();
   const [nombreCompleto, setNombreCompleto] = useState("");
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -15,6 +17,7 @@ function RegistarCuenta() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +25,7 @@ function RegistarCuenta() {
     setCargando(true);
 
     try {
-      await registrarUsuario({
+      const data = await registrarUsuario({
         nombreCompleto,
         direccion,
         telefono,
@@ -31,7 +34,8 @@ function RegistarCuenta() {
         password,
       });
 
-      navigate("/inicio");
+      login(data.usuario, data.token);
+      setMostrarVerificacion(true);
     } catch (err: any) {
       const mensaje =
         err.response?.data?.message || "Error al registrar la cuenta";
@@ -153,6 +157,9 @@ function RegistarCuenta() {
           type="submit"
         />
       </form>
+      {mostrarVerificacion && (
+        <VerificacionModal onCompletado={() => navigate("/panel-vendedor")} />
+      )}
     </div>
   );
 }

@@ -1,0 +1,104 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.verificacion-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.verificacion-modal h2 {
+  margin: 0;
+  color: #1a1a1a;
+}
+
+.verificacion-modal__intro {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+}
+
+.verificacion-bloque {
+  background-color: #f9f9f9;
+  border-radius: 14px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.verificacion-bloque--ok {
+  background-color: #eafbea;
+}
+
+.verificacion-bloque__titulo {
+  margin: 0;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.verificacion-btn-enviar {
+  background-color: #1a1a1a;
+  color: white;
+  border: none;
+  padding: 0.7rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.verificacion-btn-enviar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.verificacion-input-grupo {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.verificacion-input {
+  flex: 1;
+  padding: 0.7rem;
+  border: 2px solid #cdcdcd;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  text-align: center;
+  letter-spacing: 6px;
+  font-weight: 700;
+}
+
+.verificacion-input:focus {
+  outline: none;
+  border-color: #d90429;
+}
+
+.verificacion-btn-verificar {
+  background-color: #d90429;
+  color: white;
+  border: none;
+  padding: 0 1.2rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.verificacion-error {
+  color: #d90429;
+  font-size: 0.8rem;
+  margin: 0;
+}

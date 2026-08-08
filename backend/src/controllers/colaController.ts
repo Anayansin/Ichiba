@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { Cola } from "../models/Cola";
+import { Cola } from "../models/Cola.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 
 const LIMITE_FILAS_ACTIVAS = 3;
@@ -21,20 +21,29 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
         .json({ message: "Ya estás en la fila de este producto" });
     }
 
-    const filasActivas = await Cola.countDocuments({
+    const filasActivasDelComprador = await Cola.countDocuments({
       compradorId,
       estado: "activa",
     });
 
-    if (filasActivas >= LIMITE_FILAS_ACTIVAS) {
+    if (filasActivasDelComprador >= LIMITE_FILAS_ACTIVAS) {
       return res.status(400).json({
         message: `Solo puedes estar en ${LIMITE_FILAS_ACTIVAS} filas al mismo tiempo`,
       });
     }
 
-    const nuevaCola = new Cola({ productoId, compradorId });
-    const guardada = await nuevaCola.save();
+    const personasEnEstaFila = await Cola.countDocuments({
+      productoId,
+      estado: "activa",
+    });
 
+    const nuevaCola = new Cola({
+      productoId,
+      compradorId,
+      posicion: personasEnEstaFila + 1,
+    });
+
+    const guardada = await nuevaCola.save();
     res.status(201).json(guardada);
   } catch (error) {
     console.error("Error real:", error);
@@ -46,10 +55,9 @@ export async function misFilas(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
 
-    const filas = await Cola.find({ compradorId, estado: "activa" }).populate(
-      "productoId",
-      "nombre imagenes precio",
-    );
+    const filas = await Cola.find({ compradorId, estado: "activa" })
+      .populate("productoId", "nombre imagenes precio")
+      .sort({ posicion: 1 });
 
     res.json(filas);
   } catch (error) {
@@ -71,9 +79,52 @@ export async function salirDeFila(req: RequestConComprador, res: Response) {
     fila.estado = "finalizada";
     await fila.save();
 
+    await reacomodarFila(fila.productoId.toString(), fila.posicion);
+
     res.json({ message: "Saliste de la fila" });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al salir de la fila" });
+  }
+}
+
+async function reacomodarFila(productoId: string, posicionQueSeLibero: number) {
+  const personasDetras = await Cola.find({
+    productoId,
+    estado: "activa",
+    posicion: { $gt: posicionQueSeLibero },
+  });
+
+  for (const persona of personasDetras) {
+    persona.posicion -= 1;
+    await persona.save();
+  }
+}
+
+export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
+  try {
+    const compradorId = req.compradorId as string;
+    const { productoId } = req.params;
+
+    const miFila = await Cola.findOne({
+      productoId,
+      compradorId,
+      estado: "activa",
+    });
+
+    if (!miFila) {
+      return res
+        .status(404)
+        .json({ message: "No estás en la fila de este producto" });
+    }
+
+    res.json({
+      posicion: miFila.posicion,
+      puedePagar: miFila.posicion === 1,
+      colaId: miFila._id,
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al consultar tu posición" });
   }
 }
