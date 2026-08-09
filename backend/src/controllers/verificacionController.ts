@@ -24,7 +24,11 @@ export async function enviarCodigoTelefono(
     );
     await usuario.save();
 
-    await enviarSMS(usuario.telefono, codigo);
+    const telefonoConCodigoPais = usuario.telefono.startsWith("+")
+      ? usuario.telefono
+      : `+52${usuario.telefono.replace(/\D/g, "")}`;
+
+    await enviarSMS(telefonoConCodigoPais, codigo);
 
     res.json({ message: "Código enviado por SMS" });
   } catch (error) {

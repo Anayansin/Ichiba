@@ -21,6 +21,8 @@ export type PerfilUsuario = {
   correo: string;
   ventasExitosas: number;
   reportes: number;
+  telefonoVerificado: boolean;
+  correoVerificado: boolean;
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {

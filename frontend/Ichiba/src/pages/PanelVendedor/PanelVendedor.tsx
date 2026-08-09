@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, Navigate } from "react-router-dom";
+import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
 import {
   fetchPerfil,
   type PerfilUsuario,
 } from "../../services/usuarioServices";
-import { fetchMisProductos } from "../../services/productoService";
-import type { Producto } from "../../services/productoService";
+import {
+  fetchMisProductos,
+  type Producto,
+} from "../../services/productoService";
 import "./PanelVendedor.css";
 
 function PanelVendedor() {
@@ -34,6 +37,9 @@ function PanelVendedor() {
   if (cargando || !perfil) {
     return <p className="panel-vendedor__cargando">Cargando tu panel...</p>;
   }
+
+  const necesitaVerificar =
+    !perfil.telefonoVerificado || !perfil.correoVerificado;
 
   return (
     <div className="panel-vendedor">
@@ -96,6 +102,13 @@ function PanelVendedor() {
           </div>
         )}
       </div>
+      {necesitaVerificar && (
+        <VerificacionModal
+          onCompletado={() => {
+            fetchPerfil().then(setPerfil);
+          }}
+        />
+      )}
     </div>
   );
 }
