@@ -17,9 +17,13 @@ const usuarioSchema = new Schema(
 
     codigoTelefono: { type: String },
     codigoTelefonoExpira: { type: Date },
-
     codigoCorreo: { type: String },
     codigoCorreoExpira: { type: Date },
+
+    ineFrente: { type: String, required: true },
+    ineReverso: { type: String, required: true },
+    aceptaTerminos: { type: Boolean, required: true },
+    recibirNotificacionesCriticas: { type: Boolean, required: true },
   },
   { timestamps: true },
 );

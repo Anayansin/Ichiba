@@ -102,3 +102,29 @@
   font-size: 0.9rem;
   font-weight: 500;
 }
+
+.registro-campo-error {
+  color: #d90429;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.registro-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+}
+
+.requisitos-box li {
+  color: #999;
+  transition: color 0.2s;
+}
+
+.requisito-cumplido {
+  color: #2e7d32 !important;
+  font-weight: 600;
+}

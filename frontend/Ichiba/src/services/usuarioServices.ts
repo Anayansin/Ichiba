@@ -8,10 +8,31 @@ export type DatosRegistro = {
   correo: string;
   rfc: string;
   password: string;
+  aceptaTerminos: boolean;
+  recibirNotificacionesCriticas: boolean;
+  ineFrente: File;
+  ineReverso: File;
 };
 
 export async function registrarUsuario(datos: DatosRegistro) {
-  const response = await api.post("/usuarios/registro", datos);
+  const formData = new FormData();
+  formData.append("nombreCompleto", datos.nombreCompleto);
+  formData.append("direccion", datos.direccion);
+  formData.append("telefono", datos.telefono);
+  formData.append("correo", datos.correo);
+  formData.append("rfc", datos.rfc);
+  formData.append("password", datos.password);
+  formData.append("aceptaTerminos", String(datos.aceptaTerminos));
+  formData.append(
+    "recibirNotificacionesCriticas",
+    String(datos.recibirNotificacionesCriticas),
+  );
+  formData.append("ineFrente", datos.ineFrente);
+  formData.append("ineReverso", datos.ineReverso);
+
+  const response = await api.post("/usuarios/registro", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return response.data;
 }
 

@@ -18,6 +18,8 @@
     "mongoose": "^9.8.0",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.5",
+    "sharp": "^0.35.3",
+    "tesseract.js": "^7.0.0",
     "twilio": "^6.0.2"
   },
   "devDependencies": {

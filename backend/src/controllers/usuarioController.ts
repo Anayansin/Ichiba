@@ -4,14 +4,151 @@ import jwt from "jsonwebtoken";
 import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
+import fs from "fs";
+import { validarPassword } from "../utils/validarPassword.js";
+import { validarTelefono } from "../utils/validarTelefono.js";
+import {
+  validarDimensionesINE,
+  validarNitidezINE,
+  extraerTextoINE,
+  coincideNombreEnTexto,
+} from "../services/ineService.js";
+
+function limpiarArchivos(archivos: Express.Multer.File[]) {
+  archivos.forEach((archivo) => {
+    fs.unlink(archivo.path, () => {});
+  });
+}
 
 export async function registrarUsuario(req: Request, res: Response) {
+  const archivos = req.files as
+    | { [fieldname: string]: Express.Multer.File[] }
+    | undefined;
+  const ineFrente = archivos?.ineFrente?.[0];
+  const ineReverso = archivos?.ineReverso?.[0];
+
   try {
-    const { nombreCompleto, direccion, telefono, correo, rfc, password } =
-      req.body;
+    const {
+      nombreCompleto,
+      direccion,
+      telefono,
+      correo,
+      rfc,
+      password,
+      aceptaTerminos,
+      recibirNotificacionesCriticas,
+    } = req.body;
+
+    if (
+      !nombreCompleto ||
+      !direccion ||
+      !telefono ||
+      !correo ||
+      !rfc ||
+      !password
+    ) {
+      if (ineFrente || ineReverso)
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    if (aceptaTerminos !== "true") {
+      if (ineFrente || ineReverso)
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      return res
+        .status(400)
+        .json({ message: "Debes aceptar los términos y condiciones" });
+    }
+
+    if (recibirNotificacionesCriticas !== "true") {
+      if (ineFrente || ineReverso)
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      return res.status(400).json({
+        message:
+          "Debes aceptar recibir notificaciones críticas sobre tu cuenta, la fila virtual y tus pagos",
+      });
+    }
+
+    if (!validarTelefono(telefono)) {
+      if (ineFrente || ineReverso)
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      return res
+        .status(400)
+        .json({ message: "El teléfono debe tener exactamente 10 dígitos" });
+    }
+
+    const errorPassword = validarPassword(password);
+    if (errorPassword) {
+      if (ineFrente || ineReverso)
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      return res.status(400).json({ message: errorPassword });
+    }
+
+    if (!ineFrente || !ineReverso) {
+      return res
+        .status(400)
+        .json({ message: "Debes subir el frente y el reverso de tu INE" });
+    }
+
+    const frenteDimensionesOk = await validarDimensionesINE(ineFrente.path);
+    const reversoDimensionesOk = await validarDimensionesINE(ineReverso.path);
+
+    if (!frenteDimensionesOk || !reversoDimensionesOk) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message: "Las imágenes de tu INE deben medir al menos 420x540 píxeles",
+      });
+    }
+
+    const frenteNitidoOk = await validarNitidezINE(ineFrente.path);
+    const reversoNitidoOk = await validarNitidezINE(ineReverso.path);
+
+    if (!frenteNitidoOk || !reversoNitidoOk) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message:
+          "La calidad de tus fotos de INE es muy baja, súbelas con mejor luz y enfoque",
+      });
+    }
+
+    const textoFrente = await extraerTextoINE(ineFrente.path);
+    const textoReverso = await extraerTextoINE(ineReverso.path);
+
+    console.log("=== TEXTO OCR FRENTE ===");
+    console.log(textoFrente);
+    console.log("=== TEXTO OCR REVERSO ===");
+    console.log(textoReverso);
+    console.log("=== NOMBRE INGRESADO ===");
+    console.log(nombreCompleto);
+
+    const nombreCoincide = coincideNombreEnTexto(
+      `${textoFrente} ${textoReverso}`,
+      nombreCompleto,
+    );
+    console.log("=== ¿COINCIDE? ===", nombreCoincide);
+
+    if (!nombreCoincide) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message: "El nombre ingresado no coincide con el de tu identificación",
+      });
+    }
 
     const usuarioExistente = await Usuario.findOne({ correo });
     if (usuarioExistente) {
+      limpiarArchivos([ineFrente, ineReverso]);
       return res
         .status(400)
         .json({ message: "Ya existe una cuenta con ese correo" });
@@ -26,6 +163,10 @@ export async function registrarUsuario(req: Request, res: Response) {
       correo,
       rfc,
       password: passwordHasheada,
+      ineFrente: `/uploads/ine/${ineFrente.filename}`,
+      ineReverso: `/uploads/ine/${ineReverso.filename}`,
+      aceptaTerminos: true,
+      recibirNotificacionesCriticas: true,
     });
 
     const guardado = await nuevoUsuario.save();
@@ -47,6 +188,11 @@ export async function registrarUsuario(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Error real:", error);
+    if (ineFrente || ineReverso) {
+      limpiarArchivos(
+        [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+      );
+    }
     res.status(500).json({ message: "Error al registrar usuario" });
   }
 }
