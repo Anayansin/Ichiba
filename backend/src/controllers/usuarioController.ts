@@ -10,9 +10,11 @@ import { validarTelefono } from "../utils/validarTelefono.js";
 import {
   validarDimensionesINE,
   validarNitidezINE,
-  extraerTextoINE,
-  coincideNombreEnTexto,
 } from "../services/ineService.js";
+import {
+  extraerDatosINE,
+  coincideNombreConDatosINE,
+} from "../services/structOcrService.js";
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {
   archivos.forEach((archivo) => {
@@ -123,21 +125,26 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    const textoFrente = await extraerTextoINE(ineFrente.path);
-    const textoReverso = await extraerTextoINE(ineReverso.path);
+    let datosINE;
+    try {
+      datosINE = await extraerDatosINE(ineFrente.path);
+    } catch (error) {
+      console.error("Error real:", error);
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message:
+          "No pudimos leer tu identificación, intenta con una foto más clara",
+      });
+    }
 
-    console.log("=== TEXTO OCR FRENTE ===");
-    console.log(textoFrente);
-    console.log("=== TEXTO OCR REVERSO ===");
-    console.log(textoReverso);
-    console.log("=== NOMBRE INGRESADO ===");
-    console.log(nombreCompleto);
+    const nombreCoincide = coincideNombreConDatosINE(datosINE, nombreCompleto);
 
-    const nombreCoincide = coincideNombreEnTexto(
-      `${textoFrente} ${textoReverso}`,
-      nombreCompleto,
-    );
-    console.log("=== ¿COINCIDE? ===", nombreCoincide);
+    if (!nombreCoincide) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message: "El nombre ingresado no coincide con el de tu identificación",
+      });
+    }
 
     if (!nombreCoincide) {
       limpiarArchivos([ineFrente, ineReverso]);
