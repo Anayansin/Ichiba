@@ -6,7 +6,6 @@ import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
 import fs from "fs";
 import { validarPassword } from "../utils/validarPassword.js";
-import { validarTelefono } from "../utils/validarTelefono.js";
 import {
   validarDimensionesINE,
   validarNitidezINE,
@@ -77,16 +76,6 @@ export async function registrarUsuario(req: Request, res: Response) {
         message:
           "Debes aceptar recibir notificaciones críticas sobre tu cuenta, la fila virtual y tus pagos",
       });
-    }
-
-    if (!validarTelefono(telefono)) {
-      if (ineFrente || ineReverso)
-        limpiarArchivos(
-          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
-        );
-      return res
-        .status(400)
-        .json({ message: "El teléfono debe tener exactamente 10 dígitos" });
     }
 
     const errorPassword = validarPassword(password);

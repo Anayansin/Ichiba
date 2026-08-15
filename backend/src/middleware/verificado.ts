@@ -14,10 +14,9 @@ export async function requiereVerificado(
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    if (!usuario.telefonoVerificado || !usuario.correoVerificado) {
+    if (!usuario.correoVerificado) {
       return res.status(403).json({
-        message: "Debes verificar tu teléfono y correo antes de continuar",
-        telefonoVerificado: usuario.telefonoVerificado,
+        message: "Debes verificar tu correo antes de continuar",
         correoVerificado: usuario.correoVerificado,
       });
     }

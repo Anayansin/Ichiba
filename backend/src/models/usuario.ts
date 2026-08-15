@@ -11,15 +11,10 @@ const usuarioSchema = new Schema(
     tipo: { type: String, enum: ["vendedor"], default: "vendedor" },
     ventasExitosas: { type: Number, default: 0 },
     reportes: { type: Number, default: 0 },
-
-    telefonoVerificado: { type: Boolean, default: false },
+    telefonoVerificado: { type: Boolean, required: true },
     correoVerificado: { type: Boolean, default: false },
-
-    codigoTelefono: { type: String },
-    codigoTelefonoExpira: { type: Date },
     codigoCorreo: { type: String },
     codigoCorreoExpira: { type: Date },
-
     ineFrente: { type: String, required: true },
     ineReverso: { type: String, required: true },
     aceptaTerminos: { type: Boolean, required: true },
