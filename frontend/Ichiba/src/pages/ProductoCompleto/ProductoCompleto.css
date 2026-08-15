@@ -187,3 +187,13 @@
   font-size: 0.85rem;
   color: #666;
 }
+
+.producto-completo__aviso-inactivo {
+  background-color: #fff4e5;
+  border-left: 4px solid #e69500;
+  color: #8a5a00;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}

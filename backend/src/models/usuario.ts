@@ -11,7 +11,6 @@ const usuarioSchema = new Schema(
     tipo: { type: String, enum: ["vendedor"], default: "vendedor" },
     ventasExitosas: { type: Number, default: 0 },
     reportes: { type: Number, default: 0 },
-    telefonoVerificado: { type: Boolean, required: true },
     correoVerificado: { type: Boolean, default: false },
     codigoCorreo: { type: String },
     codigoCorreoExpira: { type: Date },

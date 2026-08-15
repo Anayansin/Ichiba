@@ -4,6 +4,9 @@ import {
   getProductoPorId,
   getMisProductos,
   crearProducto,
+  actualizarProducto,
+  cambiarEstadoProducto,
+  eliminarProducto,
 } from "../controllers/productoController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { requiereVerificado } from "../middleware/verificado.js";
@@ -21,5 +24,13 @@ router.post(
   upload.array("imagenes", 6),
   crearProducto,
 );
+router.put(
+  "/:id",
+  verificarToken,
+  upload.array("imagenes", 6),
+  actualizarProducto,
+);
+router.patch("/:id/estado", verificarToken, cambiarEstadoProducto);
+router.delete("/:id", verificarToken, eliminarProducto);
 
 export default router;

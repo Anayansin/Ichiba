@@ -253,8 +253,10 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
     if (!usuario) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
-
-    const productos = await Producto.find({ vendedorId: req.params.id });
+    const productos = await Producto.find({
+      vendedorId: req.params.id,
+      activo: true,
+    });
 
     res.json({ usuario, productos });
   } catch (error) {

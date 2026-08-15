@@ -8,8 +8,11 @@ import {
 } from "../../services/usuarioServices";
 import {
   fetchMisProductos,
+  cambiarEstadoProducto,
+  eliminarProducto,
   type Producto,
 } from "../../services/productoService";
+import { URL_BACKEND } from "../../services/api";
 import "./PanelVendedor.css";
 
 function PanelVendedor() {
@@ -18,9 +21,7 @@ function PanelVendedor() {
   const [misProductos, setMisProductos] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  useEffect(() => {
-    if (!usuario) return;
-
+  function cargarDatos() {
     Promise.all([fetchPerfil(), fetchMisProductos()])
       .then(([datosPerfil, productos]) => {
         setPerfil(datosPerfil);
@@ -28,18 +29,76 @@ function PanelVendedor() {
       })
       .catch((error) => console.error("Error al cargar el panel:", error))
       .finally(() => setCargando(false));
+  }
+
+  useEffect(() => {
+    if (!usuario) return;
+    cargarDatos();
   }, [usuario]);
 
-  if (!usuario) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (cargando || !perfil) {
+  if (!usuario) return <Navigate to="/" replace />;
+  if (cargando || !perfil)
     return <p className="panel-vendedor__cargando">Cargando tu panel...</p>;
+
+  const necesitaVerificar = !perfil.correoVerificado;
+  const productosActivos = misProductos.filter((p) => p.activo);
+  const productosInactivos = misProductos.filter((p) => !p.activo);
+
+  async function handleCambiarEstado(id: string) {
+    await cambiarEstadoProducto(id);
+    cargarDatos();
   }
 
-  const necesitaVerificar =
-    !perfil.telefonoVerificado || !perfil.correoVerificado;
+  async function handleEliminar(id: string) {
+    const confirmado = window.confirm(
+      "¿Seguro que quieres eliminar este producto? Esta acción no se puede deshacer.",
+    );
+    if (!confirmado) return;
+    await eliminarProducto(id);
+    cargarDatos();
+  }
+
+  function renderProducto(producto: Producto) {
+    return (
+      <div key={producto._id} className="panel-vendedor__producto-fila">
+        <Link
+          to={`/producto/${producto._id}`}
+          className="panel-vendedor__producto-item"
+        >
+          <img
+            src={`${URL_BACKEND}${producto.imagenes[0]}`}
+            alt={producto.nombre}
+          />
+          <div>
+            <p className="panel-vendedor__producto-nombre">{producto.nombre}</p>
+            <p className="panel-vendedor__producto-precio">
+              ${producto.precio}
+            </p>
+          </div>
+        </Link>
+        <div className="panel-vendedor__acciones">
+          <Link
+            to={`/panel-vendedor/editar/${producto._id}`}
+            className="panel-vendedor__editar-btn"
+          >
+            Editar
+          </Link>
+          <button
+            className="panel-vendedor__estado-btn"
+            onClick={() => handleCambiarEstado(producto._id)}
+          >
+            {producto.activo ? "Desactivar" : "Activar"}
+          </button>
+          <button
+            className="panel-vendedor__eliminar-btn"
+            onClick={() => handleEliminar(producto._id)}
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="panel-vendedor">
@@ -49,7 +108,7 @@ function PanelVendedor() {
       <div className="panel-vendedor__stats">
         <div className="panel-vendedor__stat-card">
           <span className="panel-vendedor__stat-numero">
-            {misProductos.length}
+            {productosActivos.length}
           </span>
           <span className="panel-vendedor__stat-label">Productos activos</span>
         </div>
@@ -75,40 +134,30 @@ function PanelVendedor() {
       </Link>
 
       <div className="panel-vendedor__productos">
-        <h2>Mis productos en venta</h2>
-        {misProductos.length === 0 ? (
+        <h2>Activos</h2>
+        {productosActivos.length === 0 ? (
           <p className="panel-vendedor__sin-productos">
-            Todavía no has publicado ningún producto.
+            No tienes productos activos.
           </p>
         ) : (
           <div className="panel-vendedor__lista-productos">
-            {misProductos.map((producto) => (
-              <Link
-                key={producto._id}
-                to={`/producto/${producto._id}`}
-                className="panel-vendedor__producto-item"
-              >
-                <img src={producto.imagenes[0]} alt={producto.nombre} />
-                <div>
-                  <p className="panel-vendedor__producto-nombre">
-                    {producto.nombre}
-                  </p>
-                  <p className="panel-vendedor__producto-precio">
-                    ${producto.precio}
-                  </p>
-                </div>
-              </Link>
-            ))}
+            {productosActivos.map(renderProducto)}
+          </div>
+        )}
+
+        <h2>Inactivos</h2>
+        {productosInactivos.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes productos inactivos.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-productos">
+            {productosInactivos.map(renderProducto)}
           </div>
         )}
       </div>
-      {necesitaVerificar && (
-        <VerificacionModal
-          onCompletado={() => {
-            fetchPerfil().then(setPerfil);
-          }}
-        />
-      )}
+
+      {necesitaVerificar && <VerificacionModal onCompletado={cargarDatos} />}
     </div>
   );
 }

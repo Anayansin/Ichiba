@@ -16,6 +16,12 @@ function VerificacionModal({ onCompletado }: VerificacionModalProps) {
   const [enviandoCorreo, setEnviandoCorreo] = useState(false);
   const [correoEnviado, setCorreoEnviado] = useState(false);
 
+  useEffect(() => {
+    if (correoVerificado) {
+      onCompletado();
+    }
+  }, [correoVerificado, onCompletado]);
+
   async function handleEnviarCorreo() {
     setEnviandoCorreo(true);
     setErrorCorreo("");
@@ -44,55 +50,45 @@ function VerificacionModal({ onCompletado }: VerificacionModalProps) {
   return (
     <div className="modal-overlay">
       <div className="verificacion-modal">
-        <h2>Verifica tu cuenta</h2>
+        <h2>Verifica tu correo</h2>
         <p className="verificacion-modal__intro">
           Para proteger a los compradores, necesitamos confirmar tu correo antes
           de que puedas vender en Ichiba.
         </p>
 
-        <div
-          className={`verificacion-bloque ${correoVerificado ? "verificacion-bloque--ok" : ""}`}
-        >
-          <p className="verificacion-bloque__titulo">
-            Correo electrónico {correoVerificado && "✓"}
-          </p>
+        <div className="verificacion-bloque">
+          <p className="verificacion-bloque__titulo">Correo electrónico</p>
 
-          {!correoVerificado && (
-            <>
-              {!correoEnviado ? (
-                <button
-                  className="verificacion-btn-enviar"
-                  onClick={handleEnviarCorreo}
-                  disabled={enviandoCorreo}
-                >
-                  {enviandoCorreo ? "Enviando..." : "Enviar código por correo"}
-                </button>
-              ) : (
-                <div className="verificacion-input-grupo">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="0000"
-                    className="verificacion-input"
-                    value={codigoCorreo}
-                    onChange={(e) =>
-                      setCodigoCorreo(e.target.value.replace(/\D/g, ""))
-                    }
-                  />
-                  <button
-                    className="verificacion-btn-verificar"
-                    onClick={handleVerificarCorreo}
-                  >
-                    Verificar
-                  </button>
-                </div>
-              )}
-              {errorCorreo && (
-                <p className="verificacion-error">{errorCorreo}</p>
-              )}
-            </>
+          {!correoEnviado ? (
+            <button
+              className="verificacion-btn-enviar"
+              onClick={handleEnviarCorreo}
+              disabled={enviandoCorreo}
+            >
+              {enviandoCorreo ? "Enviando..." : "Enviar código por correo"}
+            </button>
+          ) : (
+            <div className="verificacion-input-grupo">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="0000"
+                className="verificacion-input"
+                value={codigoCorreo}
+                onChange={(e) =>
+                  setCodigoCorreo(e.target.value.replace(/\D/g, ""))
+                }
+              />
+              <button
+                className="verificacion-btn-verificar"
+                onClick={handleVerificarCorreo}
+              >
+                Verificar
+              </button>
+            </div>
           )}
+          {errorCorreo && <p className="verificacion-error">{errorCorreo}</p>}
         </div>
       </div>
     </div>

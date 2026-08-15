@@ -9,28 +9,24 @@ import {
 } from "../../services/productoService";
 import {
   entrarEnFila,
-  EstadoFila,
   fetchEstadoDeMiFila,
+  type EstadoFila,
 } from "../../services/colaService";
 import { useColas } from "../../context/ColasContext";
+import { useAuth } from "../../context/AuthContext";
 import "./ProductoCompleto.css";
 
 function ProductoCompleto() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { recargarFilas } = useColas();
+  const { usuario } = useAuth();
+
   const [producto, setProducto] = useState<Producto | null>(null);
   const [cargando, setCargando] = useState(true);
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mensajeFila, setMensajeFila] = useState("");
   const [estadoFila, setEstadoFila] = useState<EstadoFila | null>(null);
-
-  useEffect(() => {
-    if (!producto) return;
-    fetchEstadoDeMiFila(producto._id)
-      .then((data) => setEstadoFila(data))
-      .catch(() => setEstadoFila(null));
-  }, [producto, mensajeFila]);
 
   useEffect(() => {
     if (!id) return;
@@ -39,6 +35,13 @@ function ProductoCompleto() {
       .catch((error) => console.error("Error al cargar producto:", error))
       .finally(() => setCargando(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!producto) return;
+    fetchEstadoDeMiFila(producto._id)
+      .then((data) => setEstadoFila(data))
+      .catch(() => setEstadoFila(null));
+  }, [producto, mensajeFila]);
 
   async function handleEntrarFila() {
     const yaAceptoTerminos =
@@ -80,6 +83,16 @@ function ProductoCompleto() {
   if (!producto)
     return <p className="producto-no-encontrado">Producto no encontrado</p>;
 
+  const esDueño = usuario?.id === producto.vendedorId;
+
+  if (!producto.activo && !esDueño) {
+    return (
+      <p className="producto-no-encontrado">
+        Este producto ya no está disponible
+      </p>
+    );
+  }
+
   return (
     <div className="producto-completo">
       <button
@@ -99,6 +112,12 @@ function ProductoCompleto() {
         </span>
         <h1 className="producto-completo__nombre">{producto.nombre}</h1>
         <p className="producto-completo__precio">${producto.precio}</p>
+
+        {!producto.activo && esDueño && (
+          <p className="producto-completo__aviso-inactivo">
+            Este producto está desactivado — solo tú puedes verlo así
+          </p>
+        )}
 
         <Link
           to={`/vendedor/${producto.vendedorId}`}
@@ -122,10 +141,6 @@ function ProductoCompleto() {
           <h3>Envío</h3>
           <p>{producto.datosDeEnvio}</p>
         </div>
-
-        {mensajeFila && (
-          <p className="producto-completo__mensaje-fila">{mensajeFila}</p>
-        )}
 
         {estadoFila ? (
           estadoFila.puedePagar ? (

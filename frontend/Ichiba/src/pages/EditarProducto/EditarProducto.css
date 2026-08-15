@@ -1,0 +1,131 @@
+.editar-producto-container {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 1rem;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+}
+
+.editar-producto-card {
+  background: #ffffff;
+  padding: 2.5rem;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  color: #333;
+}
+
+.editar-producto-card h2 {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.editar-producto-input {
+  padding: 0.8rem 1rem;
+  border: 2px solid #cdcdcd;
+  border-radius: 12px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.editar-producto-input:focus {
+  outline: none;
+  border-color: #d90429;
+}
+
+.editar-producto-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.editar-producto-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.2rem;
+  border: 2px dashed #cdcdcd;
+  border-radius: 14px;
+  cursor: pointer;
+  color: #666;
+  font-weight: 500;
+  margin-top: 0.6rem;
+}
+
+.editar-producto-dropzone:hover {
+  border-color: #d90429;
+  background-color: #fdf5f6;
+}
+
+.editar-producto-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.editar-producto-preview img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.editar-producto-error {
+  background-color: #fdecea;
+  color: #d90429;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.editar-producto__cargando {
+  text-align: center;
+  padding: 4rem;
+  color: #888;
+}
+
+.editar-producto-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.editar-producto-preview-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.editar-producto-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.editar-producto-preview-item button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #d90429;
+  color: white;
+  border: 2px solid white;
+  cursor: pointer;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}

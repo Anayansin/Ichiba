@@ -10,6 +10,7 @@ const productoSchema = new Schema(
     vendedor: { type: String, required: true },
     vendedorId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
     datosDeEnvio: { type: String, required: true },
+    activo: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

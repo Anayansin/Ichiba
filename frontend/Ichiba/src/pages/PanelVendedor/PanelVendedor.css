@@ -1,16 +1,91 @@
-.panel-vendedor__cargando {
-  text-align: center;
-  padding: 4rem;
+.panel-vendedor {
+  padding: 3rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.panel-vendedor h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.2rem;
+  color: #1a1a1a;
+}
+
+.panel-vendedor__correo {
   color: #888;
+  margin-bottom: 2rem;
+}
+
+.panel-vendedor__stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.panel-vendedor__stat-card {
+  flex: 1;
+  min-width: 160px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.panel-vendedor__stat-numero {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #d90429;
+}
+
+.panel-vendedor__stat-label {
+  font-size: 0.85rem;
+  color: #666;
 }
 
 .panel-vendedor__stat-card--reportes .panel-vendedor__stat-numero {
   color: #1a1a1a;
 }
 
+.panel-vendedor__boton-publicar {
+  display: inline-block;
+  background-color: #d90429;
+  color: white;
+  text-decoration: none;
+  padding: 0.9rem 1.8rem;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.panel-vendedor__boton-publicar:hover {
+  background-color: #b8031f;
+}
+
+.panel-vendedor__productos h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+}
+
+.panel-vendedor__sin-productos {
+  color: #888;
+}
+
+.panel-vendedor__cargando {
+  text-align: center;
+  padding: 4rem;
+  color: #888;
+}
+
 .panel-vendedor__lista-productos {
   display: flex;
   flex-direction: column;
+  gap: 0.8rem;
+}
+
+.panel-vendedor__producto-fila {
+  display: flex;
+  align-items: center;
   gap: 0.8rem;
 }
 
@@ -24,6 +99,7 @@
   padding: 0.8rem;
   border-radius: 12px;
   transition: background-color 0.2s;
+  flex: 1;
 }
 
 .panel-vendedor__producto-item:hover {
@@ -49,17 +125,51 @@
   margin: 0;
 }
 
-.panel-vendedor__boton-publicar {
-  display: inline-block;
-  background-color: #d90429;
-  color: white;
+.panel-vendedor__editar-btn {
   text-decoration: none;
-  padding: 0.9rem 1.8rem;
-  border-radius: 10px;
+  color: #d90429;
   font-weight: 600;
-  margin-bottom: 2rem;
+  font-size: 0.85rem;
+  border: 1px solid #d90429;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
 }
 
-.panel-vendedor__boton-publicar:hover {
-  background-color: #b8031f;
+.panel-vendedor__editar-btn:hover {
+  background-color: #fdf0f1;
+}
+
+.panel-vendedor__acciones {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.panel-vendedor__estado-btn,
+.panel-vendedor__eliminar-btn {
+  background: none;
+  border: 1px solid #ccc;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #333;
+}
+
+.panel-vendedor__estado-btn:hover {
+  background-color: #f1f1f1;
+}
+
+.panel-vendedor__eliminar-btn {
+  color: #d90429;
+  border-color: #d90429;
+}
+
+.panel-vendedor__eliminar-btn:hover {
+  background-color: #fdf0f1;
+}
+
+.panel-vendedor__productos h2 {
+  margin-top: 2rem;
 }
