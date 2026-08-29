@@ -1,19 +1,17 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import fs from "fs";
 import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
-import fs from "fs";
 import { validarPassword } from "../utils/validarPassword.js";
+import { coincideRfcConCurp } from "../utils/validarRfcCurp.js";
 import {
   validarDimensionesINE,
   validarNitidezINE,
 } from "../services/ineService.js";
-import {
-  extraerDatosINE,
-  coincideNombreConDatosINE,
-} from "../services/structOcrService.js";
+import { extraerDatosINE } from "../services/structOcrService.js";
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {
   archivos.forEach((archivo) => {
@@ -48,30 +46,33 @@ export async function registrarUsuario(req: Request, res: Response) {
       !rfc ||
       !password
     ) {
-      if (ineFrente || ineReverso)
+      if (ineFrente || ineReverso) {
         limpiarArchivos(
           [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
         );
+      }
       return res
         .status(400)
         .json({ message: "Todos los campos son obligatorios" });
     }
 
     if (aceptaTerminos !== "true") {
-      if (ineFrente || ineReverso)
+      if (ineFrente || ineReverso) {
         limpiarArchivos(
           [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
         );
+      }
       return res
         .status(400)
         .json({ message: "Debes aceptar los términos y condiciones" });
     }
 
     if (recibirNotificacionesCriticas !== "true") {
-      if (ineFrente || ineReverso)
+      if (ineFrente || ineReverso) {
         limpiarArchivos(
           [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
         );
+      }
       return res.status(400).json({
         message:
           "Debes aceptar recibir notificaciones críticas sobre tu cuenta, la fila virtual y tus pagos",
@@ -80,10 +81,11 @@ export async function registrarUsuario(req: Request, res: Response) {
 
     const errorPassword = validarPassword(password);
     if (errorPassword) {
-      if (ineFrente || ineReverso)
+      if (ineFrente || ineReverso) {
         limpiarArchivos(
           [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
         );
+      }
       return res.status(400).json({ message: errorPassword });
     }
 
@@ -114,31 +116,55 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    let datosINE;
-    try {
-      datosINE = await extraerDatosINE(ineFrente.path);
-    } catch (error) {
-      console.error("Error real:", error);
+    const datosINE = await extraerDatosINE(ineFrente.path);
+
+    console.log("=== DATOS COMPLETOS DE STRUCTOCR (FRENTE) ===");
+    console.log(JSON.stringify(datosINE, null, 2));
+
+    if (!datosINE.given_names || !datosINE.surname) {
       limpiarArchivos([ineFrente, ineReverso]);
       return res.status(400).json({
         message:
-          "No pudimos leer tu identificación, intenta con una foto más clara",
+          "No pudimos leer los datos de tu identificación, intenta con una foto más clara",
       });
     }
 
-    const nombreCoincide = coincideNombreConDatosINE(datosINE, nombreCompleto);
+    const curp = datosINE.personal_number;
 
-    if (!nombreCoincide) {
+    if (!curp) {
       limpiarArchivos([ineFrente, ineReverso]);
       return res.status(400).json({
-        message: "El nombre ingresado no coincide con el de tu identificación",
+        message:
+          "No pudimos leer la CURP de tu identificación, intenta con una foto más clara",
       });
     }
 
-    if (!nombreCoincide) {
+    if (!coincideRfcConCurp(rfc, curp)) {
       limpiarArchivos([ineFrente, ineReverso]);
       return res.status(400).json({
-        message: "El nombre ingresado no coincide con el de tu identificación",
+        message:
+          "El RFC ingresado no coincide con la CURP de tu identificación",
+      });
+    }
+
+    const datosReverso = await extraerDatosINE(ineReverso.path);
+
+    console.log("=== DATOS DEL REVERSO (STRUCTOCR) ===");
+    console.log(JSON.stringify(datosReverso, null, 2));
+
+    const mrzCompleto = [
+      datosReverso.additional_fields?.mrz_line_1,
+      datosReverso.additional_fields?.mrz_line_2,
+      datosReverso.additional_fields?.mrz_line_3,
+    ]
+      .filter(Boolean)
+      .join("");
+
+    if (!mrzCompleto) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message:
+          "No pudimos validar el formato de tu identificación, sube una foto más clara del reverso",
       });
     }
 
@@ -159,8 +185,10 @@ export async function registrarUsuario(req: Request, res: Response) {
       correo,
       rfc,
       password: passwordHasheada,
+      curp,
       ineFrente: `/uploads/ine/${ineFrente.filename}`,
       ineReverso: `/uploads/ine/${ineReverso.filename}`,
+      ineCodigoReverso: mrzCompleto,
       aceptaTerminos: true,
       recibirNotificacionesCriticas: true,
     });
@@ -253,6 +281,7 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
     if (!usuario) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
+
     const productos = await Producto.find({
       vendedorId: req.params.id,
       activo: true,

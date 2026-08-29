@@ -7,6 +7,14 @@ export type DatosINE = {
   address?: string;
   document_number?: string;
   personal_number?: string;
+  additional_fields?: {
+    mrz_line_1?: string | null;
+    mrz_line_2?: string | null;
+    mrz_line_3?: string | null;
+    phone_number?: string | null;
+    tramite_number?: string | null;
+    ejemplar?: string | null;
+  };
 };
 
 export async function extraerDatosINE(rutaArchivo: string): Promise<DatosINE> {
