@@ -18,6 +18,8 @@ const usuarioSchema = new Schema(
     ineReverso: { type: String, required: true },
     aceptaTerminos: { type: Boolean, required: true },
     recibirNotificacionesCriticas: { type: Boolean, required: true },
+    curp: { type: String },
+    ineCodigoReverso: { type: String },
   },
   { timestamps: true },
 );
