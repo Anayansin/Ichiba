@@ -20,6 +20,7 @@ const usuarioSchema = new Schema(
     recibirNotificacionesCriticas: { type: Boolean, required: true },
     curp: { type: String },
     ineCodigoReverso: { type: String },
+    recibirNotificacionesPublicitarias: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

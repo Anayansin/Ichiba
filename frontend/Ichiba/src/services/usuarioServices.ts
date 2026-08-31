@@ -12,6 +12,7 @@ export type DatosRegistro = {
   recibirNotificacionesCriticas: boolean;
   ineFrente: File;
   ineReverso: File;
+  recibirNotificacionesPublicitarias: boolean;
 };
 
 export async function registrarUsuario(datos: DatosRegistro) {
@@ -29,6 +30,10 @@ export async function registrarUsuario(datos: DatosRegistro) {
   );
   formData.append("ineFrente", datos.ineFrente);
   formData.append("ineReverso", datos.ineReverso);
+  formData.append(
+    "recibirNotificacionesPublicitarias",
+    String(datos.recibirNotificacionesPublicitarias),
+  );
 
   const response = await api.post("/usuarios/registro", formData, {
     headers: { "Content-Type": "multipart/form-data" },

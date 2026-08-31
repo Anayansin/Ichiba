@@ -51,6 +51,7 @@ function RegistarCuenta() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
+  const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
 
   function handleTelefonoChange(valor: string) {
     const soloNumeros = valor.replace(/\D/g, "").slice(0, 10);
@@ -124,6 +125,7 @@ function RegistarCuenta() {
         password,
         aceptaTerminos,
         recibirNotificacionesCriticas: recibirNotificaciones,
+        recibirNotificacionesPublicitarias: recibirPublicitarias,
         ineFrente,
         ineReverso,
       });
@@ -283,6 +285,15 @@ function RegistarCuenta() {
           />
           Acepto recibir notificaciones críticas sobre mi cuenta, la fila
           virtual y mis pagos
+        </label>
+        <label className="registro-checkbox">
+          <input
+            type="checkbox"
+            checked={recibirPublicitarias}
+            onChange={(e) => setRecibirPublicitarias(e.target.checked)}
+          />
+          Quiero recibir notificaciones sobre comentarios en publicaciones
+          publicitarias (opcional)
         </label>
 
         <Boton

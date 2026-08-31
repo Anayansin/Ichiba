@@ -36,6 +36,7 @@ export async function registrarUsuario(req: Request, res: Response) {
       password,
       aceptaTerminos,
       recibirNotificacionesCriticas,
+      recibirNotificacionesPublicitarias,
     } = req.body;
 
     if (
@@ -191,6 +192,8 @@ export async function registrarUsuario(req: Request, res: Response) {
       ineCodigoReverso: mrzCompleto,
       aceptaTerminos: true,
       recibirNotificacionesCriticas: true,
+      recibirNotificacionesPublicitarias:
+        recibirNotificacionesPublicitarias === "true",
     });
 
     const guardado = await nuevoUsuario.save();
