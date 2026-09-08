@@ -15,6 +15,7 @@ import { useState } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { ColasProvider } from "./context/ColasContext";
 import EditarProducto from "./pages/EditarProducto/EditarProducto";
+import PagoExitoso from "./pages/PagoExitoso/PagoExitoso";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
@@ -44,6 +45,7 @@ function App() {
             element={<RegistrarProducto />}
           />
           <Route path="/vendedor/:id" element={<VendedorPerfil />} />
+          <Route path="/pago-exitoso" element={<PagoExitoso />} />
         </Routes>
 
         {inicioSesion && (

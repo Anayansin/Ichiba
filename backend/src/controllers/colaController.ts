@@ -128,3 +128,31 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
     res.status(500).json({ message: "Error al consultar tu posición" });
   }
 }
+
+export async function responderEsperaConfirmacion(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const compradorId = req.compradorId as string;
+    const { conservarTurno } = req.body;
+
+    const fila = await Cola.findOne({ _id: req.params.id, compradorId });
+    if (!fila) return res.status(404).json({ message: "Fila no encontrada" });
+
+    if (conservarTurno) {
+      fila.estado = "activa";
+      await fila.save();
+      return res.json({ message: "Conservaste tu turno, seguirás en espera" });
+    }
+
+    fila.estado = "finalizada";
+    await fila.save();
+    await reacomodarFila(fila.productoId.toString(), fila.posicion);
+
+    res.json({ message: "Saliste de la fila" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al procesar tu respuesta" });
+  }
+}

@@ -7,7 +7,7 @@ const colaSchema = new Schema(
     posicion: { type: Number, required: true },
     estado: {
       type: String,
-      enum: ["activa", "pagada", "finalizada"],
+      enum: ["activa", "esperando_confirmacion", "pagada", "finalizada"],
       default: "activa",
     },
   },

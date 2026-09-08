@@ -21,6 +21,17 @@ const usuarioSchema = new Schema(
     curp: { type: String },
     ineCodigoReverso: { type: String },
     recibirNotificacionesPublicitarias: { type: Boolean, default: false },
+    paypalEmail: { type: String, required: true },
+    horarios: [
+      {
+        dia: { type: String, required: true },
+        activo: { type: Boolean, required: true },
+        horaInicio: { type: String },
+        horaFin: { type: String },
+      },
+    ],
+    horarioConfirmadoEn: { type: Date },
+    diasSinConfirmarHorario: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

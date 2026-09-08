@@ -12,6 +12,7 @@ import {
   validarNitidezINE,
 } from "../services/ineService.js";
 import { extraerDatosINE } from "../services/structOcrService.js";
+import { validarHorarioSemanal } from "../utils/validarHorario.js";
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {
   archivos.forEach((archivo) => {
@@ -36,8 +37,18 @@ export async function registrarUsuario(req: Request, res: Response) {
       password,
       aceptaTerminos,
       recibirNotificacionesCriticas,
-      recibirNotificacionesPublicitarias,
+      paypalEmail,
     } = req.body;
+    const horarios = req.body.horarios ? JSON.parse(req.body.horarios) : [];
+    const errorHorario = validarHorarioSemanal(horarios);
+    if (errorHorario) {
+      if (ineFrente || ineReverso) {
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      }
+      return res.status(400).json({ message: errorHorario });
+    }
 
     if (
       !nombreCompleto ||
@@ -187,13 +198,15 @@ export async function registrarUsuario(req: Request, res: Response) {
       rfc,
       password: passwordHasheada,
       curp,
+      paypalEmail,
       ineFrente: `/uploads/ine/${ineFrente.filename}`,
       ineReverso: `/uploads/ine/${ineReverso.filename}`,
       ineCodigoReverso: mrzCompleto,
       aceptaTerminos: true,
       recibirNotificacionesCriticas: true,
-      recibirNotificacionesPublicitarias:
-        recibirNotificacionesPublicitarias === "true",
+      horarios,
+      horarioConfirmadoEn: new Date(),
+      diasSinConfirmarHorario: 0,
     });
 
     const guardado = await nuevoUsuario.save();
@@ -296,5 +309,25 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
     res
       .status(500)
       .json({ message: "Error al obtener el perfil del vendedor" });
+  }
+}
+
+export async function confirmarHorario(req: RequestConUsuario, res: Response) {
+  try {
+    const { horarios } = req.body;
+
+    const errorHorario = validarHorarioSemanal(horarios);
+    if (errorHorario) return res.status(400).json({ message: errorHorario });
+
+    await Usuario.findByIdAndUpdate(req.usuarioId, {
+      horarios,
+      horarioConfirmadoEn: new Date(),
+      diasSinConfirmarHorario: 0,
+    });
+
+    res.json({ message: "Horario confirmado" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al confirmar horario" });
   }
 }
