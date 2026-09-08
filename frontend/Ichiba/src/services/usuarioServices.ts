@@ -1,5 +1,6 @@
 import api from "./api";
 import type { Producto } from "./productoService";
+import type { BloqueHorario } from "../components/SelectorHorario/SelectorHorario";
 
 export type DatosRegistro = {
   nombreCompleto: string;
@@ -13,6 +14,8 @@ export type DatosRegistro = {
   ineFrente: File;
   ineReverso: File;
   recibirNotificacionesPublicitarias: boolean;
+  paypalEmail: string;
+  horarios: BloqueHorario[];
 };
 
 export async function registrarUsuario(datos: DatosRegistro) {
@@ -34,6 +37,8 @@ export async function registrarUsuario(datos: DatosRegistro) {
     "recibirNotificacionesPublicitarias",
     String(datos.recibirNotificacionesPublicitarias),
   );
+  formData.append("paypalEmail", datos.paypalEmail);
+  formData.append("horarios", JSON.stringify(datos.horarios));
 
   const response = await api.post("/usuarios/registro", formData, {
     headers: { "Content-Type": "multipart/form-data" },

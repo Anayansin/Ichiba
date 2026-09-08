@@ -1,0 +1,18 @@
+.pago-exitoso {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  padding: 2rem;
+}
+
+.pago-exitoso h2 {
+  color: #1a1a1a;
+  margin-bottom: 0.5rem;
+}
+
+.pago-exitoso p {
+  color: #666;
+}

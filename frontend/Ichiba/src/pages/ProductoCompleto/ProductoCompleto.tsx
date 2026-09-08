@@ -15,6 +15,7 @@ import {
 import { useColas } from "../../context/ColasContext";
 import { useAuth } from "../../context/AuthContext";
 import "./ProductoCompleto.css";
+import { crearOrdenPago } from "../../services/pagoService";
 
 function ProductoCompleto() {
   const { id } = useParams();
@@ -67,6 +68,15 @@ function ProductoCompleto() {
       setMensajeFila(
         err.response?.data?.message || "Error al entrar en la fila",
       );
+    }
+  }
+  async function handlePagar() {
+    if (!producto) return;
+    try {
+      const { linkAprobacion } = await crearOrdenPago(producto._id);
+      window.location.href = linkAprobacion;
+    } catch (err: any) {
+      setMensajeFila(err.response?.data?.message || "Error al iniciar el pago");
     }
   }
 
@@ -146,7 +156,7 @@ function ProductoCompleto() {
           estadoFila.puedePagar ? (
             <div className="producto-completo__pago-listo">
               <p>¡Es tu turno! Estás en la posición 1.</p>
-              <Boton texto="Pagar con PayPal" onClick={() => {}} />
+              <Boton texto="Pagar con PayPal" onClick={handlePagar} />
             </div>
           ) : (
             <div className="producto-completo__esperando">

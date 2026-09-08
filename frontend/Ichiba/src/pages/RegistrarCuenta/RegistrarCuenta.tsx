@@ -9,6 +9,9 @@ import {
 } from "../../utils/validarImagen";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import SelectorHorario, {
+  type BloqueHorario,
+} from "../../components/SelectorHorario/SelectorHorario";
 
 const requisitosPassword = [
   {
@@ -52,6 +55,22 @@ function RegistarCuenta() {
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
   const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
+  const [paypalEmail, setPaypalEmail] = useState("");
+  const DIAS_INICIALES: BloqueHorario[] = [
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+    "domingo",
+  ].map((dia) => ({
+    dia,
+    activo: false,
+    horaInicio: "09:00",
+    horaFin: "18:00",
+  }));
+  const [horarios, setHorarios] = useState<BloqueHorario[]>(DIAS_INICIALES);
 
   function handleTelefonoChange(valor: string) {
     const soloNumeros = valor.replace(/\D/g, "").slice(0, 10);
@@ -102,7 +121,8 @@ function RegistarCuenta() {
     aceptaTerminos &&
     recibirNotificaciones &&
     ineFrente !== null &&
-    ineReverso !== null;
+    ineReverso !== null &&
+    paypalEmail.trim() !== "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,6 +148,8 @@ function RegistarCuenta() {
         recibirNotificacionesPublicitarias: recibirPublicitarias,
         ineFrente,
         ineReverso,
+        paypalEmail,
+        horarios,
       });
 
       login(data.usuario, data.token);
@@ -266,6 +288,21 @@ function RegistarCuenta() {
               </li>
             ))}
           </ul>
+        </div>
+        <div className="form-group">
+          <label>Correo de PayPal (aquí recibirás tus pagos)</label>
+          <input
+            type="email"
+            className="registro-input"
+            placeholder="tu-correo@paypal.com"
+            value={paypalEmail}
+            onChange={(e) => setPaypalEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Horario de disponibilidad (mínimo 1 hora a la semana)</label>
+          <SelectorHorario horarios={horarios} onChange={setHorarios} />
         </div>
 
         <label className="registro-checkbox">
