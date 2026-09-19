@@ -63,3 +63,11 @@ export async function eliminarProducto(id: string) {
   const response = await api.delete(`/productos/${id}`);
   return response.data;
 }
+
+export async function fetchCategoriaPopular(): Promise<{
+  categoria: string | null;
+  totalInteres: number;
+}> {
+  const response = await api.get("/productos/estadisticas/categoria-popular");
+  return response.data;
+}

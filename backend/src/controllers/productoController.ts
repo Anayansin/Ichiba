@@ -179,3 +179,38 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
     res.status(500).json({ message: "Error al eliminar el producto" });
   }
 }
+
+export async function getCategoriaPopular(req: Request, res: Response) {
+  try {
+    const resultado = await Producto.aggregate([
+      {
+        $lookup: {
+          from: "colas",
+          localField: "_id",
+          foreignField: "productoId",
+          as: "entradasFila",
+        },
+      },
+      {
+        $group: {
+          _id: "$categoria",
+          totalInteres: { $sum: { $size: "$entradasFila" } },
+        },
+      },
+      { $sort: { totalInteres: -1 } },
+      { $limit: 1 },
+    ]);
+
+    if (resultado.length === 0) {
+      return res.json({ categoria: null, totalInteres: 0 });
+    }
+
+    res.json({
+      categoria: resultado[0]._id,
+      totalInteres: resultado[0].totalInteres,
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al calcular la categoría popular" });
+  }
+}

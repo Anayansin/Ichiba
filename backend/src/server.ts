@@ -12,7 +12,8 @@ import verificacionRoutes from "./routes/verificacionRoutes.js";
 import pagoRoutes from "./routes/pagoRoutes.js";
 import colaRoutes from "./routes/colaRoutes.js";
 import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
-
+import mensajeRoutes from "./routes/mensajeRoutes.js";
+import reporteRoutes from "./routes/reporteRoutes.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -27,6 +28,8 @@ app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/verificacion", verificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
 app.use("/api/colas", colaRoutes);
+app.use("/api/mensajes", mensajeRoutes);
+app.use("/api/reportes", reporteRoutes);
 
 const PORT = process.env.PORT || 5000;
 
