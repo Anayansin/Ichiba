@@ -1,0 +1,53 @@
+.mis-pedidos h1 {
+  font-size: 1.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.mis-pedidos__vacio {
+  color: #888;
+}
+
+.mis-pedidos__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  margin-bottom: 0.8rem;
+}
+
+.mis-pedidos__item img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.mis-pedidos__info {
+  flex: 1;
+}
+
+.mis-pedidos__nombre {
+  font-weight: 600;
+  margin: 0;
+}
+
+.mis-pedidos__fecha {
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0.2rem 0;
+}
+
+.mis-pedidos__monto {
+  color: #d90429;
+  font-weight: 700;
+  margin: 0;
+}
+
+.mis-pedidos__chat {
+  text-decoration: none;
+  color: #d90429;
+  font-weight: 600;
+  font-size: 0.85rem;
+}

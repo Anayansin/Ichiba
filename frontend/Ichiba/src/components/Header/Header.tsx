@@ -56,7 +56,7 @@ function Header({ onOpenLogin }: HeaderProps) {
               {categorias.map((categoria) => (
                 <Link
                   key={categoria}
-                  to={`/?categoria=${categoria.toLowerCase()}`}
+                  to={`/inicio?categoria=${categoria.toLowerCase()}`}
                   className="header__menu-item"
                 >
                   {categoria}

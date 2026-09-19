@@ -26,6 +26,8 @@ export function ColasProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     recargarFilas();
+    const intervalo = setInterval(recargarFilas, 5000);
+    return () => clearInterval(intervalo);
   }, []);
 
   return (

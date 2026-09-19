@@ -8,6 +8,7 @@ import {
   capturarOrdenPaypal,
 } from "../services/paypalService.js";
 import { RequestConComprador } from "../middleware/comprador.js";
+import { Reporte } from "../models/Reporte.js";
 
 export async function crearOrden(req: RequestConComprador, res: Response) {
   try {
@@ -48,6 +49,38 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al crear la orden de pago" });
+  }
+}
+export async function crearReporte(req: RequestConComprador, res: Response) {
+  try {
+    const { ventaId, motivo, detalle } = req.body;
+    const compradorId = req.compradorId as string;
+
+    const venta = await Venta.findById(ventaId);
+    if (!venta)
+      return res.status(404).json({ message: "Compra no encontrada" });
+    if (venta.compradorId !== compradorId) {
+      return res
+        .status(403)
+        .json({ message: "No puedes reportar esta compra" });
+    }
+
+    const reporte = new Reporte({
+      vendedorId: venta.vendedorId,
+      compradorId,
+      motivo,
+      detalle,
+    });
+    await reporte.save();
+
+    await Usuario.findByIdAndUpdate(venta.vendedorId, {
+      $inc: { reportes: 1 },
+    });
+
+    res.status(201).json({ message: "Reporte enviado correctamente" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al enviar el reporte" });
   }
 }
 

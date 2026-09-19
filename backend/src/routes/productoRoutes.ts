@@ -7,6 +7,7 @@ import {
   actualizarProducto,
   cambiarEstadoProducto,
   eliminarProducto,
+  getCategoriaPopular,
 } from "../controllers/productoController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { requiereVerificado } from "../middleware/verificado.js";
@@ -16,6 +17,7 @@ const router = Router();
 
 router.get("/", getProductos);
 router.get("/mios/lista", verificarToken, getMisProductos);
+router.get("/estadisticas/categoria-popular", getCategoriaPopular);
 router.get("/:id", getProductoPorId);
 router.post(
   "/",

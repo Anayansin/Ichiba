@@ -39,10 +39,19 @@ function ProductoCompleto() {
 
   useEffect(() => {
     if (!producto) return;
-    fetchEstadoDeMiFila(producto._id)
-      .then((data) => setEstadoFila(data))
-      .catch(() => setEstadoFila(null));
-  }, [producto, mensajeFila]);
+
+    const productoActual = producto;
+
+    function actualizar() {
+      fetchEstadoDeMiFila(productoActual._id)
+        .then((data) => setEstadoFila(data))
+        .catch(() => setEstadoFila(null));
+    }
+
+    actualizar();
+    const intervalo = setInterval(actualizar, 5000);
+    return () => clearInterval(intervalo);
+  }, [producto]);
 
   async function handleEntrarFila() {
     const yaAceptoTerminos =

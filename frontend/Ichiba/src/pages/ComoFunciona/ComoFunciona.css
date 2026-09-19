@@ -1,0 +1,30 @@
+.como-funciona h1 {
+  font-size: 1.6rem;
+  margin-bottom: 2rem;
+}
+
+.como-funciona__paso {
+  display: flex;
+  gap: 1.2rem;
+  padding-bottom: 1.8rem;
+  margin-bottom: 1.8rem;
+  border-bottom: 1px solid #eee;
+}
+
+.como-funciona__numero {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #d90429;
+  flex-shrink: 0;
+}
+
+.como-funciona__paso h3 {
+  margin: 0 0 0.3rem 0;
+  font-size: 1.05rem;
+}
+
+.como-funciona__paso p {
+  margin: 0;
+  color: #666;
+  line-height: 1.6;
+}
