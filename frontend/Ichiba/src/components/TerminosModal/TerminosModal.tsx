@@ -2,27 +2,65 @@ import { useState } from "react";
 import "./TerminosModal.css";
 
 const categoriasCorreo = [
-  "Ropa",
-  "Hogar",
-  "Electrodomesticos",
-  "Coleccionables",
-  "Artesanias",
-  "Otros",
+  { valor: "ropa", texto: "Ropa" },
+  { valor: "hogar", texto: "Hogar" },
+  { valor: "electrodomesticos", texto: "Electrodomésticos" },
+  { valor: "coleccionables", texto: "Coleccionables" },
+  { valor: "artesanias", texto: "Artesanías" },
+  { valor: "otros", texto: "Otros" },
 ];
 
+const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface PreferenciasNotificacion {
+  correo: string;
+  categorias: string[];
+}
+
 interface TerminosModalProps {
-  onAceptar: (recibirCorreos: boolean, categoria: string) => void;
+  onAceptar: (preferencias: PreferenciasNotificacion) => void;
   onCerrar: () => void;
 }
 
 function TerminosModal({ onAceptar, onCerrar }: TerminosModalProps) {
   const [aceptaTerminos, setAceptaTerminos] = useState(false);
-  const [recibirCorreos, setRecibirCorreos] = useState(false);
-  const [categoria, setCategoria] = useState(categoriasCorreo[0]);
+  const [correo, setCorreo] = useState(
+    localStorage.getItem("correoNotificaciones") || "",
+  );
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [error, setError] = useState("");
+
+  function alternarCategoria(valor: string) {
+    setError("");
+    setCategorias((prev) =>
+      prev.includes(valor)
+        ? prev.filter((categoria) => categoria !== valor)
+        : [...prev, valor],
+    );
+  }
 
   function handleContinuar() {
     if (!aceptaTerminos) return;
-    onAceptar(recibirCorreos, categoria);
+
+    const correoLimpio = correo.trim();
+
+    if (correoLimpio && !FORMATO_CORREO.test(correoLimpio)) {
+      setError("Escribe un correo válido");
+      return;
+    }
+
+    if (correoLimpio && categorias.length === 0) {
+      setError("Selecciona al menos una categoría");
+      return;
+    }
+
+    if (!correoLimpio && categorias.length > 0) {
+      setError("Escribe tu correo para recibir notificaciones");
+      return;
+    }
+
+    setError("");
+    onAceptar({ correo: correoLimpio, categorias });
   }
 
   return (
@@ -47,33 +85,52 @@ function TerminosModal({ onAceptar, onCerrar }: TerminosModalProps) {
           <input
             type="checkbox"
             checked={aceptaTerminos}
-            onChange={(e) => setAceptaTerminos(e.target.checked)}
+            onChange={(e) => {
+              setAceptaTerminos(e.target.checked);
+              setError("");
+            }}
           />
           Acepto los terminos y condiciones de Ichiba
         </label>
 
-        <label className="terminos-modal__checkbox">
-          <input
-            type="checkbox"
-            checked={recibirCorreos}
-            onChange={(e) => setRecibirCorreos(e.target.checked)}
-          />
-          Quiero recibir correos de ofertas de una categoría
-        </label>
+        <div className="terminos-modal__notificaciones">
+          <p className="terminos-modal__subtitulo">
+            Notificaciones de ofertas (opcional)
+          </p>
+          <p className="terminos-modal__ayuda">
+            Déjanos tu correo y marca una o más categorías para avisarte cuando
+            haya ofertas:
+          </p>
 
-        {recibirCorreos && (
-          <select
-            className="terminos-modal__select"
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-          >
-            {categoriasCorreo.map((cat) => (
-              <option key={cat} value={cat.toLowerCase()}>
-                {cat}
-              </option>
+          <input
+            type="email"
+            className="terminos-modal__correo"
+            placeholder="Correo electrónico"
+            value={correo}
+            onChange={(e) => {
+              setCorreo(e.target.value);
+              setError("");
+            }}
+          />
+
+          <div className="terminos-modal__categorias">
+            {categoriasCorreo.map((categoria) => (
+              <label
+                key={categoria.valor}
+                className="terminos-modal__categoria"
+              >
+                <input
+                  type="checkbox"
+                  checked={categorias.includes(categoria.valor)}
+                  onChange={() => alternarCategoria(categoria.valor)}
+                />
+                {categoria.texto}
+              </label>
             ))}
-          </select>
-        )}
+          </div>
+        </div>
+
+        {error && <p className="terminos-modal__error">{error}</p>}
 
         <button
           className="terminos-modal__boton"

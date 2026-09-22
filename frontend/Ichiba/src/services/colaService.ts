@@ -27,9 +27,12 @@ export async function salirDeFila(id: string) {
 }
 
 export type EstadoFila = {
-  posicion: number;
+  posicion: number | null;
   puedePagar: boolean;
   colaId: string;
+  pagoExpiraEn?: string | null;
+  expiro?: boolean;
+  mensaje?: string;
 };
 
 export async function fetchEstadoDeMiFila(

@@ -1,6 +1,11 @@
 import { Response } from "express";
 import { Cola } from "../models/Cola.js";
 import { RequestConComprador } from "../middleware/comprador.js";
+import {
+  reacomodarFila,
+  iniciarTemporizadorPago,
+  expirarTurnoSiVencido,
+} from "../services/filaService.js";
 
 const LIMITE_FILAS_ACTIVAS = 3;
 
@@ -37,11 +42,18 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
       estado: "activa",
     });
 
+    const posicion = personasEnEstaFila + 1;
+
     const nuevaCola = new Cola({
       productoId,
       compradorId,
-      posicion: personasEnEstaFila + 1,
+      posicion,
     });
+
+    // El tiempo de pago empieza a contar desde la posición 1
+    if (posicion === 1) {
+      await iniciarTemporizadorPago(nuevaCola);
+    }
 
     const guardada = await nuevaCola.save();
     res.status(201).json(guardada);
@@ -88,19 +100,6 @@ export async function salirDeFila(req: RequestConComprador, res: Response) {
   }
 }
 
-async function reacomodarFila(productoId: string, posicionQueSeLibero: number) {
-  const personasDetras = await Cola.find({
-    productoId,
-    estado: "activa",
-    posicion: { $gt: posicionQueSeLibero },
-  });
-
-  for (const persona of personasDetras) {
-    persona.posicion -= 1;
-    await persona.save();
-  }
-}
-
 export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
@@ -118,10 +117,30 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
         .json({ message: "No estás en la fila de este producto" });
     }
 
+    if (miFila.posicion === 1) {
+      // Fila heredada sin temporizador: lo iniciamos ahora
+      if (!miFila.pagoExpiraEn) {
+        await iniciarTemporizadorPago(miFila);
+        await miFila.save();
+      } else if (await expirarTurnoSiVencido(miFila)) {
+        return res.json({
+          posicion: null,
+          puedePagar: false,
+          colaId: miFila._id,
+          pagoExpiraEn: null,
+          expiro: true,
+          mensaje:
+            "Se agotó tu tiempo para pagar y perdiste tu turno en la fila",
+        });
+      }
+    }
+
     res.json({
       posicion: miFila.posicion,
       puedePagar: miFila.posicion === 1,
       colaId: miFila._id,
+      pagoExpiraEn: miFila.pagoExpiraEn ?? null,
+      expiro: false,
     });
   } catch (error) {
     console.error("Error real:", error);

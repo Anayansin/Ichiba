@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import fs from "fs";
 import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
@@ -13,6 +14,19 @@ import {
 } from "../services/ineService.js";
 import { extraerDatosINE } from "../services/structOcrService.js";
 import { validarHorarioSemanal } from "../utils/validarHorario.js";
+import { enviarCorreoRecuperacion } from "../services/emailService.js";
+import {
+  campoConPalabrasProhibidas,
+  mensajePalabrasProhibidas,
+} from "../utils/filtroPalabras.js";
+
+const MINUTOS_EXPIRACION_RECUPERACION = 15;
+const MENSAJE_RECUPERACION_ENVIADA =
+  "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
+
+function generarCodigoRecuperacion(): string {
+  return crypto.randomInt(100000, 999999).toString();
+}
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {
   archivos.forEach((archivo) => {
@@ -39,6 +53,27 @@ export async function registrarUsuario(req: Request, res: Response) {
       recibirNotificacionesCriticas,
       paypalEmail,
     } = req.body;
+
+    const campoProhibido = campoConPalabrasProhibidas({
+      nombreCompleto,
+      direccion,
+      telefono,
+      correo,
+      rfc,
+      password,
+      paypalEmail,
+    });
+    if (campoProhibido) {
+      if (ineFrente || ineReverso) {
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      }
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
     const horarios = req.body.horarios ? JSON.parse(req.body.horarios) : [];
     const errorHorario = validarHorarioSemanal(horarios);
     if (errorHorario) {
@@ -329,5 +364,128 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al confirmar horario" });
+  }
+}
+
+export async function solicitarRecuperacion(req: Request, res: Response) {
+  try {
+    const { correo } = req.body;
+
+    if (!correo) {
+      return res.status(400).json({ message: "El correo es obligatorio" });
+    }
+
+    const usuario = await Usuario.findOne({ correo });
+
+    if (!usuario) {
+      return res.status(200).json({ message: MENSAJE_RECUPERACION_ENVIADA });
+    }
+
+    const codigo = generarCodigoRecuperacion();
+    usuario.codigoRecuperacion = codigo;
+    usuario.codigoRecuperacionExpira = new Date(
+      Date.now() + MINUTOS_EXPIRACION_RECUPERACION * 60 * 1000,
+    );
+    await usuario.save();
+
+    await enviarCorreoRecuperacion(usuario.correo, codigo);
+
+    res.status(200).json({ message: MENSAJE_RECUPERACION_ENVIADA });
+  } catch (error) {
+    console.error("Error real:", error);
+    res
+      .status(500)
+      .json({ message: "No se pudo enviar el correo de recuperación" });
+  }
+}
+
+export async function verificarCodigoRecuperacion(
+  req: Request,
+  res: Response,
+) {
+  try {
+    const { correo, codigo } = req.body;
+
+    if (!correo || !codigo) {
+      return res
+        .status(400)
+        .json({ message: "El correo y el código son obligatorios" });
+    }
+
+    const usuario = await Usuario.findOne({ correo });
+
+    if (
+      !usuario ||
+      !usuario.codigoRecuperacion ||
+      !usuario.codigoRecuperacionExpira
+    ) {
+      return res
+        .status(400)
+        .json({ message: "No hay un código pendiente, solicita uno nuevo" });
+    }
+
+    if (usuario.codigoRecuperacionExpira < new Date()) {
+      return res
+        .status(400)
+        .json({ message: "El código expiró, solicita uno nuevo" });
+    }
+
+    if (usuario.codigoRecuperacion !== codigo) {
+      return res.status(400).json({ message: "Código incorrecto" });
+    }
+
+    res.json({ message: "Código verificado correctamente" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al verificar el código" });
+  }
+}
+
+export async function restablecerPassword(req: Request, res: Response) {
+  try {
+    const { correo, codigo, password } = req.body;
+
+    if (!correo || !codigo || !password) {
+      return res.status(400).json({
+        message: "El correo, el código y la nueva contraseña son obligatorios",
+      });
+    }
+
+    const errorPassword = validarPassword(password);
+    if (errorPassword) {
+      return res.status(400).json({ message: errorPassword });
+    }
+
+    const usuario = await Usuario.findOne({ correo });
+
+    if (
+      !usuario ||
+      !usuario.codigoRecuperacion ||
+      !usuario.codigoRecuperacionExpira
+    ) {
+      return res
+        .status(400)
+        .json({ message: "No hay un código pendiente, solicita uno nuevo" });
+    }
+
+    if (usuario.codigoRecuperacionExpira < new Date()) {
+      return res
+        .status(400)
+        .json({ message: "El código expiró, solicita uno nuevo" });
+    }
+
+    if (usuario.codigoRecuperacion !== codigo) {
+      return res.status(400).json({ message: "Código incorrecto" });
+    }
+
+    usuario.password = await bcrypt.hash(password, 10);
+    usuario.codigoRecuperacion = undefined;
+    usuario.codigoRecuperacionExpira = undefined;
+    await usuario.save();
+
+    res.json({ message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al restablecer la contraseña" });
   }
 }

@@ -1,30 +1,10 @@
 .faq h1 {
   font-size: 1.6rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.6rem;
 }
 
-.faq__item {
-  border-bottom: 1px solid #eee;
-}
-
-.faq__pregunta {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: none;
-  border: none;
-  padding: 1.1rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  color: #1a1a1a;
-}
-
-.faq__respuesta {
+.faq__intro {
   color: #666;
-  padding-bottom: 1.1rem;
-  margin: 0;
+  margin: 0 0 1.5rem 0;
   line-height: 1.6;
 }

@@ -15,6 +15,8 @@
   padding: 2rem;
   width: 100%;
   max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
@@ -58,6 +60,65 @@
   border-radius: 8px;
   border: 2px solid #cdcdcd;
   font-size: 0.9rem;
+}
+
+.terminos-modal__notificaciones {
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.terminos-modal__subtitulo {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.terminos-modal__ayuda {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.terminos-modal__correo {
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 2px solid #cdcdcd;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.terminos-modal__correo:focus {
+  border-color: #d90429;
+}
+
+.terminos-modal__categorias {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem 0.8rem;
+}
+
+.terminos-modal__categoria {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #333;
+  cursor: pointer;
+}
+
+.terminos-modal__error {
+  background-color: #fdecea;
+  color: #d90429;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0;
 }
 
 .terminos-modal__boton {

@@ -1,25 +1,24 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import {
   fetchMisVentasComprador,
   type VentaConProducto,
 } from "../../services/mensajeService";
 import { crearReporte } from "../../services/reporteService";
+import {
+  CATEGORIAS_REPORTE,
+  ELEMENTOS_REPORTE,
+} from "../../configuracion/categoriasReporte";
 import "./ReportarVendedor.css";
-
-const MOTIVOS = [
-  "El producto no coincide con la descripción",
-  "El vendedor no respondió después del pago",
-  "Comportamiento irrespetuoso",
-  "Sospecha de fraude",
-  "Otro",
-];
 
 function ReportarVendedor() {
   const [ventas, setVentas] = useState<VentaConProducto[]>([]);
   const [ventaId, setVentaId] = useState("");
-  const [motivo, setMotivo] = useState(MOTIVOS[0]);
+  const [elemento, setElemento] = useState(ELEMENTOS_REPORTE[0].id);
+  const [categoria, setCategoria] = useState(CATEGORIAS_REPORTE[0].id);
   const [detalle, setDetalle] = useState("");
   const [enviado, setEnviado] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -38,12 +37,22 @@ function ReportarVendedor() {
       return;
     }
 
+    setEnviando(true);
     try {
-      // Nota: se requiere vendedorId real; ver comentario abajo del componente.
-      await crearReporte(ventaId, motivo, detalle);
+      await crearReporte({
+        ventaId,
+        elemento,
+        categoria,
+        detalle: detalle.trim(),
+      });
       setEnviado(true);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Error al enviar el reporte");
+    } catch (err) {
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          "Error al enviar el reporte",
+      );
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -52,6 +61,10 @@ function ReportarVendedor() {
       <div className="reportar">
         <h1>Reporte enviado</h1>
         <p>Nuestro equipo revisará tu reporte a la brevedad.</p>
+        <p className="reportar__nota">
+          Los reportes por reincidencia generan faltas leves o graves y pueden
+          bloquear temporal o permanentemente a la otra persona.
+        </p>
       </div>
     );
   }
@@ -59,6 +72,12 @@ function ReportarVendedor() {
   return (
     <div className="reportar">
       <h1>Reportar un vendedor</h1>
+      <p className="reportar__nota">
+        El reporte se aplica al vendedor de la compra seleccionada. Las
+        categorías marcadas como falta grave pueden provocar bloqueos por
+        reincidencia.
+      </p>
+
       <form className="reportar__form" onSubmit={handleSubmit}>
         {error && <p className="reportar__error">{error}</p>}
 
@@ -79,11 +98,28 @@ function ReportarVendedor() {
         </label>
 
         <label>
-          Motivo
-          <select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
-            {MOTIVOS.map((m) => (
-              <option key={m} value={m}>
-                {m}
+          ¿Qué quieres reportar?
+          <select
+            value={elemento}
+            onChange={(e) => setElemento(e.target.value)}
+          >
+            {ELEMENTOS_REPORTE.map((op) => (
+              <option key={op.id} value={op.id}>
+                {op.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          Categoría
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+          >
+            {CATEGORIAS_REPORTE.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.nombre} ({cat.tipoFalta})
               </option>
             ))}
           </select>
@@ -95,11 +131,13 @@ function ReportarVendedor() {
             value={detalle}
             onChange={(e) => setDetalle(e.target.value)}
             rows={4}
+            maxLength={1000}
+            placeholder="Cuéntanos qué sucedió"
           />
         </label>
 
-        <button type="submit" className="reportar__boton">
-          Enviar reporte
+        <button type="submit" className="reportar__boton" disabled={enviando}>
+          {enviando ? "Enviando..." : "Enviar reporte"}
         </button>
       </form>
     </div>
