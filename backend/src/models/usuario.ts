@@ -14,6 +14,8 @@ const usuarioSchema = new Schema(
     correoVerificado: { type: Boolean, default: false },
     codigoCorreo: { type: String },
     codigoCorreoExpira: { type: Date },
+    codigoRecuperacion: { type: String },
+    codigoRecuperacionExpira: { type: Date },
     ineFrente: { type: String, required: true },
     ineReverso: { type: String, required: true },
     aceptaTerminos: { type: Boolean, required: true },

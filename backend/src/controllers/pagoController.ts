@@ -8,7 +8,10 @@ import {
   capturarOrdenPaypal,
 } from "../services/paypalService.js";
 import { RequestConComprador } from "../middleware/comprador.js";
-import { Reporte } from "../models/Reporte.js";
+import {
+  iniciarTemporizadorPago,
+  expirarTurnoSiVencido,
+} from "../services/filaService.js";
 
 export async function crearOrden(req: RequestConComprador, res: Response) {
   try {
@@ -25,6 +28,15 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       return res
         .status(403)
         .json({ message: "No es tu turno para pagar todavía" });
+    }
+
+    if (!miFila.pagoExpiraEn) {
+      await iniciarTemporizadorPago(miFila);
+      await miFila.save();
+    } else if (await expirarTurnoSiVencido(miFila)) {
+      return res.status(403).json({
+        message: "Se agotó tu tiempo para pagar y perdiste tu turno en la fila",
+      });
     }
 
     const producto = await Producto.findById(productoId);
@@ -51,39 +63,6 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     res.status(500).json({ message: "Error al crear la orden de pago" });
   }
 }
-export async function crearReporte(req: RequestConComprador, res: Response) {
-  try {
-    const { ventaId, motivo, detalle } = req.body;
-    const compradorId = req.compradorId as string;
-
-    const venta = await Venta.findById(ventaId);
-    if (!venta)
-      return res.status(404).json({ message: "Compra no encontrada" });
-    if (venta.compradorId !== compradorId) {
-      return res
-        .status(403)
-        .json({ message: "No puedes reportar esta compra" });
-    }
-
-    const reporte = new Reporte({
-      vendedorId: venta.vendedorId,
-      compradorId,
-      motivo,
-      detalle,
-    });
-    await reporte.save();
-
-    await Usuario.findByIdAndUpdate(venta.vendedorId, {
-      $inc: { reportes: 1 },
-    });
-
-    res.status(201).json({ message: "Reporte enviado correctamente" });
-  } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al enviar el reporte" });
-  }
-}
-
 export async function capturarOrden(req: RequestConComprador, res: Response) {
   try {
     const orderId = req.params.orderId as string;

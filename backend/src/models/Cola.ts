@@ -10,6 +10,7 @@ const colaSchema = new Schema(
       enum: ["activa", "esperando_confirmacion", "pagada", "finalizada"],
       default: "activa",
     },
+    pagoExpiraEn: { type: Date },
   },
   { timestamps: true },
 );

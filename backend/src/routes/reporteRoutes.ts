@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { crearReporte } from "../controllers/reporteController.js";
-import { requiereCompradorId } from "../middleware/comprador.js";
 
 const router = Router();
-router.post("/", requiereCompradorId, crearReporte);
+
+// El identidad del reportero (vendedor con JWT o comprador con
+// x-comprador-id) se resuelve dentro del controlador.
+router.post("/", crearReporte);
+
 export default router;

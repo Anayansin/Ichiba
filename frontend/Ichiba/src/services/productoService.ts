@@ -9,7 +9,11 @@ export type Producto = {
   descripcion: string;
   vendedor: string;
   vendedorId: string;
-  datosDeEnvio: string;
+  datosDeEnvio?: string;
+  condicion?: string;
+  metodoEntrega?: string;
+  horarioEntrega?: { inicio: string; fin: string };
+  tiempoLimitePago?: number;
   activo: boolean;
 };
 
@@ -19,7 +23,11 @@ export type NuevoProducto = {
   imagenes: string[];
   categoria: string;
   descripcion: string;
-  datosDeEnvio: string;
+  datosDeEnvio?: string;
+  condicion?: string;
+  metodoEntrega?: string;
+  horarioEntrega?: { inicio: string; fin: string };
+  tiempoLimitePago?: number;
 };
 
 export async function fetchProductos(): Promise<Producto[]> {

@@ -2,7 +2,9 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Boton from "../../components/Boton/Boton";
 import Carrusel from "../../components/Carrusel/Carrusel";
-import TerminosModal from "../../components/TerminosModal/TerminosModal";
+import TerminosModal, {
+  type PreferenciasNotificacion,
+} from "../../components/TerminosModal/TerminosModal";
 import {
   fetchProductoPorId,
   type Producto,
@@ -14,8 +16,14 @@ import {
 } from "../../services/colaService";
 import { useColas } from "../../context/ColasContext";
 import { useAuth } from "../../context/AuthContext";
+import {
+  textoCondicion,
+  textoMetodoEntrega,
+  textoTiempoPago,
+} from "../../utils/opcionesProducto";
 import "./ProductoCompleto.css";
 import { crearOrdenPago } from "../../services/pagoService";
+import { guardarSuscripcion } from "../../services/notificacionService";
 
 function ProductoCompleto() {
   const { id } = useParams();
@@ -28,6 +36,9 @@ function ProductoCompleto() {
   const [mostrarTerminos, setMostrarTerminos] = useState(false);
   const [mensajeFila, setMensajeFila] = useState("");
   const [estadoFila, setEstadoFila] = useState<EstadoFila | null>(null);
+  const [segundosRestantes, setSegundosRestantes] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -44,7 +55,17 @@ function ProductoCompleto() {
 
     function actualizar() {
       fetchEstadoDeMiFila(productoActual._id)
-        .then((data) => setEstadoFila(data))
+        .then((data) => {
+          if (data.expiro) {
+            setEstadoFila(null);
+            setMensajeFila(
+              data.mensaje || "Se agotó tu tiempo de pago, vuelve a intentarlo",
+            );
+            recargarFilas();
+            return;
+          }
+          setEstadoFila(data);
+        })
         .catch(() => setEstadoFila(null));
     }
 
@@ -52,6 +73,29 @@ function ProductoCompleto() {
     const intervalo = setInterval(actualizar, 5000);
     return () => clearInterval(intervalo);
   }, [producto]);
+
+  // Cuenta regresiva del tiempo de pago (empieza en la posición 1)
+  useEffect(() => {
+    const puedePagar = estadoFila?.puedePagar;
+    const expira = estadoFila?.pagoExpiraEn;
+
+    if (!puedePagar || !expira) {
+      setSegundosRestantes(null);
+      return;
+    }
+
+    function calcular() {
+      const restante = Math.max(
+        0,
+        Math.floor((new Date(expira as string).getTime() - Date.now()) / 1000),
+      );
+      setSegundosRestantes(restante);
+    }
+
+    calcular();
+    const intervalo = setInterval(calcular, 1000);
+    return () => clearInterval(intervalo);
+  }, [estadoFila?.puedePagar, estadoFila?.pagoExpiraEn]);
 
   async function handleEntrarFila() {
     const yaAceptoTerminos =
@@ -89,13 +133,32 @@ function ProductoCompleto() {
     }
   }
 
-  function handleAceptarTerminos(recibirCorreos: boolean, categoria: string) {
+  async function handleAceptarTerminos(preferencias: PreferenciasNotificacion) {
     localStorage.setItem("terminosAceptados", "true");
-    localStorage.setItem("recibirCorreos", String(recibirCorreos));
-    if (recibirCorreos) localStorage.setItem("categoriaCorreos", categoria);
+    localStorage.setItem(
+      "recibirCorreos",
+      String(preferencias.categorias.length > 0),
+    );
+    localStorage.setItem("correoNotificaciones", preferencias.correo);
+    localStorage.setItem(
+      "categoriasCorreos",
+      JSON.stringify(preferencias.categorias),
+    );
 
     setMostrarTerminos(false);
-    procesarEntradaFila();
+    setMensajeFila("");
+
+    try {
+      await guardarSuscripcion(preferencias.correo, preferencias.categorias);
+    } catch (err: any) {
+      setMensajeFila(
+        err.response?.data?.message ||
+          "No se pudieron guardar tus preferencias de notificación, intenta de nuevo",
+      );
+      return;
+    }
+
+    await procesarEntradaFila();
   }
 
   if (cargando) return <p>Cargando producto...</p>;
@@ -157,14 +220,40 @@ function ProductoCompleto() {
         </div>
 
         <div className="producto-completo__envio">
-          <h3>Envío</h3>
-          <p>{producto.datosDeEnvio}</p>
+          <h3>Entrega y condiciones</h3>
+          <p>
+            <strong>Condición:</strong> {textoCondicion(producto.condicion)}
+          </p>
+          <p>
+            <strong>Método de entrega:</strong>{" "}
+            {textoMetodoEntrega(producto.metodoEntrega)}
+          </p>
+          {producto.horarioEntrega && (
+            <p>
+              <strong>Horario de coordinación de entrega:</strong>{" "}
+              {producto.horarioEntrega.inicio} a {producto.horarioEntrega.fin}
+            </p>
+          )}
+          <p>
+            <strong>Tiempo límite de pago:</strong>{" "}
+            {textoTiempoPago(producto.tiempoLimitePago ?? 60)}
+          </p>
+          {producto.datosDeEnvio && <p>{producto.datosDeEnvio}</p>}
         </div>
 
         {estadoFila ? (
           estadoFila.puedePagar ? (
             <div className="producto-completo__pago-listo">
               <p>¡Es tu turno! Estás en la posición 1.</p>
+              {segundosRestantes !== null && (
+                <p className="producto-completo__temporizador">
+                  Tiempo restante para pagar:{" "}
+                  <strong>
+                    {Math.floor(segundosRestantes / 60)}:
+                    {String(segundosRestantes % 60).padStart(2, "0")}
+                  </strong>
+                </p>
+              )}
               <Boton texto="Pagar con PayPal" onClick={handlePagar} />
             </div>
           ) : (

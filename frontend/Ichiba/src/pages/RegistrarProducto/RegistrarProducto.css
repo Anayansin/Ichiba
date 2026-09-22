@@ -110,3 +110,24 @@
 .registrar-producto-dropzone {
   cursor: pointer;
 }
+
+.registrar-producto-horario {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.registrar-producto-horario span {
+  font-weight: 600;
+  color: #666;
+}
+
+.registrar-producto-horario .registrar-producto-input {
+  flex: 1;
+}
+
+.registrar-producto-nota {
+  font-size: 0.75rem;
+  color: #888;
+  font-weight: 400;
+}

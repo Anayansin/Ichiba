@@ -11,6 +11,7 @@ import {
 } from "../controllers/productoController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { requiereVerificado } from "../middleware/verificado.js";
+import { requiereUsuarioSinSancion } from "../middleware/sancion.js";
 import { upload } from "../middleware/upload.js";
 
 const router = Router();
@@ -23,12 +24,14 @@ router.post(
   "/",
   verificarToken,
   requiereVerificado,
+  requiereUsuarioSinSancion,
   upload.array("imagenes", 6),
   crearProducto,
 );
 router.put(
   "/:id",
   verificarToken,
+  requiereUsuarioSinSancion,
   upload.array("imagenes", 6),
   actualizarProducto,
 );

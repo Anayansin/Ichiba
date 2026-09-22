@@ -5,6 +5,9 @@ import {
   obtenerPerfil,
   obtenerPerfilPublico,
   confirmarHorario,
+  solicitarRecuperacion,
+  verificarCodigoRecuperacion,
+  restablecerPassword,
 } from "../controllers/usuarioController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { uploadIne } from "../middleware/uploadIne.js";
@@ -20,6 +23,9 @@ router.post(
   registrarUsuario,
 );
 router.post("/login", iniciarSesion);
+router.post("/recuperar/solicitar", solicitarRecuperacion);
+router.post("/recuperar/verificar", verificarCodigoRecuperacion);
+router.post("/recuperar/restablecer", restablecerPassword);
 router.get("/perfil", verificarToken, obtenerPerfil);
 router.get("/:id/publico", obtenerPerfilPublico);
 router.put("/confirmar-horario", verificarToken, confirmarHorario);

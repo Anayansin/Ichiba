@@ -219,3 +219,209 @@
   padding: 2rem;
   text-align: center;
 }
+
+/* Barra de escribir y enviar (misma estilo que el asistente de soporte) */
+.chat-formulario {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.9rem 1.2rem;
+  border-top: 1px solid #eee;
+  background: #ffffff;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: 2px solid #cdcdcd;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #d90429;
+}
+
+.chat-boton-enviar {
+  background: #d90429;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-boton-enviar:disabled {
+  background: #e0a3ac;
+  cursor: not-allowed;
+}
+
+/* Cabecera de la conversación activa con botón de reporte */
+.chats__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1.2rem;
+  border-bottom: 1px solid #eee;
+  background: #ffffff;
+}
+
+.chats__cabecera-nombre {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chats__boton-reportar {
+  background: #ffffff;
+  color: #d90429;
+  border: 2px solid #d90429;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+
+.chats__boton-reportar:hover:not(:disabled) {
+  background: #d90429;
+  color: #ffffff;
+}
+
+.chats__boton-reportar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Error bajo la barra de mensajes (palabras prohibidas, sanciones, etc.) */
+.chats__error {
+  margin: 0 1.2rem 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+/* Modal de reporte */
+.chats__modal-fondo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.chats__modal {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.4rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.chats__modal h3 {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.chats__modal form,
+.chats__modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chats__modal form {
+  gap: 0.9rem;
+}
+
+.chats__modal label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: #333;
+}
+
+.chats__modal select,
+.chats__modal textarea {
+  padding: 0.6rem 0.75rem;
+  border: 2px solid #cdcdcd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #222;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chats__modal select:focus,
+.chats__modal textarea:focus {
+  border-color: #d90429;
+}
+
+.chats__modal textarea {
+  resize: vertical;
+}
+
+.chats__modal-error {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  background: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.chats__modal-exito {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  background: #e9f7ee;
+  color: #14682c;
+  border: 1px solid #bfe6cb;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.chats__modal-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.chats__modal-cancelar {
+  background: #ffffff;
+  color: #555;
+  border: 2px solid #cdcdcd;
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chats__modal-cancelar:hover {
+  background: #f3f4f6;
+}

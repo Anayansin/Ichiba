@@ -9,6 +9,10 @@ import {
 } from "../controllers/mensajeController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { verificarToken } from "../middleware/auth.js";
+import {
+  requiereCompradorSinSancion,
+  requiereUsuarioSinSancion,
+} from "../middleware/sancion.js";
 
 const router = Router();
 
@@ -26,12 +30,18 @@ router.get(
 router.post(
   "/comprador/:ventaId",
   requiereCompradorId,
+  requiereCompradorSinSancion,
   enviarMensajeComoComprador,
 );
 
 // Vendedor (con sesión JWT)
 router.get("/vendedor/mis-ventas", verificarToken, fetchMisVentasComoVendedor);
 router.get("/vendedor/:ventaId", verificarToken, fetchMensajesComoVendedor);
-router.post("/vendedor/:ventaId", verificarToken, enviarMensajeComoVendedor);
+router.post(
+  "/vendedor/:ventaId",
+  verificarToken,
+  requiereUsuarioSinSancion,
+  enviarMensajeComoVendedor,
+);
 
 export default router;

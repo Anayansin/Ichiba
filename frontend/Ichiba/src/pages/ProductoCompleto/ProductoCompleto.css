@@ -197,3 +197,14 @@
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+.producto-completo__temporizador {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.95rem;
+  color: #1a1a1a;
+}
+
+.producto-completo__temporizador strong {
+  color: #d90429;
+  font-variant-numeric: tabular-nums;
+}

@@ -3,6 +3,12 @@ import { useNavigate, Navigate } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import { crearProducto } from "../../services/productoService";
 import { useAuth } from "../../context/AuthContext";
+import {
+  CONDICIONES_PRODUCTO,
+  METODOS_ENTREGA,
+  TIEMPOS_LIMITE_PAGO,
+  textoTiempoPago,
+} from "../../utils/opcionesProducto";
 import "./RegistrarProducto.css";
 
 const categorias = [
@@ -24,7 +30,11 @@ function RegistrarProducto() {
   const [precio, setPrecio] = useState("");
   const [categoria, setCategoria] = useState(categorias[0]);
   const [descripcion, setDescripcion] = useState("");
-  const [datosDeEnvio, setDatosDeEnvio] = useState("");
+  const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
+  const [metodoEntrega, setMetodoEntrega] = useState(METODOS_ENTREGA[0].valor);
+  const [horarioInicio, setHorarioInicio] = useState("09:00");
+  const [horarioFin, setHorarioFin] = useState("18:00");
+  const [tiempoLimitePago, setTiempoLimitePago] = useState("60");
   const [archivos, setArchivos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -68,6 +78,13 @@ function RegistrarProducto() {
       return;
     }
 
+    if (horarioInicio >= horarioFin) {
+      setError(
+        "El horario de coordinación de entrega debe empezar antes de terminar",
+      );
+      return;
+    }
+
     setCargando(true);
 
     try {
@@ -76,7 +93,11 @@ function RegistrarProducto() {
       formData.append("precio", precio);
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
-      formData.append("datosDeEnvio", datosDeEnvio);
+      formData.append("condicion", condicion);
+      formData.append("metodoEntrega", metodoEntrega);
+      formData.append("horarioInicio", horarioInicio);
+      formData.append("horarioFin", horarioFin);
+      formData.append("tiempoLimitePago", tiempoLimitePago);
       archivos.forEach((archivo) => formData.append("imagenes", archivo));
 
       const nuevo = await crearProducto(formData);
@@ -150,14 +171,73 @@ function RegistrarProducto() {
         </div>
 
         <div className="form-group">
-          <label>Datos de envío</label>
-          <textarea
-            className="registrar-producto-input registrar-producto-textarea"
-            placeholder="Ej. Envío en 3-5 días hábiles a todo México"
-            value={datosDeEnvio}
-            onChange={(e) => setDatosDeEnvio(e.target.value)}
-            required
-          />
+          <label>Condiciones de uso</label>
+          <select
+            className="registrar-producto-input"
+            value={condicion}
+            onChange={(e) => setCondicion(e.target.value)}
+          >
+            {CONDICIONES_PRODUCTO.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.texto}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Método de entrega</label>
+          <select
+            className="registrar-producto-input"
+            value={metodoEntrega}
+            onChange={(e) => setMetodoEntrega(e.target.value)}
+          >
+            {METODOS_ENTREGA.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.texto}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Horario de coordinación de entrega</label>
+          <div className="registrar-producto-horario">
+            <input
+              type="time"
+              className="registrar-producto-input"
+              value={horarioInicio}
+              onChange={(e) => setHorarioInicio(e.target.value)}
+              required
+            />
+            <span>a</span>
+            <input
+              type="time"
+              className="registrar-producto-input"
+              value={horarioFin}
+              onChange={(e) => setHorarioFin(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Tiempo límite de pago</label>
+          <select
+            className="registrar-producto-input"
+            value={tiempoLimitePago}
+            onChange={(e) => setTiempoLimitePago(e.target.value)}
+          >
+            {TIEMPOS_LIMITE_PAGO.map((minutos) => (
+              <option key={minutos} value={minutos}>
+                {textoTiempoPago(minutos)}
+              </option>
+            ))}
+          </select>
+          <small className="registrar-producto-nota">
+            El comprador en posición 1 de la fila tiene entre 30 minutos y 3
+            horas para pagar.
+          </small>
         </div>
 
         <div className="form-group">

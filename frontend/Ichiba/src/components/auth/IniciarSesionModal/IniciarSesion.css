@@ -97,3 +97,25 @@
   font-size: 0.9rem;
   font-weight: 500;
 }
+
+.modal-exito {
+  background-color: #e8f7ee;
+  color: #1b7a45;
+  padding: 0.8rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.modal-nota {
+  font-size: 0.75rem;
+  color: #888;
+  text-align: left;
+  font-weight: 400;
+}
+
+.modal-input-codigo {
+  text-align: center;
+  letter-spacing: 8px;
+  font-size: 1.3rem;
+}
