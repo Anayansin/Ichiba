@@ -1,0 +1,32 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.Contenedor {
+  padding: 4rem 3rem;
+}
+
+.Contenedor__filtro-activo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.Contenedor__filtro-activo a {
+  color: #d90429;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.Contenedor__Producto {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}

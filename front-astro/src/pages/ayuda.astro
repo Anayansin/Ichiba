@@ -1,0 +1,156 @@
+---
+import "../estilos/ayuda.css";
+
+const seccionInicial = "preguntas";
+
+const seccionesDelMenu = [
+  { identificador: "preguntas", titulo: "Preguntas frecuentes" },
+  { identificador: "como-funciona", titulo: "Cómo funciona" },
+  { identificador: "mis-pedidos", titulo: "Mis pedidos" },
+  { identificador: "reportar", titulo: "Reportar un vendedor" },
+  { identificador: "privacidad", titulo: "Políticas de privacidad" },
+];
+
+const pasosDeComoFunciona = [
+  {
+    numero: "01",
+    titulo: "Explora el catálogo",
+    texto:
+      "Navega por categorías o busca un producto específico, sin necesidad de crear una cuenta.",
+  },
+  {
+    numero: "02",
+    titulo: "Entra a la fila",
+    texto:
+      "Al entrar a la fila de un producto, se te asigna una posición ordenada según el momento en que llegaste.",
+  },
+  {
+    numero: "03",
+    titulo: "Espera tu turno",
+    texto:
+      "Solo quien ocupa la posición uno puede pagar. Puedes seguir tu avance desde la burbuja flotante.",
+  },
+  {
+    numero: "04",
+    titulo: "Paga con PayPal",
+    texto:
+      "El pago se procesa de forma segura y va directo a la cuenta de PayPal del vendedor.",
+  },
+  {
+    numero: "05",
+    titulo: "Coordina la entrega",
+    texto:
+      "Al confirmarse el pago, se habilita un chat privado entre tú y el vendedor para acordar la entrega.",
+  },
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ichiba — Ayuda</title>
+  </head>
+  <body>
+    <div class="ayuda">
+      <aside class="ayuda__menu">
+        {
+          seccionesDelMenu.map((seccion) => (
+            <button
+              type="button"
+              class:list={[
+                "ayuda__menu-opcion",
+                {
+                  "ayuda__menu-opcion--activa":
+                    seccion.identificador === seccionInicial,
+                },
+              ]}
+              data-seccion={seccion.identificador}
+            >
+              {seccion.titulo}
+            </button>
+          ))
+        }
+      </aside>
+
+      <div class="ayuda__contenido">
+        <section
+          class:list={[
+            "ayuda__seccion preguntas-frecuentes",
+            { "ayuda__seccion--activa": seccionInicial === "preguntas" },
+          ]}
+          data-seccion="preguntas"
+        >
+          <h1>Preguntas frecuentes</h1>
+          <p class="preguntas-frecuentes__intro">
+            Escribe tu duda en el asistente de soporte y recibe una respuesta al
+            instante. También puedes tocar uno de los temas sugeridos.
+          </p>
+        </section>
+
+        <section
+          class="ayuda__seccion como-funciona"
+          data-seccion="como-funciona"
+        >
+          <h1>Cómo funciona Ichiba</h1>
+          <div class="como-funciona__lista">
+            {
+              pasosDeComoFunciona.map((paso) => (
+                <div class="como-funciona__paso">
+                  <span class="como-funciona__numero">{paso.numero}</span>
+                  <div>
+                    <h3>{paso.titulo}</h3>
+                    <p>{paso.texto}</p>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </section>
+
+        <section class="ayuda__seccion" data-seccion="mis-pedidos">
+          <!-- TODO_ISLA -->
+        </section>
+
+        <section class="ayuda__seccion" data-seccion="reportar">
+          <!-- TODO_ISLA -->
+        </section>
+
+        <section class="ayuda__seccion" data-seccion="privacidad">
+          Aqui deben estar todas las politicas pero nc cuales deban ser jiji
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const botonesDelMenu = document.querySelectorAll(
+        ".ayuda__menu-opcion",
+      );
+      const seccionesDeContenido = document.querySelectorAll(
+        ".ayuda__seccion",
+      );
+
+      function mostrarSeccion(identificador) {
+        botonesDelMenu.forEach((boton) => {
+          boton.classList.toggle(
+            "ayuda__menu-opcion--activa",
+            boton.getAttribute("data-seccion") === identificador,
+          );
+        });
+        seccionesDeContenido.forEach((seccion) => {
+          seccion.classList.toggle(
+            "ayuda__seccion--activa",
+            seccion.getAttribute("data-seccion") === identificador,
+          );
+        });
+      }
+
+      botonesDelMenu.forEach((boton) => {
+        boton.addEventListener("click", () => {
+          mostrarSeccion(boton.getAttribute("data-seccion"));
+        });
+      });
+    </script>
+  </body>
+</html>
