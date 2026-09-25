@@ -31,6 +31,40 @@ function formatoHoraValido(hora: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora);
 }
 
+/**
+ * Valida la ventana diaria de coordinación de entrega de un producto.
+ * Aplica las mismas reglas que el horario de trabajo: formato HH:MM y
+ * límites de 05:00 a 23:59, con la hora de fin después de la de inicio.
+ */
+export function validarHorarioEntrega(
+  horaInicio: unknown,
+  horaFin: unknown,
+): string | null {
+  if (
+    typeof horaInicio !== "string" ||
+    typeof horaFin !== "string" ||
+    !formatoHoraValido(horaInicio) ||
+    !formatoHoraValido(horaFin)
+  ) {
+    return "Formato de hora inválido en el horario de entrega (usa HH:MM, 24 horas)";
+  }
+
+  const inicio = minutosDesdeMedianoche(horaInicio);
+  const fin = minutosDesdeMedianoche(horaFin);
+  const minimoPermitido = minutosDesdeMedianoche("05:00");
+  const maximoPermitido = minutosDesdeMedianoche("23:59");
+
+  if (inicio < minimoPermitido || fin > maximoPermitido) {
+    return "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59";
+  }
+
+  if (fin <= inicio) {
+    return "La hora de fin del horario de entrega debe ser después de la hora de inicio";
+  }
+
+  return null;
+}
+
 export function validarHorarioSemanal(
   horarios: BloqueHorario[],
 ): string | null {

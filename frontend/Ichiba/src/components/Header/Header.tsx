@@ -2,16 +2,13 @@ import Boton from "../Boton/Boton";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import {
+  CATEGORIAS_PRODUCTO,
+  TIPOS_PROMOCIONAL,
+} from "../../configuracion/categorias";
 import "./Header.css";
 
-const categorias = [
-  "Artesanias",
-  "Ropa",
-  "Hogar",
-  "Electrodomesticos",
-  "Coleccionables",
-  "Otros",
-];
+const categorias = CATEGORIAS_PRODUCTO;
 
 interface HeaderProps {
   onOpenLogin: () => void;
@@ -19,6 +16,7 @@ interface HeaderProps {
 
 function Header({ onOpenLogin }: HeaderProps) {
   const [categoriasAbiertas, setCategoriasAbiertas] = useState(false);
+  const [promocionalesAbiertos, setPromocionalesAbiertos] = useState(false);
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
@@ -62,6 +60,33 @@ function Header({ onOpenLogin }: HeaderProps) {
                   {categoria}
                 </Link>
               ))}
+
+              <div
+                className="header__submenu"
+                onMouseEnter={() => setPromocionalesAbiertos(true)}
+                onMouseLeave={() => setPromocionalesAbiertos(false)}
+              >
+                <Link to="/promocionales" className="header__menu-item">
+                  Promocionales ▸
+                </Link>
+
+                {promocionalesAbiertos && (
+                  <div className="header__submenu-despliega">
+                    <span className="header__submenu-titulo">
+                      Tipos de promocional
+                    </span>
+                    {TIPOS_PROMOCIONAL.map((tipo) => (
+                      <Link
+                        key={tipo.valor}
+                        to={`/promocionales?tipo=${tipo.valor}`}
+                        className="header__menu-item"
+                      >
+                        {tipo.texto}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

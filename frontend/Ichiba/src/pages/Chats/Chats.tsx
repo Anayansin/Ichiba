@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -20,6 +20,9 @@ import { URL_BACKEND } from "../../services/api";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
 import "./Chats.css";
 
+const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024; // 5 MB (límite del backend)
+const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+
 function Chats() {
   const { usuario } = useAuth();
   const esVendedor = !!usuario;
@@ -30,6 +33,11 @@ function Chats() {
   const [texto, setTexto] = useState("");
   const [cargandoVentas, setCargandoVentas] = useState(true);
   const [errorChat, setErrorChat] = useState("");
+
+  // Imagen adjunta pendiente de enviar
+  const [imagen, setImagen] = useState<File | null>(null);
+  const [previewImagen, setPreviewImagen] = useState<string | null>(null);
+  const inputImagenRef = useRef<HTMLInputElement>(null);
 
   // Reporte de la conversación activa (ambos lados: comprador y vendedor)
   const [mostrarReporte, setMostrarReporte] = useState(false);
@@ -64,6 +72,9 @@ function Chats() {
   useEffect(() => {
     if (!ventaActivaId) return;
 
+    // Al cambiar de conversación se limpia el adjunto pendiente
+    quitarImagen();
+
     function cargarMensajes() {
       fetchMensajesFn(ventaActivaId as string)
         .then((data) => setMensajes(data))
@@ -78,13 +89,43 @@ function Chats() {
 
   const ventaActiva = ventas.find((venta) => venta._id === ventaActivaId);
 
+  function quitarImagen() {
+    if (previewImagen) URL.revokeObjectURL(previewImagen);
+    setImagen(null);
+    setPreviewImagen(null);
+    if (inputImagenRef.current) inputImagenRef.current.value = "";
+  }
+
+  function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const archivo = e.target.files?.[0];
+    e.target.value = "";
+    if (!archivo) return;
+
+    if (!TIPOS_IMAGEN_PERMITIDOS.includes(archivo.type)) {
+      setErrorChat("Solo puedes adjuntar imágenes (jpg, png o webp)");
+      return;
+    }
+
+    if (archivo.size > TAMANIO_MAXIMO_IMAGEN) {
+      setErrorChat("La imagen no puede superar los 5 MB");
+      return;
+    }
+
+    quitarImagen();
+    setErrorChat("");
+    setImagen(archivo);
+    setPreviewImagen(URL.createObjectURL(archivo));
+  }
+
   async function handleEnviar(e: React.FormEvent) {
     e.preventDefault();
-    if (!texto.trim() || !ventaActivaId) return;
+    const textoLimpio = texto.trim();
+    if ((!textoLimpio && !imagen) || !ventaActivaId) return;
 
     try {
-      await enviarMensajeFn(ventaActivaId, texto.trim());
+      await enviarMensajeFn(ventaActivaId, textoLimpio, imagen);
       setTexto("");
+      quitarImagen();
       setErrorChat("");
       const data = await fetchMensajesFn(ventaActivaId);
       setMensajes(data);
@@ -185,6 +226,7 @@ function Chats() {
                 <BurbujaDeTexto
                   key={mensaje._id}
                   contenido={mensaje.contenido}
+                  imagen={mensaje.imagen}
                   esRemitente={
                     esVendedor
                       ? mensaje.remitente === "vendedor"
@@ -201,11 +243,44 @@ function Chats() {
 
             {errorChat && <p className="chats__error">{errorChat}</p>}
 
+            {previewImagen && (
+              <div className="chats__adjunto-preview">
+                <img src={previewImagen} alt="Imagen por enviar" />
+                <button
+                  type="button"
+                  onClick={quitarImagen}
+                  aria-label="Quitar imagen adjunta"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <form className="chat-formulario" onSubmit={handleEnviar}>
+              <input
+                ref={inputImagenRef}
+                type="file"
+                accept="image/jpeg, image/png, image/webp"
+                onChange={handleSeleccionImagen}
+                hidden
+              />
+              <button
+                type="button"
+                className="chat-boton-adjuntar"
+                onClick={() => inputImagenRef.current?.click()}
+                aria-label="Adjuntar imagen"
+                title="Adjuntar imagen (jpg, png o webp, máximo 5 MB)"
+              >
+                📎
+              </button>
               <input
                 type="text"
                 className="chat-input"
-                placeholder="Escribe un mensaje..."
+                placeholder={
+                  imagen
+                    ? "Añade un texto o envía la imagen..."
+                    : "Escribe un mensaje..."
+                }
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 aria-label="Escribe un mensaje"
@@ -213,7 +288,7 @@ function Chats() {
               <button
                 type="submit"
                 className="chat-boton-enviar"
-                disabled={!texto.trim()}
+                disabled={!texto.trim() && !imagen}
               >
                 Enviar
               </button>

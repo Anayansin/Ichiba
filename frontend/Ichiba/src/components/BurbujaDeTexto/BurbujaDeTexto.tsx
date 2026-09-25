@@ -1,3 +1,4 @@
+import { URL_BACKEND } from "../../services/api";
 import "./BurbujaDeTexto.css";
 
 interface BurbujaDeTextoProps {
@@ -5,6 +6,7 @@ interface BurbujaDeTextoProps {
   esRemitente: boolean;
   horario: string;
   estadoLectura: "enviedo" | "recivido" | "leido";
+  imagen?: string | null;
 }
 
 function obtenerCheckLectura(estado: string) {
@@ -18,13 +20,23 @@ function BurbujaDeTexto({
   esRemitente,
   horario,
   estadoLectura,
+  imagen,
 }: BurbujaDeTextoProps) {
   const claseAlineacion = esRemitente ? "mensaje-mio" : "mensaje-otro";
+  const tieneImagen = !!imagen;
+  const tieneTexto = !!contenido.trim();
 
   return (
     <div className={`contenedor-burbuja ${claseAlineacion}`}>
-      <div className="burbuja">
-        <div className="burbuja__contenido">{contenido}</div>
+      <div className={`burbuja ${tieneImagen ? "burbuja--con-imagen" : ""}`}>
+        {tieneImagen && (
+          <img
+            className="burbuja__imagen"
+            src={`${URL_BACKEND}${imagen}`}
+            alt="Imagen adjunta"
+          />
+        )}
+        {tieneTexto && <div className="burbuja__contenido">{contenido}</div>}
         <div className="burbuja__metadatos">
           <span className="burbuja__horario">{horario}</span>
           {esRemitente && (

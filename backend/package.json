@@ -8,6 +8,15 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/server.ts"
   },
+  "nodemonConfig": {
+    "watch": [
+      "src"
+    ],
+    "ext": "ts,json",
+    "ignore": [
+      "node_modules"
+    ]
+  },
   "keywords": [],
   "dependencies": {
     "bcryptjs": "^3.0.3",

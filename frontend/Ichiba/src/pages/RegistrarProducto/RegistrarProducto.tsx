@@ -9,16 +9,10 @@ import {
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
+import { CATEGORIAS_PRODUCTO } from "../../configuracion/categorias";
 import "./RegistrarProducto.css";
 
-const categorias = [
-  "Artesanias",
-  "Ropa",
-  "Hogar",
-  "Electrodomesticos",
-  "Coleccionables",
-  "Otros",
-];
+const categorias = CATEGORIAS_PRODUCTO;
 
 const MAX_IMAGENES = 6;
 
@@ -75,6 +69,13 @@ function RegistrarProducto() {
 
     if (archivos.length === 0) {
       setError("Agrega al menos una imagen del producto");
+      return;
+    }
+
+    if (horarioInicio < "05:00" || horarioFin > "23:59") {
+      setError(
+        "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59",
+      );
       return;
     }
 
@@ -208,6 +209,8 @@ function RegistrarProducto() {
               className="registrar-producto-input"
               value={horarioInicio}
               onChange={(e) => setHorarioInicio(e.target.value)}
+              min="05:00"
+              max="23:59"
               required
             />
             <span>a</span>
@@ -216,9 +219,15 @@ function RegistrarProducto() {
               className="registrar-producto-input"
               value={horarioFin}
               onChange={(e) => setHorarioFin(e.target.value)}
+              min="05:00"
+              max="23:59"
               required
             />
           </div>
+          <small className="registrar-producto-nota">
+            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
+            de tu disponibilidad de trabajo.
+          </small>
         </div>
 
         <div className="form-group">

@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-import Boton from "../../Boton/Boton";
 import "./TerminosCondiciones.css";
 
 interface TerminosCondicionesProps {

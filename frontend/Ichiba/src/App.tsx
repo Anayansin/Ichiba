@@ -9,6 +9,9 @@ import RegistarCuenta from "./pages/RegistrarCuenta/RegistrarCuenta";
 import ProductoCompleto from "./pages/ProductoCompleto/ProductoCompleto";
 import PanelVendedor from "./pages/PanelVendedor/PanelVendedor";
 import RegistrarProducto from "./pages/RegistrarProducto/RegistrarProducto";
+import RegistrarPromocional from "./pages/RegistrarPromocional/RegistrarPromocional";
+import Promocionales from "./pages/Promocionales/Promocionales";
+import PromocionalDetalle from "./pages/PromocionalDetalle/PromocionalDetalle";
 import VendedorPerfil from "./pages/PerfilDelVendedor/PerfilDelVendedor";
 import ColaBubble from "./components/ColaBubble/ColaBubble";
 import { useState } from "react";
@@ -35,6 +38,8 @@ function App() {
           <Route path="/ayuda" element={<Ayuda />} />
           <Route path="/registro" element={<RegistarCuenta />} />
           <Route path="/producto/:id" element={<ProductoCompleto />} />
+          <Route path="/promocionales" element={<Promocionales />} />
+          <Route path="/promocional/:id" element={<PromocionalDetalle />} />
           <Route path="/panel-vendedor" element={<PanelVendedor />} />
           <Route
             path="/panel-vendedor/editar/:id"
@@ -43,6 +48,10 @@ function App() {
           <Route
             path="/panel-vendedor/publicar"
             element={<RegistrarProducto />}
+          />
+          <Route
+            path="/panel-vendedor/publicar-promocional"
+            element={<RegistrarPromocional />}
           />
           <Route path="/vendedor/:id" element={<VendedorPerfil />} />
           <Route path="/pago-exitoso" element={<PagoExitoso />} />

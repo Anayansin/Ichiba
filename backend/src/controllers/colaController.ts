@@ -5,6 +5,7 @@ import {
   reacomodarFila,
   iniciarTemporizadorPago,
   expirarTurnoSiVencido,
+  limpiarFilasHuerfanas,
 } from "../services/filaService.js";
 
 const LIMITE_FILAS_ACTIVAS = 3;
@@ -13,6 +14,9 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
   try {
     const { productoId } = req.body;
     const compradorId = req.compradorId as string;
+
+    // Filas de productos ya borrados no deben ocupar el límite de 3
+    await limpiarFilasHuerfanas(compradorId);
 
     const yaEstaEnEstaFila = await Cola.findOne({
       productoId,
@@ -37,12 +41,16 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
       });
     }
 
-    const personasEnEstaFila = await Cola.countDocuments({
+    // La posición se calcula con la última ocupada (no con el conteo),
+    // para que un hueco en la numeración no genere dos personas en la misma posición
+    const ultimaOcupada = await Cola.findOne({
       productoId,
       estado: "activa",
-    });
+    })
+      .sort({ posicion: -1 })
+      .select("posicion");
 
-    const posicion = personasEnEstaFila + 1;
+    const posicion = (ultimaOcupada?.posicion ?? 0) + 1;
 
     const nuevaCola = new Cola({
       productoId,
@@ -66,6 +74,9 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
 export async function misFilas(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
+
+    // Evita que aparezcan filas de productos borrados (rompen la UI con null)
+    await limpiarFilasHuerfanas(compradorId);
 
     const filas = await Cola.find({ compradorId, estado: "activa" })
       .populate("productoId", "nombre imagenes precio")

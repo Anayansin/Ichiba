@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { Request, Response, NextFunction } from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,3 +46,22 @@ export const upload = multer({
   fileFilter: filtroArchivos,
   limits: { fileSize: 5 * 1024 * 1024 },
 });
+
+/**
+ * Sube un solo archivo y devuelve los errores de Multer como JSON (400)
+ * en vez del manejo de errores por defecto de Express.
+ */
+export function subirImagenUnica(campo: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    upload.single(campo)(req, res, (error) => {
+      if (error) {
+        const mensaje =
+          error instanceof multer.MulterError
+            ? "La imagen no cumple con los requisitos (máximo 5 MB)"
+            : error.message || "No se pudo procesar la imagen";
+        return res.status(400).json({ message: mensaje });
+      }
+      next();
+    });
+  };
+}

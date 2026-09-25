@@ -26,6 +26,34 @@ export async function iniciarTemporizadorPago(fila: Fila): Promise<void> {
   fila.pagoExpiraEn = new Date(Date.now() + tiempoLimite * 60 * 1000);
 }
 
+/**
+ * Finaliza las filas activas de un comprador cuyo producto ya fue borrado.
+ * Sin esto, esas filas fantasma consumen el límite de 3 filas activas y,
+ * al hacer populate en misFilas, el frontend recibe productoId null y se rompe.
+ */
+export async function limpiarFilasHuerfanas(
+  compradorId: string,
+): Promise<void> {
+  const filas = await Cola.find({ compradorId, estado: "activa" }).select(
+    "productoId",
+  );
+  if (filas.length === 0) return;
+
+  const ids = Array.from(new Set(filas.map((fila) => fila.productoId.toString())));
+  const existentes = await Producto.find({ _id: { $in: ids } }).select("_id");
+  const validos = new Set(existentes.map((producto) => producto._id.toString()));
+
+  const huerfanas = filas
+    .filter((fila) => !validos.has(fila.productoId.toString()))
+    .map((fila) => fila._id);
+  if (huerfanas.length === 0) return;
+
+  await Cola.updateMany(
+    { _id: { $in: huerfanas } },
+    { estado: "finalizada" },
+  );
+}
+
 export async function reacomodarFila(
   productoId: string,
   posicionQueSeLibero: number,

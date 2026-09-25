@@ -94,6 +94,39 @@ body {
   padding-left: 5%;
   z-index: 10;
   border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 220px;
+}
+
+/* Submenú de Promocionales (se despliega a la derecha al pasar el cursor) */
+.header__submenu {
+  position: relative;
+}
+
+.header__submenu-despliega {
+  position: absolute;
+  top: -0.75rem;
+  left: 100%;
+  background-color: #ffffff;
+  padding: 1rem 1.5rem;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 220px;
+}
+
+.header__submenu-titulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #888888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .header__usuario {

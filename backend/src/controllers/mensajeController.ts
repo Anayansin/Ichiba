@@ -1,8 +1,13 @@
-import { Response } from "express";
+import { Response, Request } from "express";
+import fs from "fs";
 import { Mensaje } from "../models/Mensaje.js";
 import { Venta } from "../models/Venta.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import {
+  campoConPalabrasProhibidas,
+  mensajePalabrasProhibidas,
+} from "../utils/filtroPalabras.js";
 
 async function validarAccesoComprador(ventaId: string, compradorId: string) {
   const venta = await Venta.findById(ventaId);
@@ -16,6 +21,40 @@ async function validarAccesoVendedor(ventaId: string, vendedorId: string) {
   if (!venta) return null;
   if (venta.vendedorId.toString() !== vendedorId) return null;
   return venta;
+}
+
+/** Elimina la imagen subida cuando el mensaje no se va a guardar. */
+function descartarImagen(req: Request) {
+  if (req.file) fs.unlink(req.file.path, () => {});
+}
+
+/**
+ * Valida el texto y la imagen adjunta del mensaje entrante.
+ * El filtro global de palabras corre antes de que Multer arme el cuerpo
+ * multipart, así que aquí se vuelve a revisar el contenido.
+ */
+function datosDelMensaje(req: Request): {
+  contenido: string;
+  imagen: string;
+  error?: string;
+} {
+  const contenido =
+    typeof req.body?.contenido === "string" ? req.body.contenido.trim() : "";
+  const imagen = req.file ? `/uploads/${req.file.filename}` : "";
+
+  const rechazar = (mensaje: string) => {
+    descartarImagen(req);
+    return { contenido: "", imagen: "", error: mensaje };
+  };
+
+  if (!contenido && !imagen)
+    return rechazar("Escribe un mensaje o adjunta una imagen");
+
+  const campoProhibido = campoConPalabrasProhibidas({ contenido });
+  if (campoProhibido)
+    return rechazar(mensajePalabrasProhibidas(campoProhibido));
+
+  return { contenido, imagen };
 }
 
 export async function fetchMensajesComoComprador(
@@ -44,18 +83,23 @@ export async function enviarMensajeComoComprador(
 ) {
   try {
     const ventaId = req.params.ventaId as string;
-    const { contenido } = req.body;
     const compradorId = req.compradorId as string;
 
     const venta = await validarAccesoComprador(ventaId, compradorId);
-    if (!venta)
+    if (!venta) {
+      descartarImagen(req);
       return res.status(403).json({ message: "No tienes acceso a este chat" });
+    }
+
+    const { contenido, imagen, error } = datosDelMensaje(req);
+    if (error) return res.status(400).json({ message: error });
 
     const mensaje = new Mensaje({
       ventaId,
       remitente: "comprador",
       remitenteId: compradorId,
       contenido,
+      imagen: imagen || null,
     });
     await mensaje.save();
 
@@ -92,18 +136,23 @@ export async function enviarMensajeComoVendedor(
 ) {
   try {
     const ventaId = req.params.ventaId as string;
-    const { contenido } = req.body;
     const vendedorId = req.usuarioId as string;
 
     const venta = await validarAccesoVendedor(ventaId, vendedorId);
-    if (!venta)
+    if (!venta) {
+      descartarImagen(req);
       return res.status(403).json({ message: "No tienes acceso a este chat" });
+    }
+
+    const { contenido, imagen, error } = datosDelMensaje(req);
+    if (error) return res.status(400).json({ message: error });
 
     const mensaje = new Mensaje({
       ventaId,
       remitente: "vendedor",
       remitenteId: vendedorId,
       contenido,
+      imagen: imagen || null,
     });
     await mensaje.save();
 

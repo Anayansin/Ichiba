@@ -188,4 +188,5 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "dick",
   "idiot",
   "idiots",
+  "penejo",
 ];

@@ -259,6 +259,66 @@
   cursor: not-allowed;
 }
 
+/* Botón para adjuntar una imagen al mensaje */
+.chat-boton-adjuntar {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 2px solid #cdcdcd;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background-color 0.2s;
+}
+
+.chat-boton-adjuntar:hover {
+  border-color: #d90429;
+  background: #fdf0f1;
+}
+
+/* Vista previa de la imagen adjunta antes de enviarla */
+.chats__adjunto-preview {
+  position: relative;
+  width: fit-content;
+  margin: 0 1.2rem 0.6rem auto;
+  padding: 6px;
+  background: #ffffff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.chats__adjunto-preview img {
+  display: block;
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.chats__adjunto-preview button {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: #d90429;
+  color: #ffffff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.chats__adjunto-preview button:hover {
+  background: #b3001b;
+}
+
 /* Cabecera de la conversación activa con botón de reporte */
 .chats__cabecera {
   display: flex;
