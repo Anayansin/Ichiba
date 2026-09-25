@@ -7,7 +7,7 @@ export type Fila = {
     nombre: string;
     imagenes: string[];
     precio: number;
-  };
+  } | null;
   estado: string;
 };
 

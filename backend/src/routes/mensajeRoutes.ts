@@ -9,6 +9,7 @@ import {
 } from "../controllers/mensajeController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { verificarToken } from "../middleware/auth.js";
+import { subirImagenUnica } from "../middleware/upload.js";
 import {
   requiereCompradorSinSancion,
   requiereUsuarioSinSancion,
@@ -31,6 +32,7 @@ router.post(
   "/comprador/:ventaId",
   requiereCompradorId,
   requiereCompradorSinSancion,
+  subirImagenUnica("imagen"),
   enviarMensajeComoComprador,
 );
 
@@ -41,6 +43,7 @@ router.post(
   "/vendedor/:ventaId",
   verificarToken,
   requiereUsuarioSinSancion,
+  subirImagenUnica("imagen"),
   enviarMensajeComoVendedor,
 );
 

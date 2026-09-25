@@ -39,6 +39,26 @@
   border-bottom-right-radius: 4px;
 }
 
+.burbuja__contenido {
+  white-space: pre-wrap;
+}
+
+.burbuja--con-imagen {
+  padding: 6px 6px 8px;
+}
+
+.burbuja__imagen {
+  display: block;
+  width: 220px;
+  max-width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 14px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.05);
+}
+
 .burbuja__metadatos {
   display: flex;
   justify-content: flex-end;

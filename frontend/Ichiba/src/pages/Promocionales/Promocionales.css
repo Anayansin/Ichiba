@@ -1,0 +1,110 @@
+.promocionales {
+  padding: 3rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.promocionales__cargando {
+  text-align: center;
+  padding: 4rem;
+  color: #888;
+}
+
+.promocionales__error {
+  background-color: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c2c7;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.promocionales__reintentar {
+  background: none;
+  border: 2px solid #d90429;
+  color: #d90429;
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.promocionales__reintentar:hover {
+  background-color: #d90429;
+  color: #ffffff;
+}
+
+.promocionales__cabecera h1 {
+  font-size: 1.8rem;
+  color: #1a1a1a;
+  margin: 0 0 0.4rem 0;
+}
+
+.promocionales__cabecera p {
+  color: #666;
+  margin: 0 0 1.5rem 0;
+  max-width: 640px;
+}
+
+/* Filtros por tipo de promocional */
+.promocionales__tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.promocionales__tipo {
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  border: 1px solid #cdcdcd;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  transition:
+    background-color 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.promocionales__tipo:hover {
+  border-color: #d90429;
+  color: #d90429;
+}
+
+.promocionales__tipo--activo {
+  background-color: #d90429;
+  border-color: #d90429;
+  color: #ffffff;
+}
+
+.promocionales__tipo--activo:hover {
+  background-color: #b8031f;
+  border-color: #b8031f;
+  color: #ffffff;
+}
+
+.promocionales__filtro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.promocionales__filtro a {
+  color: #d90429;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.promocionales__lista {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}

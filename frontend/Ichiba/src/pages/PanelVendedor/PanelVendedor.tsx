@@ -12,6 +12,12 @@ import {
   eliminarProducto,
   type Producto,
 } from "../../services/productoService";
+import {
+  fetchMisPromocionales,
+  cambiarEstadoPromocional,
+  eliminarPromocional,
+  type Promocional,
+} from "../../services/promocionalService";
 import { URL_BACKEND } from "../../services/api";
 import "./PanelVendedor.css";
 
@@ -19,15 +25,29 @@ function PanelVendedor() {
   const { usuario } = useAuth();
   const [perfil, setPerfil] = useState<PerfilUsuario | null>(null);
   const [misProductos, setMisProductos] = useState<Producto[]>([]);
+  const [misPromocionales, setMisPromocionales] = useState<Promocional[]>([]);
   const [cargando, setCargando] = useState(true);
 
   function cargarDatos() {
-    Promise.all([fetchPerfil(), fetchMisProductos()])
-      .then(([datosPerfil, productos]) => {
+    setCargando(true);
+
+    Promise.all([
+      fetchPerfil(),
+      fetchMisProductos(),
+      // Un fallo en promocionales no debe impedir cargar el panel
+      fetchMisPromocionales().catch((error) => {
+        console.error("Error al cargar promocionales:", error);
+        return [];
+      }),
+    ])
+      .then(([datosPerfil, productos, promocionales]) => {
         setPerfil(datosPerfil);
         setMisProductos(productos);
+        setMisPromocionales(promocionales);
       })
-      .catch((error) => console.error("Error al cargar el panel:", error))
+      .catch((error) => {
+        console.error("Error al cargar el panel:", error);
+      })
       .finally(() => setCargando(false));
   }
 
@@ -37,12 +57,28 @@ function PanelVendedor() {
   }, [usuario]);
 
   if (!usuario) return <Navigate to="/" replace />;
-  if (cargando || !perfil)
-    return <p className="panel-vendedor__cargando">Cargando tu panel...</p>;
+  if (cargando) return <p className="panel-vendedor__cargando">Cargando tu panel...</p>;
+
+  if (!perfil) {
+    return (
+      <p className="panel-vendedor__cargando">
+        No pudimos cargar tu panel.{" "}
+        <button
+          type="button"
+          className="panel-vendedor__reintentar"
+          onClick={cargarDatos}
+        >
+          Reintentar
+        </button>
+      </p>
+    );
+  }
 
   const necesitaVerificar = !perfil.correoVerificado;
   const productosActivos = misProductos.filter((p) => p.activo);
   const productosInactivos = misProductos.filter((p) => !p.activo);
+  const promocionalesActivos = misPromocionales.filter((p) => p.activo);
+  const promocionalesInactivos = misPromocionales.filter((p) => !p.activo);
 
   async function handleCambiarEstado(id: string) {
     await cambiarEstadoProducto(id);
@@ -55,6 +91,20 @@ function PanelVendedor() {
     );
     if (!confirmado) return;
     await eliminarProducto(id);
+    cargarDatos();
+  }
+
+  async function handleCambiarEstadoPromocional(id: string) {
+    await cambiarEstadoPromocional(id);
+    cargarDatos();
+  }
+
+  async function handleEliminarPromocional(id: string) {
+    const confirmado = window.confirm(
+      "¿Seguro que quieres eliminar este promocional? Esta acción no se puede deshacer.",
+    );
+    if (!confirmado) return;
+    await eliminarPromocional(id);
     cargarDatos();
   }
 
@@ -100,6 +150,44 @@ function PanelVendedor() {
     );
   }
 
+  function renderPromocional(promocional: Promocional) {
+    return (
+      <div key={promocional._id} className="panel-vendedor__producto-fila">
+        <Link
+          to={`/promocional/${promocional._id}`}
+          className="panel-vendedor__producto-item"
+        >
+          <img
+            src={`${URL_BACKEND}${promocional.imagenes[0]}`}
+            alt={promocional.nombre}
+          />
+          <div>
+            <p className="panel-vendedor__producto-nombre">
+              {promocional.nombre}
+            </p>
+            <p className="panel-vendedor__producto-precio">
+              ${promocional.precio}
+            </p>
+          </div>
+        </Link>
+        <div className="panel-vendedor__acciones">
+          <button
+            className="panel-vendedor__estado-btn"
+            onClick={() => handleCambiarEstadoPromocional(promocional._id)}
+          >
+            {promocional.activo ? "Desactivar" : "Activar"}
+          </button>
+          <button
+            className="panel-vendedor__eliminar-btn"
+            onClick={() => handleEliminarPromocional(promocional._id)}
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="panel-vendedor">
       <h1>Hola, {perfil.nombreCompleto}</h1>
@@ -111,6 +199,14 @@ function PanelVendedor() {
             {productosActivos.length}
           </span>
           <span className="panel-vendedor__stat-label">Productos activos</span>
+        </div>
+        <div className="panel-vendedor__stat-card">
+          <span className="panel-vendedor__stat-numero">
+            {promocionalesActivos.length}
+          </span>
+          <span className="panel-vendedor__stat-label">
+            Promocionales activos
+          </span>
         </div>
         <div className="panel-vendedor__stat-card">
           <span className="panel-vendedor__stat-numero">
@@ -126,12 +222,20 @@ function PanelVendedor() {
         </div>
       </div>
 
-      <Link
-        to="/panel-vendedor/publicar"
-        className="panel-vendedor__boton-publicar"
-      >
-        + Publicar nuevo producto
-      </Link>
+      <div className="panel-vendedor__publicar">
+        <Link
+          to="/panel-vendedor/publicar"
+          className="panel-vendedor__boton-publicar"
+        >
+          + Publicar nuevo producto
+        </Link>
+        <Link
+          to="/panel-vendedor/publicar-promocional"
+          className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
+        >
+          + Publicar promocional
+        </Link>
+      </div>
 
       <div className="panel-vendedor__productos">
         <h2>Activos</h2>
@@ -153,6 +257,36 @@ function PanelVendedor() {
         ) : (
           <div className="panel-vendedor__lista-productos">
             {productosInactivos.map(renderProducto)}
+          </div>
+        )}
+      </div>
+
+      <div className="panel-vendedor__productos">
+        <h2>Promocionales</h2>
+        <p className="panel-vendedor__nota-promocional">
+          Los promocionales solo se anuncian aquí: no se venden ni se pagan
+          dentro de la plataforma.
+        </p>
+
+        <h3 className="panel-vendedor__subtitulo">Activos</h3>
+        {promocionalesActivos.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes promocionales activos.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-productos">
+            {promocionalesActivos.map(renderPromocional)}
+          </div>
+        )}
+
+        <h3 className="panel-vendedor__subtitulo">Inactivos</h3>
+        {promocionalesInactivos.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes promocionales inactivos.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-productos">
+            {promocionalesInactivos.map(renderPromocional)}
           </div>
         )}
       </div>

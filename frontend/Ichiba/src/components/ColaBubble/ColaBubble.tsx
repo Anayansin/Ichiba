@@ -22,19 +22,24 @@ function ColaBubble() {
           <p className="cola-bubble__titulo">
             Tus filas activas ({cantidadFilas}/3)
           </p>
-          {filas.map((fila) => (
-            <div key={fila._id} className="cola-bubble__item">
-              <img
-                src={`${URL_BACKEND}${fila.productoId.imagenes[0]}`}
-                alt={fila.productoId.nombre}
-              />
-              <div className="cola-bubble__item-info">
-                <p>{fila.productoId.nombre}</p>
-                <span>${fila.productoId.precio}</span>
+          {filas.map((fila) => {
+            // Defensa: si el producto fue borrado, populate devuelve null
+            if (!fila.productoId) return null;
+
+            return (
+              <div key={fila._id} className="cola-bubble__item">
+                <img
+                  src={`${URL_BACKEND}${fila.productoId.imagenes?.[0] ?? ""}`}
+                  alt={fila.productoId.nombre}
+                />
+                <div className="cola-bubble__item-info">
+                  <p>{fila.productoId.nombre}</p>
+                  <span>${fila.productoId.precio}</span>
+                </div>
+                <button onClick={() => handleSalir(fila._id)}>Salir</button>
               </div>
-              <button onClick={() => handleSalir(fila._id)}>Salir</button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

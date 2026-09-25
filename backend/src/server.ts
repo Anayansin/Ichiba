@@ -14,6 +14,7 @@ import colaRoutes from "./routes/colaRoutes.js";
 import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
 import { iniciarJobRevisionPagos } from "./jobs/revisionPagos.js";
 import mensajeRoutes from "./routes/mensajeRoutes.js";
+import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
@@ -34,6 +35,7 @@ app.use("/api/verificacion", verificacionRoutes);
 app.use("/api/pagos", pagoRoutes);
 app.use("/api/colas", colaRoutes);
 app.use("/api/mensajes", mensajeRoutes);
+app.use("/api/promocionales", promocionalRoutes);
 app.use("/api/reportes", reporteRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 

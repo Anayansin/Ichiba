@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { Producto } from "../models/producto.js";
+import { Cola } from "../models/Cola.js";
 import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Request } from "express";
@@ -15,8 +16,7 @@ import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
-
-const FORMATO_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
+import { validarHorarioEntrega } from "../utils/validarHorario.js";
 
 function validarEntrega(req: Request): string | null {
   const { condicion, metodoEntrega, horarioInicio, horarioFin } = req.body;
@@ -29,12 +29,9 @@ function validarEntrega(req: Request): string | null {
     return "Selecciona un método de entrega válido";
   }
 
-  if (
-    !FORMATO_HORA.test(horarioInicio) ||
-    !FORMATO_HORA.test(horarioFin) ||
-    horarioInicio >= horarioFin
-  ) {
-    return "Selecciona un rango válido de horario de coordinación de entrega";
+  const errorHorarioEntrega = validarHorarioEntrega(horarioInicio, horarioFin);
+  if (errorHorarioEntrega) {
+    return errorHorarioEntrega;
   }
 
   const tiempoLimitePago = Number(req.body.tiempoLimitePago);
@@ -258,6 +255,16 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
       const rutaCompleta = path.join(process.cwd(), rutaRelativa);
       fs.unlink(rutaCompleta, () => {});
     });
+
+    // Las filas dejan de existir junto con el producto: sin esto quedan
+    // como "activas" y siguen contando para el límite de 3 del comprador
+    await Cola.updateMany(
+      {
+        productoId: producto._id,
+        estado: { $in: ["activa", "esperando_confirmacion"] },
+      },
+      { estado: "finalizada" },
+    );
 
     await producto.deleteOne();
     res.json({ message: "Producto eliminado" });

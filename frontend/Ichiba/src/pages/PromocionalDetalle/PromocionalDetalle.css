@@ -1,0 +1,189 @@
+.promocional-detalle {
+  position: relative;
+  display: flex;
+  gap: 3rem;
+  padding: 4rem 3rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.promocional-detalle__volver {
+  position: absolute;
+  top: 1.5rem;
+  left: 3rem;
+  background: none;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0;
+}
+
+.promocional-detalle__volver:hover {
+  color: #d90429;
+}
+
+.promocional-detalle__imagen-wrapper {
+  flex: 1;
+  min-width: 320px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.promocional-detalle__info {
+  flex: 1;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.promocional-detalle__categoria {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #d90429;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.promocional-detalle__nombre {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.promocional-detalle__precio {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #d90429;
+  margin: 0;
+}
+
+.promocional-detalle__precio::after {
+  content: " (precio de referencia)";
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #888888;
+}
+
+/* Aviso central: la compra ocurre fuera de ICHIBA */
+.promocional-detalle__aviso {
+  background-color: #fff4e5;
+  border-left: 4px solid #e69500;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.promocional-detalle__aviso h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #8a5a00;
+  margin: 0 0 0.4rem 0;
+}
+
+.promocional-detalle__aviso p {
+  font-size: 0.95rem;
+  color: #8a5a00;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.promocional-detalle__vendedor {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.promocional-detalle__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: #d9d9d9;
+  flex-shrink: 0;
+}
+
+.promocional-detalle__vendedor-label {
+  font-size: 0.75rem;
+  color: #888;
+  margin: 0;
+}
+
+.promocional-detalle__vendedor-nombre {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.promocional-detalle__descripcion {
+  border-top: 1px solid #eee;
+  padding-top: 1rem;
+}
+
+.promocional-detalle__descripcion h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 0.4rem 0;
+}
+
+.promocional-detalle__descripcion p {
+  font-size: 0.95rem;
+  color: #555;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.promocional-detalle__ver-mas {
+  align-self: flex-start;
+  color: #d90429;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: 2px solid #d90429;
+  border-radius: 999px;
+  padding: 0.5rem 1.2rem;
+}
+
+.promocional-detalle__ver-mas:hover {
+  background-color: #d90429;
+  color: #ffffff;
+}
+
+.promocional-detalle__aviso-inactivo {
+  background-color: #fdecec;
+  border-left: 4px solid #d90429;
+  color: #b3001b;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.promocional-detalle__no-encontrado {
+  text-align: center;
+  padding: 4rem;
+  font-size: 1.2rem;
+  color: #888;
+}
+
+@media (max-width: 768px) {
+  .promocional-detalle {
+    flex-direction: column;
+    padding: 2rem 1.5rem;
+  }
+}

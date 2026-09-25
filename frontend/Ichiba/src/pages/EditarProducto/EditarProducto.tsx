@@ -117,6 +117,13 @@ function EditarProducto() {
       return;
     }
 
+    if (horarioInicio < "05:00" || horarioFin > "23:59") {
+      setError(
+        "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59",
+      );
+      return;
+    }
+
     if (horarioInicio >= horarioFin) {
       setError(
         "El horario de coordinación de entrega debe empezar antes de terminar",
@@ -245,6 +252,8 @@ function EditarProducto() {
               className="editar-producto-input"
               value={horarioInicio}
               onChange={(e) => setHorarioInicio(e.target.value)}
+              min="05:00"
+              max="23:59"
               required
             />
             <span>a</span>
@@ -253,9 +262,15 @@ function EditarProducto() {
               className="editar-producto-input"
               value={horarioFin}
               onChange={(e) => setHorarioFin(e.target.value)}
+              min="05:00"
+              max="23:59"
               required
             />
           </div>
+          <small className="editar-producto-nota">
+            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
+            de tu disponibilidad de trabajo.
+          </small>
         </div>
 
         <div className="form-group">
