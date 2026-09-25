@@ -1,11 +1,143 @@
+---
+import "../estilos/nosotros.css";
+
+const urlBaseDelApi = "http://localhost:5000/api";
+const totalCategorias = 6;
+const filasSimultaneasPorComprador = 3;
+
+async function obtenerCategoriaPopular() {
+  try {
+    const respuesta = await fetch(
+      `${urlBaseDelApi}/productos/estadisticas/categoria-popular`,
+    );
+    if (!respuesta.ok) {
+      return null;
+    }
+    const datos = await respuesta.json();
+    return datos.categoria ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function contarProductosActivos() {
+  try {
+    const respuesta = await fetch(`${urlBaseDelApi}/productos`);
+    if (!respuesta.ok) {
+      return null;
+    }
+    const productos = await respuesta.json();
+    return Array.isArray(productos) ? productos.length : null;
+  } catch {
+    return null;
+  }
+}
+
+const categoriaPopular = await obtenerCategoriaPopular();
+const productosActivos = await contarProductosActivos();
+---
+
 <!doctype html>
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ichiba en Astro</title>
+    <title>Ichiba — Nosotros</title>
   </head>
   <body>
-    <h1>Ichiba en Astro</h1>
+    <div class="nosotros">
+      <section class="superior">
+        <div class="superior__texto">
+          <span class="superior__etiqueta">Ichiba — Mercado digital</span>
+          <h1>Vende más, pierde menos tiempo</h1>
+          <p>
+            Organiza tus ventas mediante una fila virtual. Optimiza la
+            interacción entre compradores y vendedores, reduce el tiempo perdido
+            y asegura cada transacción con total transparencia.
+          </p>
+          <div class="superior__botones">
+            <a class="boton" href="/inicio">Soy Vendedor</a>
+            <a class="boton" href="/inicio">Soy Comprador</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="estadisticas">
+        <div class="estadisticas__contenedor">
+          <div class="estadistica">
+            <span class="estadistica__numero">{categoriaPopular ?? "—"}</span>
+            <span class="estadistica__etiqueta">Categoría más popular</span>
+          </div>
+
+          <div class="estadistica__separador"></div>
+
+          <div class="estadistica">
+            <span class="estadistica__numero">{productosActivos ?? "—"}</span>
+            <span class="estadistica__etiqueta">Productos activos</span>
+          </div>
+
+          <div class="estadistica__separador"></div>
+
+          <div class="estadistica">
+            <span class="estadistica__numero">{totalCategorias}</span>
+            <span class="estadistica__etiqueta">Categorías disponibles</span>
+          </div>
+
+          <div class="estadistica__separador"></div>
+
+          <div class="estadistica">
+            <span class="estadistica__numero">{filasSimultaneasPorComprador}</span>
+            <span class="estadistica__etiqueta">
+              Filas simultáneas por comprador
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section class="propuesta">
+        <div class="propuesta__item">
+          <span class="propuesta__numero">01</span>
+          <h3>Identidad verificada</h3>
+          <p>
+            Cada vendedor confirma su identidad oficial antes de poder publicar,
+            reduciendo el riesgo de fraude para quien compra.
+          </p>
+        </div>
+
+        <div class="propuesta__item">
+          <span class="propuesta__numero">02</span>
+          <h3>Fila virtual ordenada</h3>
+          <p>
+            El proceso de compra respeta el turno de cada persona. Solo quien
+            ocupa la posición uno puede completar el pago.
+          </p>
+        </div>
+
+        <div class="propuesta__item">
+          <span class="propuesta__numero">03</span>
+          <h3>Reputación pública</h3>
+          <p>
+            Ventas concluidas y reportes recibidos quedan visibles en el perfil
+            de cada vendedor, antes de que decidas comprarle.
+          </p>
+        </div>
+      </section>
+
+      <section class="cierre">
+        <div class="cierre__tarjeta">
+          <h2>¿Tienes algo que vender?</h2>
+          <p>Registra tu cuenta, verifica tu identidad y publica en minutos.</p>
+          <a class="boton" href="/inicio">Comenzar a vender</a>
+        </div>
+
+        <div class="cierre__tarjeta cierre__tarjeta--secundaria">
+          <h2>¿Buscas algo en particular?</h2>
+          <p>
+            Explora el catálogo completo, sin necesidad de crear una cuenta.
+          </p>
+          <a class="boton" href="/inicio">Explorar catálogo</a>
+        </div>
+      </section>
+    </div>
   </body>
 </html>
