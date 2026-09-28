@@ -237,10 +237,16 @@ export const resolutoresGraphQL = {
     cambiarEstadoProducto: async (
       _objetoPadre: unknown,
       argumentos: ArgumentosProducto,
+      contexto: ContextoGraphQL | undefined,
     ) => {
+      const usuarioId = obtenerUsuarioIdAutenticado(contexto);
       const productoEncontrado = await Producto.findById(argumentos.id);
       if (!productoEncontrado) {
-        return null;
+        throw new Error("Producto no encontrado");
+      }
+
+      if (productoEncontrado.vendedorId.toString() !== usuarioId) {
+        throw new Error("No tienes permiso sobre este producto");
       }
 
       productoEncontrado.activo = !productoEncontrado.activo;
