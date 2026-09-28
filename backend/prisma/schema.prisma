@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model usuario {
+  id                              Int       @id @default(autoincrement())
+  nombreCompleto                  String
+  direccion                       String
+  telefono                        String
+  correo                          String    @unique
+  rfc                             String
+  password                        String
+  tipo                            String    @default("vendedor")
+  ventasExitosas                  Int       @default(0)
+  reportes                        Int       @default(0)
+  correoVerificado                Boolean   @default(false)
+  codigoCorreo                    String?
+  codigoCorreoExpira              DateTime?
+  codigoRecuperacion              String?
+  codigoRecuperacionExpira        DateTime?
+  ineFrente                       String
+  ineReverso                      String
+  aceptaTerminos                  Boolean
+  recibirNotificacionesCriticas   Boolean
+  curp                            String?
+  ineCodigoReverso                String?
+  recibirNotificacionesPublicitarias Boolean @default(false)
+  paypalEmail                     String
+  horarios                        Json
+  horarioConfirmadoEn             DateTime?
+  diasSinConfirmarHorario         Int       @default(0)
+  createdAt                       DateTime  @default(now())
+  updatedAt                       DateTime  @updatedAt
+  ventas                          venta[]
+  reportes                        reporte[]
+}
+
+model venta {
+  id            Int      @id @default(autoincrement())
+  productoId    String
+  vendedorId    Int
+  compradorId   String
+  monto         Float
+  paypalOrderId String
+  estado        String   @default("completada")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  vendedor      usuario  @relation(fields: [vendedorId], references: [id])
+}
+
+model cola {
+  id            Int       @id @default(autoincrement())
+  productoId    String
+  compradorId   String
+  posicion      Int
+  estado        String    @default("activa")
+  pagoExpiraEn  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model reporte {
+  id                Int      @id @default(autoincrement())
+  sujetoTipo        String
+  sujetoId          String
+  reportadoPorTipo  String
+  reportadoPorId    String
+  ventaId           String?
+  productoId        String?
+  mensajeId         String?
+  elemento          String
+  categoria         String
+  categoriaNombre   String
+  tipoFalta         String
+  detalle           String?
+  estado            String   @default("pendiente")
+  vendedorId        Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  vendedor          usuario  @relation(fields: [vendedorId], references: [id])
+}
