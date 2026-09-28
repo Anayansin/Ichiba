@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { fetchProductos, type Producto } from "../servicios/productoService";
+import {
+  consultarProductos,
+  type ProductoCatalogo,
+} from "../servicios/clienteGraphql";
 import CartaProducto from "./CartaProducto";
 
 function CatalogoInicio() {
-  const [productos, setProductos] = useState<Producto[]>([]);
+  const [productos, setProductos] = useState<ProductoCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [categoriaFiltro, setCategoriaFiltro] = useState<string | null>(null);
 
@@ -13,9 +16,11 @@ function CatalogoInicio() {
   }, []);
 
   useEffect(() => {
-    fetchProductos()
+    consultarProductos()
       .then((datos) => setProductos(datos))
-      .catch((error) => console.error("Error al cargar productos:", error))
+      .catch((errorCarga) =>
+        console.error("Error al cargar productos:", errorCarga),
+      )
       .finally(() => setCargando(false));
   }, []);
 
@@ -45,8 +50,8 @@ function CatalogoInicio() {
         ) : (
           productosFiltrados.map((producto) => (
             <CartaProducto
-              key={producto._id}
-              id={producto._id}
+              key={producto.id}
+              id={producto.id}
               nombre={producto.nombre}
               precio={producto.precio}
               imagenes={producto.imagenes}

@@ -17,6 +17,11 @@ import mensajeRoutes from "./routes/mensajeRoutes.js";
 import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
+import { ApolloServer as ServidorApollo } from "@apollo/server";
+import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
+import { definicionesEsquema } from "./graphql/esquema.js";
+import { resolutoresGraphQL } from "./graphql/resolvers.js";
+import { extraerContextoGraphQL } from "./graphql/contexto.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +43,19 @@ app.use("/api/mensajes", mensajeRoutes);
 app.use("/api/promocionales", promocionalRoutes);
 app.use("/api/reportes", reporteRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
+
+const servidorApollo = new ServidorApollo({
+  typeDefs: definicionesEsquema,
+  resolvers: resolutoresGraphQL,
+});
+
+await servidorApollo.start();
+app.use(
+  "/graphql",
+  middlewareExpressApollo(servidorApollo, {
+    context: async ({ req: solicitud }) => extraerContextoGraphQL(solicitud),
+  }),
+);
 
 const PORT = process.env.PORT || 5000;
 
