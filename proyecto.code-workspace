@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "backend"
+		},
+		{
+			"path": "front-astro"
+		},
+		{
+			"path": "frontend/Ichiba"
+		}
+	],
+	"settings": {}
+}
