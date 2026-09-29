@@ -14,7 +14,8 @@ export type DatosRegistro = {
   ineFrente: File;
   ineReverso: File;
   recibirNotificacionesPublicitarias: boolean;
-  paypalEmail: string;
+  metodoPago: "paypal" | "mercadopago";
+  datosMetodoPago: string;
   horarios: BloqueHorario[];
 };
 
@@ -37,7 +38,8 @@ export async function registrarUsuario(datos: DatosRegistro) {
     "recibirNotificacionesPublicitarias",
     String(datos.recibirNotificacionesPublicitarias),
   );
-  formData.append("paypalEmail", datos.paypalEmail);
+  formData.append("metodoPago", datos.metodoPago);
+  formData.append("datosMetodoPago", datos.datosMetodoPago);
   formData.append("horarios", JSON.stringify(datos.horarios));
 
   const response = await api.post("/usuarios/registro", formData, {
@@ -51,9 +53,10 @@ export type PerfilUsuario = {
   nombreCompleto: string;
   correo: string;
   ventasExitosas: number;
-  reportes: number;
+  totalReportes: number;
   telefonoVerificado: boolean;
   correoVerificado: boolean;
+  horarios: BloqueHorario[];
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {
@@ -66,12 +69,30 @@ export type PerfilPublico = {
     _id: string;
     nombreCompleto: string;
     ventasExitosas: number;
-    reportes: number;
+    totalReportes: number;
   };
   productos: Producto[];
 };
 
 export async function fetchPerfilPublico(id: string): Promise<PerfilPublico> {
   const response = await api.get(`/usuarios/${id}/publico`);
+  return response.data;
+}
+
+export async function solicitarRecuperacion(correo: string) {
+  const response = await api.post("/usuarios/recuperar/solicitar", { correo });
+  return response.data;
+}
+
+export async function restablecerPassword(
+  correo: string,
+  codigo: string,
+  password: string,
+) {
+  const response = await api.post("/usuarios/recuperar/restablecer", {
+    correo,
+    codigo,
+    password,
+  });
   return response.data;
 }

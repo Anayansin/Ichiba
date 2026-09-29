@@ -1,11 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
-import { fetchMisFilas, type Fila } from "../services/colaService";
+import { createContext, useContext } from "react";
+import type { Fila } from "../services/colaService";
 
 type ColasContextType = {
   filas: Fila[];
@@ -13,31 +7,9 @@ type ColasContextType = {
   recargarFilas: () => void;
 };
 
-const ColasContext = createContext<ColasContextType | undefined>(undefined);
-
-export function ColasProvider({ children }: { children: ReactNode }) {
-  const [filas, setFilas] = useState<Fila[]>([]);
-
-  function recargarFilas() {
-    fetchMisFilas()
-      .then((data) => setFilas(data))
-      .catch((error) => console.error("Error al cargar filas:", error));
-  }
-
-  useEffect(() => {
-    recargarFilas();
-    const intervalo = setInterval(recargarFilas, 5000);
-    return () => clearInterval(intervalo);
-  }, []);
-
-  return (
-    <ColasContext.Provider
-      value={{ filas, cantidadFilas: filas.length, recargarFilas }}
-    >
-      {children}
-    </ColasContext.Provider>
-  );
-}
+export const ColasContext = createContext<ColasContextType | undefined>(
+  undefined,
+);
 
 export function useColas() {
   const context = useContext(ColasContext);

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "column.public.usuario.faltasLeves",
+    "label": "Add column \"faltasLeves\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "faltasLeves",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"faltasLeves\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "faltasLeves"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"faltasLeves\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"faltasLeves\" int4 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"faltasLeves\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "faltasLeves"
+        ]
+      }
+    ]
+  }
+]

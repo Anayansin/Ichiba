@@ -24,7 +24,7 @@ const sancionSchema = new Schema(
     bloqueoPermanente: { type: Boolean, default: false },
     historial: [
       {
-        reporteId: { type: Schema.Types.ObjectId, ref: "Reporte" },
+        reporteId: { type: String, ref: "Reporte" },
         categoria: { type: String, required: true },
         tipoFalta: { type: String, enum: ["leve", "grave"], required: true },
         elemento: { type: String },

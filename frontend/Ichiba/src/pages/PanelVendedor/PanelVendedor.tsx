@@ -19,6 +19,7 @@ import {
   type Promocional,
 } from "../../services/promocionalService";
 import { URL_BACKEND } from "../../services/api";
+import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
 
 function PanelVendedor() {
@@ -27,6 +28,7 @@ function PanelVendedor() {
   const [misProductos, setMisProductos] = useState<Producto[]>([]);
   const [misPromocionales, setMisPromocionales] = useState<Promocional[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
 
   function cargarDatos() {
     setCargando(true);
@@ -80,9 +82,18 @@ function PanelVendedor() {
   const promocionalesActivos = misPromocionales.filter((p) => p.activo);
   const promocionalesInactivos = misPromocionales.filter((p) => !p.activo);
 
+  async function ejecutar(accion: () => Promise<unknown>) {
+    try {
+      await accion();
+      setError("");
+      cargarDatos();
+    } catch (err) {
+      setError(mensajeDeError(err) || "No se pudo completar la acción");
+    }
+  }
+
   async function handleCambiarEstado(id: string) {
-    await cambiarEstadoProducto(id);
-    cargarDatos();
+    await ejecutar(() => cambiarEstadoProducto(id));
   }
 
   async function handleEliminar(id: string) {
@@ -90,13 +101,11 @@ function PanelVendedor() {
       "¿Seguro que quieres eliminar este producto? Esta acción no se puede deshacer.",
     );
     if (!confirmado) return;
-    await eliminarProducto(id);
-    cargarDatos();
+    await ejecutar(() => eliminarProducto(id));
   }
 
   async function handleCambiarEstadoPromocional(id: string) {
-    await cambiarEstadoPromocional(id);
-    cargarDatos();
+    await ejecutar(() => cambiarEstadoPromocional(id));
   }
 
   async function handleEliminarPromocional(id: string) {
@@ -104,8 +113,7 @@ function PanelVendedor() {
       "¿Seguro que quieres eliminar este promocional? Esta acción no se puede deshacer.",
     );
     if (!confirmado) return;
-    await eliminarPromocional(id);
-    cargarDatos();
+    await ejecutar(() => eliminarPromocional(id));
   }
 
   function renderProducto(producto: Producto) {
@@ -192,6 +200,7 @@ function PanelVendedor() {
     <div className="panel-vendedor">
       <h1>Hola, {perfil.nombreCompleto}</h1>
       <p className="panel-vendedor__correo">{perfil.correo}</p>
+      {error && <p className="panel-vendedor__error">{error}</p>}
 
       <div className="panel-vendedor__stats">
         <div className="panel-vendedor__stat-card">
@@ -217,7 +226,7 @@ function PanelVendedor() {
           </span>
         </div>
         <div className="panel-vendedor__stat-card panel-vendedor__stat-card--reportes">
-          <span className="panel-vendedor__stat-numero">{perfil.reportes}</span>
+          <span className="panel-vendedor__stat-numero">{perfil.totalReportes}</span>
           <span className="panel-vendedor__stat-label">Reportes recibidos</span>
         </div>
       </div>
@@ -234,6 +243,18 @@ function PanelVendedor() {
           className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
         >
           + Publicar promocional
+        </Link>
+        <Link
+          to="/panel-vendedor/horario"
+          className="panel-vendedor__boton-publicar"
+        >
+          Configurar horario
+        </Link>
+        <Link
+          to="/panel-vendedor/reportar-comprador"
+          className="panel-vendedor__boton-publicar"
+        >
+          Reportar a un comprador
         </Link>
       </div>
 

@@ -3,8 +3,10 @@ import { useNavigate, Navigate } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import { crearProducto } from "../../services/productoService";
 import { useAuth } from "../../context/AuthContext";
+import { mensajeDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
+  CONDICIONES_USO,
   METODOS_ENTREGA,
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
@@ -25,14 +27,20 @@ function RegistrarProducto() {
   const [categoria, setCategoria] = useState(categorias[0]);
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
+  const [condicionUso, setCondicionUso] = useState(CONDICIONES_USO[0].valor);
   const [metodoEntrega, setMetodoEntrega] = useState(METODOS_ENTREGA[0].valor);
-  const [horarioInicio, setHorarioInicio] = useState("09:00");
-  const [horarioFin, setHorarioFin] = useState("18:00");
+  const [horarioEntregaInicio, setHorarioEntregaInicio] = useState("09:00");
+  const [horarioEntregaFin, setHorarioEntregaFin] = useState("18:00");
   const [tiempoLimitePago, setTiempoLimitePago] = useState("60");
   const [archivos, setArchivos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+
+  const longitudNombre = nombre.length;
+  const longitudDescripcion = descripcion.length;
+  const nombreValido = longitudNombre >= 10 && longitudNombre <= 35;
+  const descripcionValido = longitudDescripcion >= 30 && longitudDescripcion <= 100;
 
   if (!usuario) {
     return <Navigate to="/" replace />;
@@ -72,14 +80,36 @@ function RegistrarProducto() {
       return;
     }
 
-    if (horarioInicio < "05:00" || horarioFin > "23:59") {
+    if (!nombreValido) {
+      setError("El nombre del producto debe tener entre 10 y 35 caracteres");
+      return;
+    }
+
+    if (!descripcionValido) {
+      setError("La descripción del producto debe tener entre 30 y 100 caracteres");
+      return;
+    }
+
+    const precioNumerico = Number(precio);
+    if (
+      !Number.isFinite(precioNumerico) ||
+      precioNumerico < 10 ||
+      precioNumerico > 5000
+    ) {
       setError(
-        "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59",
+        "El precio debe estar entre $10 y $5,000. Si tu artículo vale más de $5,000, publícalo como promocional en vez de producto.",
       );
       return;
     }
 
-    if (horarioInicio >= horarioFin) {
+    if (horarioEntregaInicio < "07:00" || horarioEntregaFin > "19:00") {
+      setError(
+        "El horario de coordinación de entrega debe estar entre las 07:00 y las 19:00",
+      );
+      return;
+    }
+
+    if (horarioEntregaInicio >= horarioEntregaFin) {
       setError(
         "El horario de coordinación de entrega debe empezar antes de terminar",
       );
@@ -95,17 +125,18 @@ function RegistrarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
+      formData.append("condicionUso", condicionUso);
       formData.append("metodoEntrega", metodoEntrega);
-      formData.append("horarioInicio", horarioInicio);
-      formData.append("horarioFin", horarioFin);
+      formData.append("horarioEntregaInicio", horarioEntregaInicio);
+      formData.append("horarioEntregaFin", horarioEntregaFin);
       formData.append("tiempoLimitePago", tiempoLimitePago);
       archivos.forEach((archivo) => formData.append("imagenes", archivo));
 
       const nuevo = await crearProducto(formData);
       navigate(`/producto/${nuevo._id}`);
-    } catch (err: any) {
+    } catch (err) {
       const mensaje =
-        err.response?.data?.message || "Error al publicar el producto";
+        mensajeDeError(err) || "Error al publicar el producto";
       setError(mensaje);
     } finally {
       setCargando(false);
@@ -129,13 +160,17 @@ function RegistrarProducto() {
             onChange={(e) => setNombre(e.target.value)}
             required
           />
+          <small className="registrar-producto-nota">
+            {longitudNombre}/35 caracteres
+          </small>
         </div>
 
         <div className="form-group">
           <label>Precio (MXN)</label>
           <input
             type="number"
-            min="0"
+            min="10"
+            max="5000"
             step="0.01"
             className="registrar-producto-input"
             placeholder="0.00"
@@ -143,6 +178,12 @@ function RegistrarProducto() {
             onChange={(e) => setPrecio(e.target.value)}
             required
           />
+          <small className="registrar-producto-nota">
+            El precio debe estar entre $10 y $5,000. Si tu artículo vale más de
+            $5,000, publícalo como promocional. La plataforma cobra una comisión
+            del COMISION_PENDIENTE_DEFINIR% por cada venta, además de la
+            comisión del método de pago.
+          </small>
         </div>
 
         <div className="form-group">
@@ -169,6 +210,9 @@ function RegistrarProducto() {
             onChange={(e) => setDescripcion(e.target.value)}
             required
           />
+          <small className="registrar-producto-nota">
+            {longitudDescripcion}/100 caracteres
+          </small>
         </div>
 
         <div className="form-group">
@@ -179,6 +223,21 @@ function RegistrarProducto() {
             onChange={(e) => setCondicion(e.target.value)}
           >
             {CONDICIONES_PRODUCTO.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.texto}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Condición de uso</label>
+          <select
+            className="registrar-producto-input"
+            value={condicionUso}
+            onChange={(e) => setCondicionUso(e.target.value)}
+          >
+            {CONDICIONES_USO.map((opcion) => (
               <option key={opcion.valor} value={opcion.valor}>
                 {opcion.texto}
               </option>
@@ -207,25 +266,25 @@ function RegistrarProducto() {
             <input
               type="time"
               className="registrar-producto-input"
-              value={horarioInicio}
-              onChange={(e) => setHorarioInicio(e.target.value)}
-              min="05:00"
-              max="23:59"
+              value={horarioEntregaInicio}
+              onChange={(e) => setHorarioEntregaInicio(e.target.value)}
+              min="07:00"
+              max="19:00"
               required
             />
             <span>a</span>
             <input
               type="time"
               className="registrar-producto-input"
-              value={horarioFin}
-              onChange={(e) => setHorarioFin(e.target.value)}
-              min="05:00"
-              max="23:59"
+              value={horarioEntregaFin}
+              onChange={(e) => setHorarioEntregaFin(e.target.value)}
+              min="07:00"
+              max="19:00"
               required
             />
           </div>
           <small className="registrar-producto-nota">
-            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
+            El horario de entrega debe estar entre las 07:00 y las 19:00, dentro
             de tu disponibilidad de trabajo.
           </small>
         </div>
@@ -281,6 +340,7 @@ function RegistrarProducto() {
           texto={cargando ? "Publicando..." : "Publicar producto"}
           onClick={() => {}}
           type="submit"
+          disabled={cargando || !nombreValido || !descripcionValido}
         />
       </form>
     </div>

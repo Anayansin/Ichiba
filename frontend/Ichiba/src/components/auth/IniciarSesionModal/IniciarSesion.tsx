@@ -8,6 +8,7 @@ import {
   restablecerPassword,
 } from "../../../services/authService";
 import { useAuth } from "../../../context/AuthContext";
+import { mensajeDeError } from "../../../utils/errores";
 import "./IniciarSesion.css";
 
 interface IniciarSesionProps {
@@ -39,8 +40,8 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
     setMensaje("");
   }
 
-  function obtenerError(err: any, porDefecto: string) {
-    return err.response?.data?.message || porDefecto;
+  function obtenerError(err: unknown, porDefecto: string) {
+    return mensajeDeError(err) || porDefecto;
   }
 
   async function iniciarSesionForm() {
@@ -52,7 +53,7 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
       login(data.usuario, data.token);
       onClose();
       navigate("/panel-vendedor");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(obtenerError(err, "Error al iniciar sesión"));
     } finally {
       setCargando(false);
@@ -68,7 +69,7 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
       setMensaje(data.message);
       setCodigo("");
       setPaso("codigo");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(obtenerError(err, "No se pudo enviar el correo"));
     } finally {
       setCargando(false);
@@ -82,7 +83,7 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
     try {
       await verificarCodigoRecuperacion(correo, codigo);
       setPaso("password");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(obtenerError(err, "Error al verificar el código"));
     } finally {
       setCargando(false);
@@ -106,7 +107,7 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
       setPasswordNueva("");
       setPasswordConfirmar("");
       setPaso("exito");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(obtenerError(err, "Error al restablecer la contraseña"));
     } finally {
       setCargando(false);
@@ -167,16 +168,9 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
               />
             </div>
 
-            <span
-              className="recuperar-link"
-              onClick={() => {
-                setError("");
-                setMensaje("");
-                setPaso("correo");
-              }}
-            >
-              ¿Olvidaste tu contraseña?
-            </span>
+            <Link to="/recuperar-password" onClick={onClose}>
+              <span className="recuperar-link">¿Olvidaste tu contraseña?</span>
+            </Link>
 
             <Boton
               texto={cargando ? "Entrando..." : "Iniciar sesión"}

@@ -15,10 +15,15 @@ import PromocionalDetalle from "./pages/PromocionalDetalle/PromocionalDetalle";
 import VendedorPerfil from "./pages/PerfilDelVendedor/PerfilDelVendedor";
 import ColaBubble from "./components/ColaBubble/ColaBubble";
 import { useState } from "react";
-import { AuthProvider } from "./context/AuthContext";
-import { ColasProvider } from "./context/ColasContext";
+import { AuthProvider } from "./context/AuthProvider";
+import { ColasProvider } from "./context/ColasProvider";
 import EditarProducto from "./pages/EditarProducto/EditarProducto";
 import PagoExitoso from "./pages/PagoExitoso/PagoExitoso";
+import HorarioVendedor from "./pages/HorarioVendedor/HorarioVendedor";
+import ReportarComprador from "./pages/ReportarComprador/ReportarComprador";
+import AdminReportes from "./pages/AdminReportes/AdminReportes";
+import RecuperarPassword from "./pages/RecuperarPassword/RecuperarPassword";
+import Estadisticas from "./pages/Estadisticas/Estadisticas";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
@@ -53,6 +58,17 @@ function App() {
             path="/panel-vendedor/publicar-promocional"
             element={<RegistrarPromocional />}
           />
+          <Route path="/panel-vendedor/horario" element={<HorarioVendedor />} />
+          <Route
+            path="/panel-vendedor/reportar-comprador"
+            element={<ReportarComprador />}
+          />
+          <Route
+            path="/panel-vendedor/estadisticas"
+            element={<Estadisticas />}
+          />
+          <Route path="/admin/reportes" element={<AdminReportes />} />
+          <Route path="/recuperar-password" element={<RecuperarPassword />} />
           <Route path="/vendedor/:id" element={<VendedorPerfil />} />
           <Route path="/pago-exitoso" element={<PagoExitoso />} />
         </Routes>

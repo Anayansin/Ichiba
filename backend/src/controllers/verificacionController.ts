@@ -1,8 +1,9 @@
 import { Response } from "express";
-import { Usuario } from "../models/usuario";
 import { enviarCorreoVerificacion } from "../services/emailService.js";
 import { generarCodigo } from "../utils/generarCodigo.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import clientePrisma from "../configuracion/prisma.js";
+import { buscarUsuarioPorId } from "../services/usuarioService.js";
 
 const MINUTOS_EXPIRACION = 10;
 
@@ -11,21 +12,29 @@ export async function enviarCodigoCorreo(
   res: Response,
 ) {
   try {
-    const usuario = await Usuario.findById(req.usuarioId);
+    const usuario = await buscarUsuarioPorId(req.usuarioId);
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     const codigo = generarCodigo();
-    usuario.codigoCorreo = codigo;
-    usuario.codigoCorreoExpira = new Date(
-      Date.now() + MINUTOS_EXPIRACION * 60 * 1000,
-    );
-    await usuario.save();
+    await clientePrisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        codigoCorreo: codigo,
+        codigoCorreoExpira: new Date(
+          Date.now() + MINUTOS_EXPIRACION * 60 * 1000,
+        ),
+      },
+    });
 
-    await enviarCorreoVerificacion(usuario.correo, codigo);
+    const enviado = await enviarCorreoVerificacion(usuario.correo, codigo);
 
-    res.json({ message: "Código enviado por correo" });
+    res.json({
+      message: enviado
+        ? "Código enviado por correo"
+        : `Modo local: tu código de verificación es ${codigo}`,
+    });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al enviar el código por correo" });
@@ -38,7 +47,7 @@ export async function verificarCodigoCorreo(
 ) {
   try {
     const { codigo } = req.body;
-    const usuario = await Usuario.findById(req.usuarioId);
+    const usuario = await buscarUsuarioPorId(req.usuarioId);
 
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -60,10 +69,14 @@ export async function verificarCodigoCorreo(
       return res.status(400).json({ message: "Código incorrecto" });
     }
 
-    usuario.correoVerificado = true;
-    usuario.codigoCorreo = undefined;
-    usuario.codigoCorreoExpira = undefined;
-    await usuario.save();
+    await clientePrisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        correoVerificado: true,
+        codigoCorreo: null,
+        codigoCorreoExpira: null,
+      },
+    });
 
     res.json({ message: "Correo verificado correctamente" });
   } catch (error) {

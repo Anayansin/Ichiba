@@ -2,17 +2,24 @@ import { useState } from "react";
 import { useColas } from "../../context/ColasContext";
 import { salirDeFila } from "../../services/colaService";
 import { URL_BACKEND } from "../../services/api";
+import { mensajeDeError } from "../../utils/errores";
 import "./ColaBubble.css";
 
 function ColaBubble() {
   const { filas, cantidadFilas, recargarFilas } = useColas();
   const [abierto, setAbierto] = useState(false);
+  const [error, setError] = useState("");
 
   if (cantidadFilas === 0) return null;
 
   async function handleSalir(id: string) {
-    await salirDeFila(id);
-    recargarFilas();
+    try {
+      await salirDeFila(id);
+      setError("");
+      recargarFilas();
+    } catch (err) {
+      setError(mensajeDeError(err) || "No pudimos sacarte de la fila");
+    }
   }
 
   return (
@@ -22,6 +29,7 @@ function ColaBubble() {
           <p className="cola-bubble__titulo">
             Tus filas activas ({cantidadFilas}/3)
           </p>
+          {error && <p className="cola-bubble__error">{error}</p>}
           {filas.map((fila) => {
             // Defensa: si el producto fue borrado, populate devuelve null
             if (!fila.productoId) return null;

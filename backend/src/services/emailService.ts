@@ -1,6 +1,18 @@
 import nodemailer from "nodemailer";
 
-export async function enviarCorreoVerificacion(correo: string, codigo: string) {
+function faltaConfigurarCorreo() {
+  return !process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD;
+}
+
+export async function enviarCorreoVerificacion(
+  correo: string,
+  codigo: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Código de verificación para ${correo}: ${codigo}`);
+    return false;
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -22,9 +34,19 @@ export async function enviarCorreoVerificacion(correo: string, codigo: string) {
       </div>
     `,
   });
+
+  return true;
 }
 
-export async function enviarCorreoRecuperacion(correo: string, codigo: string) {
+export async function enviarCorreoRecuperacion(
+  correo: string,
+  codigo: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Código de recuperación para ${correo}: ${codigo}`);
+    return false;
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -47,9 +69,16 @@ export async function enviarCorreoRecuperacion(correo: string, codigo: string) {
       </div>
     `,
   });
+
+  return true;
 }
 
 export async function enviarCorreoAdvertencia(correo: string, mensaje: string) {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Aviso para ${correo}: ${mensaje}`);
+    return;
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {

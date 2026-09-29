@@ -17,7 +17,8 @@ model usuario {
   password                        String
   tipo                            String    @default("vendedor")
   ventasExitosas                  Int       @default(0)
-  reportes                        Int       @default(0)
+  totalReportes                   Int       @default(0)
+  faltasLeves                     Int       @default(0)
   correoVerificado                Boolean   @default(false)
   codigoCorreo                    String?
   codigoCorreoExpira              DateTime?
@@ -30,7 +31,8 @@ model usuario {
   curp                            String?
   ineCodigoReverso                String?
   recibirNotificacionesPublicitarias Boolean @default(false)
-  paypalEmail                     String
+  metodoPago                      String
+  datosMetodoPago                 String
   horarios                        Json
   horarioConfirmadoEn             DateTime?
   diasSinConfirmarHorario         Int       @default(0)
@@ -66,6 +68,7 @@ model cola {
 
 model reporte {
   id                Int      @id @default(autoincrement())
+  tipoReportado     String   @default("vendedor")
   sujetoTipo        String
   sujetoId          String
   reportadoPorTipo  String

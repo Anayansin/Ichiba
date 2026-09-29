@@ -1,13 +1,15 @@
 import { Response } from "express";
 import { Producto } from "../models/producto.js";
 import { Cola } from "../models/Cola.js";
-import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import { buscarUsuarioPorId } from "../services/usuarioService.js";
+import clientePrisma from "../configuracion/prisma.js";
 import { Request } from "express";
 import path from "path";
 import fs from "fs";
 import {
   CONDICIONES_PRODUCTO,
+  CONDICIONES_USO,
   METODOS_ENTREGA,
   TIEMPO_PAGO_MINIMO,
   TIEMPO_PAGO_MAXIMO,
@@ -17,19 +19,29 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 import { validarHorarioEntrega } from "../utils/validarHorario.js";
+import { validarDimensionesProducto } from "../services/imagenProductoService.js";
+
+const ESTADOS_FILA_EN_CURSO: ("activa" | "esperando_confirmacion")[] = [
+  "activa",
+  "esperando_confirmacion",
+];
 
 function validarEntrega(req: Request): string | null {
-  const { condicion, metodoEntrega, horarioInicio, horarioFin } = req.body;
+  const { condicion, condicionUso, metodoEntrega, horarioEntregaInicio, horarioEntregaFin, precio, nombre, descripcion } = req.body;
 
   if (!CONDICIONES_PRODUCTO.includes(condicion)) {
     return "Selecciona la condición del producto";
+  }
+
+  if (!CONDICIONES_USO.includes(condicionUso)) {
+    return "Selecciona la condición de uso del producto";
   }
 
   if (!METODOS_ENTREGA.includes(metodoEntrega)) {
     return "Selecciona un método de entrega válido";
   }
 
-  const errorHorarioEntrega = validarHorarioEntrega(horarioInicio, horarioFin);
+  const errorHorarioEntrega = validarHorarioEntrega(horarioEntregaInicio, horarioEntregaFin);
   if (errorHorarioEntrega) {
     return errorHorarioEntrega;
   }
@@ -41,6 +53,25 @@ function validarEntrega(req: Request): string | null {
     tiempoLimitePago > TIEMPO_PAGO_MAXIMO
   ) {
     return "El tiempo límite de pago debe estar entre 30 minutos y 3 horas";
+  }
+
+  const precioNumerico = Number(precio);
+  if (
+    !Number.isFinite(precioNumerico) ||
+    precioNumerico < 10 ||
+    precioNumerico > 5000
+  ) {
+    return "El precio debe estar entre $10 y $5,000. Si tu artículo vale más de $5,000, publícalo como promocional en vez de producto.";
+  }
+
+  const longitudNombre = nombre?.length ?? 0;
+  if (longitudNombre < 10 || longitudNombre > 35) {
+    return "El nombre del producto debe tener entre 10 y 35 caracteres";
+  }
+
+  const longitudDescripcion = descripcion?.length ?? 0;
+  if (longitudDescripcion < 30 || longitudDescripcion > 100) {
+    return "La descripción del producto debe tener entre 30 y 100 caracteres";
   }
 
   return null;
@@ -55,16 +86,48 @@ export async function actualizarProducto(
     if (!producto)
       return res.status(404).json({ message: "Producto no encontrado" });
 
-    if (producto.vendedorId.toString() !== req.usuarioId) {
+    if (String(producto.vendedorId) !== String(req.usuarioId)) {
       return res
         .status(403)
         .json({ message: "No tienes permiso para editar este producto" });
+    }
+
+    const filaEnModeloCola = await Cola.findOne({
+      productoId: producto._id,
+      estado: { $in: ESTADOS_FILA_EN_CURSO },
+    });
+
+    const filaEnPostgres = await clientePrisma.cola.findFirst({
+      where: {
+        productoId: String(producto._id),
+        estado: { in: ESTADOS_FILA_EN_CURSO },
+      },
+    });
+
+    if (filaEnModeloCola || filaEnPostgres) {
+      return res.status(400).json({
+        message:
+          "No puedes editar ni eliminar un producto con una fila en curso",
+      });
     }
 
     const archivosNuevos = req.files as Express.Multer.File[];
     const imagenesExistentes: string[] = req.body.imagenesExistentes
       ? JSON.parse(req.body.imagenesExistentes)
       : [];
+
+    for (const archivo of archivosNuevos || []) {
+      const dimensionesValidas = await validarDimensionesProducto(archivo.path);
+      if (!dimensionesValidas) {
+        (archivosNuevos || []).forEach((archivo) => {
+          fs.unlink(archivo.path, () => {});
+        });
+        return res.status(400).json({
+          message:
+            "Las imágenes del producto deben medir entre 420x540 y 2560x2560 píxeles",
+        });
+      }
+    }
 
     const imagenesEliminadas = producto.imagenes.filter(
       (img) => !imagenesExistentes.includes(img),
@@ -106,11 +169,10 @@ export async function actualizarProducto(
     producto.categoria = req.body.categoria;
     producto.descripcion = req.body.descripcion;
     producto.condicion = req.body.condicion;
+    producto.condicionUso = req.body.condicionUso;
     producto.metodoEntrega = req.body.metodoEntrega;
-    producto.horarioEntrega = {
-      inicio: req.body.horarioInicio,
-      fin: req.body.horarioFin,
-    };
+    producto.horarioEntregaInicio = req.body.horarioEntregaInicio;
+    producto.horarioEntregaFin = req.body.horarioEntregaFin;
     producto.tiempoLimitePago = Number(req.body.tiempoLimitePago);
     producto.imagenes = imagenesFinal;
 
@@ -147,7 +209,7 @@ export async function getMisProductos(req: RequestConUsuario, res: Response) {
 
 export async function crearProducto(req: RequestConUsuario, res: Response) {
   try {
-    const usuario = await Usuario.findById(req.usuarioId);
+    const usuario = await buscarUsuarioPorId(req.usuarioId);
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -158,6 +220,19 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
       return res
         .status(400)
         .json({ message: "Debes subir al menos una imagen" });
+    }
+
+    for (const archivo of archivos) {
+      const dimensionesValidas = await validarDimensionesProducto(archivo.path);
+      if (!dimensionesValidas) {
+        archivos.forEach((archivo) => {
+          fs.unlink(archivo.path, () => {});
+        });
+        return res.status(400).json({
+          message:
+            "Las imágenes del producto deben medir entre 420x540 y 2560x2560 píxeles",
+        });
+      }
     }
 
     const imagenes = archivos.map((archivo) => `/uploads/${archivo.filename}`);
@@ -184,11 +259,10 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
       categoria: req.body.categoria,
       descripcion: req.body.descripcion,
       condicion: req.body.condicion,
+      condicionUso: req.body.condicionUso,
       metodoEntrega: req.body.metodoEntrega,
-      horarioEntrega: {
-        inicio: req.body.horarioInicio,
-        fin: req.body.horarioFin,
-      },
+      horarioEntregaInicio: req.body.horarioEntregaInicio,
+      horarioEntregaFin: req.body.horarioEntregaFin,
       tiempoLimitePago: Number(req.body.tiempoLimitePago),
       imagenes,
       vendedorId: req.usuarioId,
@@ -222,7 +296,7 @@ export async function cambiarEstadoProducto(
     if (!producto)
       return res.status(404).json({ message: "Producto no encontrado" });
 
-    if (producto.vendedorId.toString() !== req.usuarioId) {
+    if (String(producto.vendedorId) !== String(req.usuarioId)) {
       return res
         .status(403)
         .json({ message: "No tienes permiso sobre este producto" });
@@ -245,10 +319,29 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
     if (!producto)
       return res.status(404).json({ message: "Producto no encontrado" });
 
-    if (producto.vendedorId.toString() !== req.usuarioId) {
+    if (String(producto.vendedorId) !== String(req.usuarioId)) {
       return res
         .status(403)
         .json({ message: "No tienes permiso sobre este producto" });
+    }
+
+    const filaEnModeloCola = await Cola.findOne({
+      productoId: producto._id,
+      estado: { $in: ESTADOS_FILA_EN_CURSO },
+    });
+
+    const filaEnPostgres = await clientePrisma.cola.findFirst({
+      where: {
+        productoId: String(producto._id),
+        estado: { in: ESTADOS_FILA_EN_CURSO },
+      },
+    });
+
+    if (filaEnModeloCola || filaEnPostgres) {
+      return res.status(400).json({
+        message:
+          "No puedes editar ni eliminar un producto con una fila en curso",
+      });
     }
 
     producto.imagenes.forEach((rutaRelativa) => {

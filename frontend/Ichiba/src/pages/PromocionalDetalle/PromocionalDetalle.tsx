@@ -29,7 +29,7 @@ function PromocionalDetalle() {
   if (!promocional)
     return <p className="promocional-detalle__no-encontrado">Promocional no encontrado</p>;
 
-  const esDueno = usuario?.id === promocional.vendedorId;
+  const esDueno = String(usuario?.id) === String(promocional.vendedorId);
 
   if (!promocional.activo && !esDueno) {
     return (

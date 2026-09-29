@@ -85,3 +85,10 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+.cola-bubble__error {
+  margin: 0.4rem 0 0;
+  color: #d90429;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

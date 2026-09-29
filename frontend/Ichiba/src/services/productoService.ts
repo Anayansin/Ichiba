@@ -11,6 +11,7 @@ export type Producto = {
   vendedorId: string;
   datosDeEnvio?: string;
   condicion?: string;
+  condicionUso?: string;
   metodoEntrega?: string;
   horarioEntrega?: { inicio: string; fin: string };
   tiempoLimitePago?: number;

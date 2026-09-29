@@ -46,7 +46,7 @@ function VendedorPerfil() {
         </div>
         <div className="vendedor-perfil__stat-card">
           <span className="vendedor-perfil__stat-numero">
-            {perfil.usuario.reportes}
+            {perfil.usuario.totalReportes}
           </span>
           <span className="vendedor-perfil__stat-label">
             Reportes recibidos

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -67,7 +67,16 @@ function Chats() {
       .then((data) => setVentas(data))
       .catch((error) => console.error("Error al cargar conversaciones:", error))
       .finally(() => setCargandoVentas(false));
-  }, [esVendedor]);
+  }, [esVendedor, fetchVentas]);
+
+  const quitarImagen = useCallback(() => {
+    setPreviewImagen((imagenPrevia) => {
+      if (imagenPrevia) URL.revokeObjectURL(imagenPrevia);
+      return null;
+    });
+    setImagen(null);
+    if (inputImagenRef.current) inputImagenRef.current.value = "";
+  }, []);
 
   useEffect(() => {
     if (!ventaActivaId) return;
@@ -85,16 +94,9 @@ function Chats() {
     setErrorChat("");
     const intervalo = setInterval(cargarMensajes, 5000);
     return () => clearInterval(intervalo);
-  }, [ventaActivaId]);
+  }, [ventaActivaId, fetchMensajesFn, quitarImagen]);
 
   const ventaActiva = ventas.find((venta) => venta._id === ventaActivaId);
-
-  function quitarImagen() {
-    if (previewImagen) URL.revokeObjectURL(previewImagen);
-    setImagen(null);
-    setPreviewImagen(null);
-    if (inputImagenRef.current) inputImagenRef.current.value = "";
-  }
 
   function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];

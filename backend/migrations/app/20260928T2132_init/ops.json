@@ -1,0 +1,379 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.cola",
+    "label": "Create table \"cola\"",
+    "summary": "Creates table \"cola\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "cola"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"cola\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cola\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"cola\"",
+        "sql": "CREATE TABLE \"public\".\"cola\" (\n  \"compradorId\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"estado\" text DEFAULT 'activa' NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"pagoExpiraEn\" timestamptz,\n  \"posicion\" int4 NOT NULL,\n  \"productoId\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"cola\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"cola\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.reporte",
+    "label": "Create table \"reporte\"",
+    "summary": "Creates table \"reporte\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "reporte"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"reporte\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"reporte\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"reporte\"",
+        "sql": "CREATE TABLE \"public\".\"reporte\" (\n  \"categoria\" text NOT NULL,\n  \"categoriaNombre\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"detalle\" text,\n  \"elemento\" text NOT NULL,\n  \"estado\" text DEFAULT 'pendiente' NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"mensajeId\" text,\n  \"productoId\" text,\n  \"reportadoPorId\" text NOT NULL,\n  \"reportadoPorTipo\" text NOT NULL,\n  \"sujetoId\" text NOT NULL,\n  \"sujetoTipo\" text NOT NULL,\n  \"tipoFalta\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"vendedorId\" int4 NOT NULL,\n  \"ventaId\" text,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"reporte\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"reporte\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.usuario",
+    "label": "Create table \"usuario\"",
+    "summary": "Creates table \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"usuario\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"usuario\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"usuario\"",
+        "sql": "CREATE TABLE \"public\".\"usuario\" (\n  \"aceptaTerminos\" bool NOT NULL,\n  \"codigoCorreo\" text,\n  \"codigoCorreoExpira\" timestamptz,\n  \"codigoRecuperacion\" text,\n  \"codigoRecuperacionExpira\" timestamptz,\n  \"correo\" text NOT NULL,\n  \"correoVerificado\" bool DEFAULT false NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"curp\" text,\n  \"diasSinConfirmarHorario\" int4 DEFAULT 0 NOT NULL,\n  \"direccion\" text NOT NULL,\n  \"horarioConfirmadoEn\" timestamptz,\n  \"horarios\" json NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"ineCodigoReverso\" text,\n  \"ineFrente\" text NOT NULL,\n  \"ineReverso\" text NOT NULL,\n  \"nombreCompleto\" text NOT NULL,\n  \"password\" text NOT NULL,\n  \"paypalEmail\" text NOT NULL,\n  \"recibirNotificacionesCriticas\" bool NOT NULL,\n  \"recibirNotificacionesPublicitarias\" bool DEFAULT false NOT NULL,\n  \"rfc\" text NOT NULL,\n  \"telefono\" text NOT NULL,\n  \"tipo\" text DEFAULT 'vendedor' NOT NULL,\n  \"totalReportes\" int4 DEFAULT 0 NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"ventasExitosas\" int4 DEFAULT 0 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"usuario\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"usuario\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.venta",
+    "label": "Create table \"venta\"",
+    "summary": "Creates table \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"venta\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"venta\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"venta\"",
+        "sql": "CREATE TABLE \"public\".\"venta\" (\n  \"compradorId\" text NOT NULL,\n  \"createdAt\" timestamptz DEFAULT (now()) NOT NULL,\n  \"estado\" text DEFAULT 'completada' NOT NULL,\n  \"id\" SERIAL NOT NULL,\n  \"monto\" float8 NOT NULL,\n  \"paypalOrderId\" text NOT NULL,\n  \"productoId\" text NOT NULL,\n  \"updatedAt\" timestamptz NOT NULL,\n  \"vendedorId\" int4 NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"venta\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"venta\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "unique.usuario.usuario_correo_key",
+    "label": "Add unique constraint on \"usuario\" (correo)",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "unique",
+        "name": "usuario_correo_key",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure constraint \"usuario_correo_key\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "usuario_correo_key",
+          "public",
+          "\"public\".\"usuario\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add unique constraint \"usuario_correo_key\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD CONSTRAINT \"usuario_correo_key\" UNIQUE (\"correo\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify constraint \"usuario_correo_key\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "usuario_correo_key",
+          "public",
+          "\"public\".\"usuario\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.reporte.reporte_vendedorId_idx_ee765345",
+    "label": "Create index \"reporte_vendedorId_idx_ee765345\" on \"reporte\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "reporte_vendedorId_idx_ee765345",
+        "table": "reporte"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"reporte_vendedorId_idx_ee765345\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"reporte_vendedorId_idx_ee765345\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"reporte_vendedorId_idx_ee765345\"",
+        "sql": "CREATE INDEX \"reporte_vendedorId_idx_ee765345\" ON \"public\".\"reporte\" (\"vendedorId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"reporte_vendedorId_idx_ee765345\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"reporte_vendedorId_idx_ee765345\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.venta.venta_vendedorId_idx_ee765345",
+    "label": "Create index \"venta_vendedorId_idx_ee765345\" on \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "venta_vendedorId_idx_ee765345",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"venta_vendedorId_idx_ee765345\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"venta_vendedorId_idx_ee765345\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"venta_vendedorId_idx_ee765345\"",
+        "sql": "CREATE INDEX \"venta_vendedorId_idx_ee765345\" ON \"public\".\"venta\" (\"vendedorId\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"venta_vendedorId_idx_ee765345\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"venta_vendedorId_idx_ee765345\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.reporte.reporte_vendedorId_fkey",
+    "label": "Add foreign key \"reporte_vendedorId_fkey\" on \"reporte\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "reporte_vendedorId_fkey",
+        "table": "reporte"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"reporte_vendedorId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "reporte_vendedorId_fkey",
+          "public",
+          "\"public\".\"reporte\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"reporte_vendedorId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"reporte\"\nADD CONSTRAINT \"reporte_vendedorId_fkey\"\nFOREIGN KEY (\"vendedorId\")\nREFERENCES \"public\".\"usuario\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"reporte_vendedorId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "reporte_vendedorId_fkey",
+          "public",
+          "\"public\".\"reporte\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.venta.venta_vendedorId_fkey",
+    "label": "Add foreign key \"venta_vendedorId_fkey\" on \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "venta_vendedorId_fkey",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"venta_vendedorId_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "venta_vendedorId_fkey",
+          "public",
+          "\"public\".\"venta\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"venta_vendedorId_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"venta\"\nADD CONSTRAINT \"venta_vendedorId_fkey\"\nFOREIGN KEY (\"vendedorId\")\nREFERENCES \"public\".\"usuario\" (\"id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"venta_vendedorId_fkey\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "venta_vendedorId_fkey",
+          "public",
+          "\"public\".\"venta\""
+        ]
+      }
+    ]
+  }
+]
