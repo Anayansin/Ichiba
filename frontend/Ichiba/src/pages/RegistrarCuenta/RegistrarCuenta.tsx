@@ -8,6 +8,7 @@ import {
   validarFormatoImagen,
 } from "../../utils/validarImagen";
 import { useAuth } from "../../context/AuthContext";
+import { mensajeDeError } from "../../utils/errores";
 import { useNavigate } from "react-router-dom";
 import SelectorHorario, {
   type BloqueHorario,
@@ -55,7 +56,8 @@ function RegistarCuenta() {
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
   const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
-  const [paypalEmail, setPaypalEmail] = useState("");
+  const [metodoPago, setMetodoPago] = useState<"paypal" | "mercadopago">("paypal");
+  const [datosMetodoPago, setDatosMetodoPago] = useState("");
   const DIAS_INICIALES: BloqueHorario[] = [
     "lunes",
     "martes",
@@ -122,7 +124,7 @@ function RegistarCuenta() {
     recibirNotificaciones &&
     ineFrente !== null &&
     ineReverso !== null &&
-    paypalEmail.trim() !== "";
+    datosMetodoPago.trim() !== "";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -148,15 +150,16 @@ function RegistarCuenta() {
         recibirNotificacionesPublicitarias: recibirPublicitarias,
         ineFrente,
         ineReverso,
-        paypalEmail,
+        metodoPago,
+        datosMetodoPago,
         horarios,
       });
 
       login(data.usuario, data.token);
       setMostrarVerificacion(true);
-    } catch (err: any) {
+    } catch (err) {
       const mensaje =
-        err.response?.data?.message || "Error al registrar la cuenta";
+        mensajeDeError(err) || "Error al registrar la cuenta";
       setError(mensaje);
     } finally {
       setCargando(false);
@@ -290,16 +293,45 @@ function RegistarCuenta() {
           </ul>
         </div>
         <div className="form-group">
-          <label>Correo de PayPal (aquí recibirás tus pagos)</label>
-          <input
-            type="email"
+          <label>Método de pago</label>
+          <select
             className="registro-input"
-            placeholder="tu-correo@paypal.com"
-            value={paypalEmail}
-            onChange={(e) => setPaypalEmail(e.target.value)}
+            value={metodoPago}
+            onChange={(e) => setMetodoPago(e.target.value as "paypal" | "mercadopago")}
             required
-          />
+          >
+            <option value="paypal">PayPal</option>
+            <option value="mercadopago">Mercado Pago</option>
+          </select>
         </div>
+
+        {metodoPago === "paypal" && (
+          <div className="form-group">
+            <label>Correo de PayPal (aquí recibirás tus pagos)</label>
+            <input
+              type="email"
+              className="registro-input"
+              placeholder="tu-correo@paypal.com"
+              value={datosMetodoPago}
+              onChange={(e) => setDatosMetodoPago(e.target.value)}
+              required
+            />
+          </div>
+        )}
+
+        {metodoPago === "mercadopago" && (
+          <div className="form-group">
+            <label>Correo de Mercado Pago (aquí recibirás tus pagos)</label>
+            <input
+              type="email"
+              className="registro-input"
+              placeholder="tu-correo@mercadopago.com"
+              value={datosMetodoPago}
+              onChange={(e) => setDatosMetodoPago(e.target.value)}
+              required
+            />
+          </div>
+        )}
         <div className="form-group">
           <label>Horario de disponibilidad (mínimo 1 hora a la semana)</label>
           <SelectorHorario horarios={horarios} onChange={setHorarios} />

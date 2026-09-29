@@ -1,7 +1,14 @@
-import { Cola } from "../models/Cola.js";
 import { Producto, TIEMPO_PAGO_DEFECTO } from "../models/producto.js";
+import clientePrisma from "../configuracion/prisma.js";
 
-export type Fila = InstanceType<typeof Cola>;
+export type Fila = {
+  id?: unknown;
+  productoId: unknown;
+  posicion: number;
+  estado: string;
+  pagoExpiraEn?: Date | null;
+  save?: () => Promise<unknown>;
+};
 
 export function limitarTiempoPago(minutos: number): number {
   if (!Number.isFinite(minutos)) return TIEMPO_PAGO_DEFECTO;
@@ -21,7 +28,7 @@ export async function obtenerTiempoLimitePago(
  */
 export async function iniciarTemporizadorPago(fila: Fila): Promise<void> {
   const tiempoLimite = await obtenerTiempoLimitePago(
-    fila.productoId.toString(),
+    String(fila.productoId),
   );
   fila.pagoExpiraEn = new Date(Date.now() + tiempoLimite * 60 * 1000);
 }
@@ -34,24 +41,30 @@ export async function iniciarTemporizadorPago(fila: Fila): Promise<void> {
 export async function limpiarFilasHuerfanas(
   compradorId: string,
 ): Promise<void> {
-  const filas = await Cola.find({ compradorId, estado: "activa" }).select(
-    "productoId",
-  );
+  const filas = await clientePrisma.cola.findMany({
+    where: { compradorId, estado: "activa" },
+  });
   if (filas.length === 0) return;
 
-  const ids = Array.from(new Set(filas.map((fila) => fila.productoId.toString())));
-  const existentes = await Producto.find({ _id: { $in: ids } }).select("_id");
-  const validos = new Set(existentes.map((producto) => producto._id.toString()));
+  const ids = [
+    ...new Set(
+      filas
+        .map((fila) => String(fila.productoId))
+        .filter((id) => /^[0-9a-fA-F]{24}$/.test(id)),
+    ),
+  ];
+  const existentes = ids.length
+    ? await Producto.find({ _id: { $in: ids } }).select("_id")
+    : [];
+  const validos = new Set(existentes.map((producto) => String(producto._id)));
 
-  const huerfanas = filas
-    .filter((fila) => !validos.has(fila.productoId.toString()))
-    .map((fila) => fila._id);
-  if (huerfanas.length === 0) return;
-
-  await Cola.updateMany(
-    { _id: { $in: huerfanas } },
-    { estado: "finalizada" },
-  );
+  for (const fila of filas) {
+    if (validos.has(String(fila.productoId))) continue;
+    await clientePrisma.cola.update({
+      where: { id: Number(fila.id) },
+      data: { estado: "finalizada" },
+    });
+  }
 }
 
 export async function reacomodarFila(
@@ -60,20 +73,25 @@ export async function reacomodarFila(
 ) {
   const tiempoLimite = await obtenerTiempoLimitePago(productoId);
 
-  const personasDetras = await Cola.find({
-    productoId,
-    estado: "activa",
-    posicion: { $gt: posicionQueSeLibero },
+  const personasDetras = await clientePrisma.cola.findMany({
+    where: { productoId, estado: "activa" },
   });
 
   for (const persona of personasDetras) {
-    persona.posicion -= 1;
+    const posicion = Number(persona.posicion);
+    if (posicion <= posicionQueSeLibero) continue;
 
-    if (persona.posicion === 1) {
-      persona.pagoExpiraEn = new Date(Date.now() + tiempoLimite * 60 * 1000);
+    const nuevaPosicion = posicion - 1;
+    const datos: Record<string, unknown> = { posicion: nuevaPosicion };
+
+    if (nuevaPosicion === 1) {
+      datos.pagoExpiraEn = new Date(Date.now() + tiempoLimite * 60 * 1000);
     }
 
-    await persona.save();
+    await clientePrisma.cola.update({
+      where: { id: Number(persona.id) },
+      data: datos,
+    });
   }
 }
 
@@ -87,8 +105,15 @@ export async function expirarTurnoSiVencido(fila: Fila): Promise<boolean> {
   }
 
   fila.estado = "finalizada";
-  await fila.save();
-  await reacomodarFila(fila.productoId.toString(), fila.posicion);
+  if (fila.save) {
+    await fila.save();
+  } else {
+    await clientePrisma.cola.update({
+      where: { id: Number(fila.id) },
+      data: { estado: "finalizada" },
+    });
+  }
+  await reacomodarFila(String(fila.productoId), fila.posicion);
   return true;
 }
 
@@ -97,17 +122,21 @@ export async function expirarTurnoSiVencido(fila: Fila): Promise<boolean> {
  * dentro del tiempo límite, para que el siguiente pueda pagar.
  */
 export async function expirarFilasVencidas(): Promise<number> {
-  const vencidas = await Cola.find({
-    estado: "activa",
-    posicion: 1,
-    pagoExpiraEn: { $lt: new Date() },
+  const enPrimeraPosicion = await clientePrisma.cola.findMany({
+    where: { estado: "activa", posicion: 1 },
   });
 
-  for (const fila of vencidas) {
-    fila.estado = "finalizada";
-    await fila.save();
-    await reacomodarFila(fila.productoId.toString(), fila.posicion);
+  let liberadas = 0;
+  for (const fila of enPrimeraPosicion) {
+    if (!fila.pagoExpiraEn || fila.pagoExpiraEn.getTime() > Date.now()) continue;
+
+    await clientePrisma.cola.update({
+      where: { id: Number(fila.id) },
+      data: { estado: "finalizada" },
+    });
+    await reacomodarFila(String(fila.productoId), Number(fila.posicion));
+    liberadas += 1;
   }
 
-  return vencidas.length;
+  return liberadas;
 }

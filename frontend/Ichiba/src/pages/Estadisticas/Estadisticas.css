@@ -1,0 +1,151 @@
+.mis-estadisticas {
+  padding: 3rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.mis-estadisticas__volver {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #d90429;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mis-estadisticas__volver:hover {
+  text-decoration: underline;
+}
+
+.mis-estadisticas h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.2rem;
+  color: #1a1a1a;
+}
+
+.mis-estadisticas__nota {
+  color: #888;
+  margin-bottom: 2rem;
+}
+
+.mis-estadisticas__cargando {
+  padding: 3rem;
+  text-align: center;
+  color: #555;
+}
+
+.mis-estadisticas__reintentar {
+  border: none;
+  background-color: #d90429;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+}
+
+.mis-estadisticas__tarjetas {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.mis-estadisticas__tarjeta {
+  flex: 1;
+  min-width: 180px;
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mis-estadisticas__numero {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #d90429;
+}
+
+.mis-estadisticas__etiqueta {
+  color: #444;
+  font-weight: 600;
+}
+
+.mis-estadisticas__detalle {
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.mis-estadisticas__seccion {
+  background-color: #f9f9f9;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.mis-estadisticas__seccion h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #1a1a1a;
+}
+
+.mis-estadisticas__tabla p {
+  margin: 0.4rem 0;
+  color: #444;
+}
+
+.mis-estadisticas__vacio {
+  color: #888;
+}
+
+.mis-estadisticas__barras {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.mis-estadisticas__barra-fila {
+  display: grid;
+  grid-template-columns: 140px 1fr 40px;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mis-estadisticas__barra-nombre {
+  color: #444;
+  text-transform: capitalize;
+}
+
+.mis-estadisticas__barra {
+  background-color: #ececec;
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.mis-estadisticas__barra-relleno {
+  background-color: #d90429;
+  height: 100%;
+}
+
+.mis-estadisticas__barra-cantidad {
+  text-align: right;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.mis-estadisticas__popular {
+  color: #444;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 640px) {
+  .mis-estadisticas {
+    padding: 1.5rem;
+  }
+
+  .mis-estadisticas__barra-fila {
+    grid-template-columns: 100px 1fr 40px;
+  }
+}

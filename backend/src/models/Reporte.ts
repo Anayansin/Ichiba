@@ -7,6 +7,12 @@ import { ELEMENTOS_REPORTABLES } from "../configuracion/categoriasReporte.js";
  */
 const reporteSchema = new Schema(
   {
+    tipoReportado: {
+      type: String,
+      enum: ["vendedor", "comprador"],
+      required: true,
+      default: "vendedor",
+    },
     // Quién recibe el reporte
     sujetoTipo: {
       type: String,
@@ -31,7 +37,7 @@ const reporteSchema = new Schema(
     detalle: { type: String },
     estado: {
       type: String,
-      enum: ["pendiente", "revisado"],
+      enum: ["pendiente", "revisado", "confirmado"],
       default: "pendiente",
     },
   },

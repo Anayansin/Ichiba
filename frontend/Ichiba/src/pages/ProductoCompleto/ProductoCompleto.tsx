@@ -16,6 +16,7 @@ import {
 } from "../../services/colaService";
 import { useColas } from "../../context/ColasContext";
 import { useAuth } from "../../context/AuthContext";
+import { mensajeDeError } from "../../utils/errores";
 import {
   textoCondicion,
   textoMetodoEntrega,
@@ -56,6 +57,10 @@ function ProductoCompleto() {
     function actualizar() {
       fetchEstadoDeMiFila(productoActual._id)
         .then((data) => {
+          if (data.enFila === false) {
+            setEstadoFila(null);
+            return;
+          }
           if (data.expiro) {
             setEstadoFila(null);
             setMensajeFila(
@@ -72,7 +77,7 @@ function ProductoCompleto() {
     actualizar();
     const intervalo = setInterval(actualizar, 5000);
     return () => clearInterval(intervalo);
-  }, [producto]);
+  }, [producto, recargarFilas]);
 
   // Cuenta regresiva del tiempo de pago (empieza en la posición 1)
   useEffect(() => {
@@ -117,9 +122,9 @@ function ProductoCompleto() {
       await entrarEnFila(producto._id);
       recargarFilas();
       setMensajeFila("¡Entraste a la fila!");
-    } catch (err: any) {
+    } catch (err) {
       setMensajeFila(
-        err.response?.data?.message || "Error al entrar en la fila",
+        mensajeDeError(err) || "Error al entrar en la fila",
       );
     }
   }
@@ -128,8 +133,8 @@ function ProductoCompleto() {
     try {
       const { linkAprobacion } = await crearOrdenPago(producto._id);
       window.location.href = linkAprobacion;
-    } catch (err: any) {
-      setMensajeFila(err.response?.data?.message || "Error al iniciar el pago");
+    } catch (err) {
+      setMensajeFila(mensajeDeError(err) || "Error al iniciar el pago");
     }
   }
 
@@ -150,9 +155,9 @@ function ProductoCompleto() {
 
     try {
       await guardarSuscripcion(preferencias.correo, preferencias.categorias);
-    } catch (err: any) {
+    } catch (err) {
       setMensajeFila(
-        err.response?.data?.message ||
+        mensajeDeError(err) ||
           "No se pudieron guardar tus preferencias de notificación, intenta de nuevo",
       );
       return;
@@ -165,7 +170,7 @@ function ProductoCompleto() {
   if (!producto)
     return <p className="producto-no-encontrado">Producto no encontrado</p>;
 
-  const esDueño = usuario?.id === producto.vendedorId;
+  const esDueño = String(usuario?.id) === String(producto.vendedorId);
 
   if (!producto.activo && !esDueño) {
     return (

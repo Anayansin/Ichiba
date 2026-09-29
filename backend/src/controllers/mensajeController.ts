@@ -19,7 +19,7 @@ async function validarAccesoComprador(ventaId: string, compradorId: string) {
 async function validarAccesoVendedor(ventaId: string, vendedorId: string) {
   const venta = await Venta.findById(ventaId);
   if (!venta) return null;
-  if (venta.vendedorId.toString() !== vendedorId) return null;
+  if (String(venta.vendedorId) !== String(vendedorId)) return null;
   return venta;
 }
 

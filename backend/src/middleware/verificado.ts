@@ -1,6 +1,6 @@
 import { Response, NextFunction } from "express";
-import { Usuario } from "../models/usuario";
 import { RequestConUsuario } from "./auth.js";
+import { buscarUsuarioPorId } from "../services/usuarioService.js";
 
 export async function requiereVerificado(
   req: RequestConUsuario,
@@ -8,7 +8,7 @@ export async function requiereVerificado(
   next: NextFunction,
 ) {
   try {
-    const usuario = await Usuario.findById(req.usuarioId);
+    const usuario = await buscarUsuarioPorId(req.usuarioId);
 
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
@@ -18,6 +18,20 @@ export async function requiereVerificado(
       return res.status(403).json({
         message: "Debes verificar tu correo antes de continuar",
         correoVerificado: usuario.correoVerificado,
+      });
+    }
+
+    const mesActual = new Date().getMonth();
+    const anioActual = new Date().getFullYear();
+    const fechaConfirmacion = usuario.horarioConfirmadoEn;
+    const horarioConfirmadoEsteMes =
+      fechaConfirmacion &&
+      fechaConfirmacion.getMonth() === mesActual &&
+      fechaConfirmacion.getFullYear() === anioActual;
+
+    if (!horarioConfirmadoEsteMes) {
+      return res.status(403).json({
+        message: "Debes confirmar tu horario de este mes antes de continuar",
       });
     }
 

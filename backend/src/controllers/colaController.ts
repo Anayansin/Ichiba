@@ -1,6 +1,7 @@
 import { Response } from "express";
-import { Cola } from "../models/Cola.js";
 import { RequestConComprador } from "../middleware/comprador.js";
+import clientePrisma from "../configuracion/prisma.js";
+import { Producto } from "../models/producto.js";
 import {
   reacomodarFila,
   iniciarTemporizadorPago,
@@ -10,18 +11,33 @@ import {
 
 const LIMITE_FILAS_ACTIVAS = 3;
 
+async function productosDeFilas(filas: any[]) {
+  const ids = [
+    ...new Set(
+      filas
+        .map((fila) => String(fila.productoId))
+        .filter((id) => /^[0-9a-fA-F]{24}$/.test(id)),
+    ),
+  ];
+  const productos = ids.length
+    ? await Producto.find({ _id: { $in: ids } })
+    : [];
+  return new Map(productos.map((producto) => [String(producto._id), producto]));
+}
+
 export async function entrarEnFila(req: RequestConComprador, res: Response) {
   try {
     const { productoId } = req.body;
     const compradorId = req.compradorId as string;
 
-    // Filas de productos ya borrados no deben ocupar el límite de 3
     await limpiarFilasHuerfanas(compradorId);
 
-    const yaEstaEnEstaFila = await Cola.findOne({
-      productoId,
-      compradorId,
-      estado: "activa",
+    const yaEstaEnEstaFila = await clientePrisma.cola.findFirst({
+      where: {
+        productoId,
+        compradorId,
+        estado: "activa",
+      },
     });
 
     if (yaEstaEnEstaFila) {
@@ -30,9 +46,11 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
         .json({ message: "Ya estás en la fila de este producto" });
     }
 
-    const filasActivasDelComprador = await Cola.countDocuments({
-      compradorId,
-      estado: "activa",
+    const filasActivasDelComprador = await clientePrisma.cola.count({
+      where: {
+        compradorId,
+        estado: "activa",
+      },
     });
 
     if (filasActivasDelComprador >= LIMITE_FILAS_ACTIVAS) {
@@ -41,30 +59,34 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
       });
     }
 
-    // La posición se calcula con la última ocupada (no con el conteo),
-    // para que un hueco en la numeración no genere dos personas en la misma posición
-    const ultimaOcupada = await Cola.findOne({
-      productoId,
-      estado: "activa",
-    })
-      .sort({ posicion: -1 })
-      .select("posicion");
+    const ultimaOcupada = await clientePrisma.cola.findFirst({
+      where: {
+        productoId,
+        estado: "activa",
+      },
+      orderBy: { posicion: "desc" },
+      select: { posicion: true },
+    });
 
     const posicion = (ultimaOcupada?.posicion ?? 0) + 1;
 
-    const nuevaCola = new Cola({
-      productoId,
-      compradorId,
-      posicion,
+    const nuevaCola = await clientePrisma.cola.create({
+      data: {
+        productoId,
+        compradorId,
+        posicion,
+      },
     });
 
-    // El tiempo de pago empieza a contar desde la posición 1
     if (posicion === 1) {
       await iniciarTemporizadorPago(nuevaCola);
+      await clientePrisma.cola.update({
+        where: { id: Number(nuevaCola.id) },
+        data: { pagoExpiraEn: nuevaCola.pagoExpiraEn },
+      });
     }
 
-    const guardada = await nuevaCola.save();
-    res.status(201).json(guardada);
+    res.status(201).json({ ...nuevaCola, _id: String(nuevaCola.id) });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al entrar en la fila" });
@@ -75,14 +97,22 @@ export async function misFilas(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
 
-    // Evita que aparezcan filas de productos borrados (rompen la UI con null)
     await limpiarFilasHuerfanas(compradorId);
 
-    const filas = await Cola.find({ compradorId, estado: "activa" })
-      .populate("productoId", "nombre imagenes precio")
-      .sort({ posicion: 1 });
+    const filas = await clientePrisma.cola.findMany({
+      where: { compradorId, estado: "activa" },
+      orderBy: { posicion: "asc" },
+    });
 
-    res.json(filas);
+    const productos = await productosDeFilas(filas);
+
+    res.json(
+      filas.map((fila) => ({
+        ...fila,
+        _id: String(fila.id),
+        productoId: productos.get(String(fila.productoId)) ?? null,
+      })),
+    );
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener tus filas" });
@@ -93,16 +123,20 @@ export async function salirDeFila(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
 
-    const fila = await Cola.findOne({ _id: req.params.id, compradorId });
+    const fila = await clientePrisma.cola.findFirst({
+      where: { id: Number(req.params.id), compradorId },
+    });
 
     if (!fila) {
       return res.status(404).json({ message: "Fila no encontrada" });
     }
 
-    fila.estado = "finalizada";
-    await fila.save();
+    await clientePrisma.cola.update({
+      where: { id: fila.id },
+      data: { estado: "finalizada" },
+    });
 
-    await reacomodarFila(fila.productoId.toString(), fila.posicion);
+    await reacomodarFila(fila.productoId, fila.posicion);
 
     res.json({ message: "Saliste de la fila" });
   } catch (error) {
@@ -116,28 +150,37 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
     const compradorId = req.compradorId as string;
     const { productoId } = req.params;
 
-    const miFila = await Cola.findOne({
-      productoId,
-      compradorId,
-      estado: "activa",
+    const miFila = await clientePrisma.cola.findFirst({
+      where: {
+        productoId,
+        compradorId,
+        estado: "activa",
+      },
     });
 
     if (!miFila) {
-      return res
-        .status(404)
-        .json({ message: "No estás en la fila de este producto" });
+      return res.json({
+        posicion: null,
+        puedePagar: false,
+        colaId: null,
+        pagoExpiraEn: null,
+        expiro: false,
+        enFila: false,
+      });
     }
 
     if (miFila.posicion === 1) {
-      // Fila heredada sin temporizador: lo iniciamos ahora
       if (!miFila.pagoExpiraEn) {
         await iniciarTemporizadorPago(miFila);
-        await miFila.save();
+        await clientePrisma.cola.update({
+          where: { id: miFila.id },
+          data: { pagoExpiraEn: miFila.pagoExpiraEn },
+        });
       } else if (await expirarTurnoSiVencido(miFila)) {
         return res.json({
           posicion: null,
           puedePagar: false,
-          colaId: miFila._id,
+          colaId: miFila.id,
           pagoExpiraEn: null,
           expiro: true,
           mensaje:
@@ -149,7 +192,7 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
     res.json({
       posicion: miFila.posicion,
       puedePagar: miFila.posicion === 1,
-      colaId: miFila._id,
+      colaId: miFila.id,
       pagoExpiraEn: miFila.pagoExpiraEn ?? null,
       expiro: false,
     });
@@ -167,18 +210,24 @@ export async function responderEsperaConfirmacion(
     const compradorId = req.compradorId as string;
     const { conservarTurno } = req.body;
 
-    const fila = await Cola.findOne({ _id: req.params.id, compradorId });
+    const fila = await clientePrisma.cola.findFirst({
+      where: { id: Number(req.params.id), compradorId },
+    });
     if (!fila) return res.status(404).json({ message: "Fila no encontrada" });
 
     if (conservarTurno) {
-      fila.estado = "activa";
-      await fila.save();
+      await clientePrisma.cola.update({
+        where: { id: fila.id },
+        data: { estado: "activa" },
+      });
       return res.json({ message: "Conservaste tu turno, seguirás en espera" });
     }
 
-    fila.estado = "finalizada";
-    await fila.save();
-    await reacomodarFila(fila.productoId.toString(), fila.posicion);
+    await clientePrisma.cola.update({
+      where: { id: fila.id },
+      data: { estado: "finalizada" },
+    });
+    await reacomodarFila(fila.productoId, fila.posicion);
 
     res.json({ message: "Saliste de la fila" });
   } catch (error) {

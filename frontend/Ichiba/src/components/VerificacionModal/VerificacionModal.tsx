@@ -3,6 +3,7 @@ import {
   enviarCodigoCorreo,
   verificarCodigoCorreo,
 } from "../../services/verificacionService";
+import { mensajeDeError } from "../../utils/errores";
 import "./VerificacionModal.css";
 
 interface VerificacionModalProps {
@@ -28,9 +29,9 @@ function VerificacionModal({ onCompletado }: VerificacionModalProps) {
     try {
       await enviarCodigoCorreo();
       setCorreoEnviado(true);
-    } catch (err: any) {
+    } catch (err) {
       setErrorCorreo(
-        err.response?.data?.message || "Error al enviar el correo",
+        mensajeDeError(err) || "Error al enviar el correo",
       );
     } finally {
       setEnviandoCorreo(false);
@@ -42,8 +43,8 @@ function VerificacionModal({ onCompletado }: VerificacionModalProps) {
     try {
       await verificarCodigoCorreo(codigoCorreo);
       setCorreoVerificado(true);
-    } catch (err: any) {
-      setErrorCorreo(err.response?.data?.message || "Código incorrecto");
+    } catch (err) {
+      setErrorCorreo(mensajeDeError(err) || "Código incorrecto");
     }
   }
 

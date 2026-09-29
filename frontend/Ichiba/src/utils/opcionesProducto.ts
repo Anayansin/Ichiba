@@ -5,6 +5,13 @@ export const CONDICIONES_PRODUCTO = [
   { valor: "usado-aceptable", texto: "Usado - aceptable" },
 ];
 
+export const CONDICIONES_USO = [
+  { valor: "nuevo", texto: "Nuevo" },
+  { valor: "usado-como-nuevo", texto: "Usado - como nuevo" },
+  { valor: "usado-buen-estado", texto: "Usado - buen estado" },
+  { valor: "usado-aceptable", texto: "Usado - aceptable" },
+];
+
 export const METODOS_ENTREGA = [
   { valor: "domicilio", texto: "Domicilio" },
   { valor: "tienda", texto: "Tienda" },

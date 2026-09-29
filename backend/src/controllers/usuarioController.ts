@@ -3,16 +3,16 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import fs from "fs";
-import { Usuario } from "../models/usuario.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
+import clientePrisma from "../configuracion/prisma.js";
 import { validarPassword } from "../utils/validarPassword.js";
 import { coincideRfcConCurp } from "../utils/validarRfcCurp.js";
 import {
   validarDimensionesINE,
   validarNitidezINE,
 } from "../services/ineService.js";
-import { extraerDatosINE } from "../services/structOcrService.js";
+import { extraerDatosINE, coincideNombreConDatosINE } from "../services/structOcrService.js";
 import { validarHorarioSemanal } from "../utils/validarHorario.js";
 import { enviarCorreoRecuperacion } from "../services/emailService.js";
 import {
@@ -20,12 +20,12 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 
-const MINUTOS_EXPIRACION_RECUPERACION = 15;
+const MINUTOS_EXPIRACION_RECUPERACION = 10;
 const MENSAJE_RECUPERACION_ENVIADA =
   "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
 
 function generarCodigoRecuperacion(): string {
-  return crypto.randomInt(100000, 999999).toString();
+  return crypto.randomInt(1000, 9999).toString();
 }
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {
@@ -51,7 +51,8 @@ export async function registrarUsuario(req: Request, res: Response) {
       password,
       aceptaTerminos,
       recibirNotificacionesCriticas,
-      paypalEmail,
+      metodoPago,
+      datosMetodoPago,
     } = req.body;
 
     const campoProhibido = campoConPalabrasProhibidas({
@@ -61,7 +62,7 @@ export async function registrarUsuario(req: Request, res: Response) {
       correo,
       rfc,
       password,
-      paypalEmail,
+      datosMetodoPago,
     });
     if (campoProhibido) {
       if (ineFrente || ineReverso) {
@@ -101,6 +102,20 @@ export async function registrarUsuario(req: Request, res: Response) {
       return res
         .status(400)
         .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    if (
+      !datosMetodoPago ||
+      (metodoPago !== "paypal" && metodoPago !== "mercadopago")
+    ) {
+      if (ineFrente || ineReverso) {
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      }
+      return res
+        .status(400)
+        .json({ message: "Indica tu método de pago y el dato para recibirlo" });
     }
 
     if (aceptaTerminos !== "true") {
@@ -176,6 +191,13 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
+    if (!coincideNombreConDatosINE(datosINE, nombreCompleto)) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(400).json({
+        message: "El nombre ingresado no coincide con el de tu identificación",
+      });
+    }
+
     const curp = datosINE.personal_number;
 
     if (!curp) {
@@ -215,7 +237,9 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    const usuarioExistente = await Usuario.findOne({ correo });
+    const usuarioExistente = await clientePrisma.usuario.findFirst({
+      where: { correo },
+    });
     if (usuarioExistente) {
       limpiarArchivos([ineFrente, ineReverso]);
       return res
@@ -225,29 +249,29 @@ export async function registrarUsuario(req: Request, res: Response) {
 
     const passwordHasheada = await bcrypt.hash(password, 10);
 
-    const nuevoUsuario = new Usuario({
-      nombreCompleto,
-      direccion,
-      telefono,
-      correo,
-      rfc,
-      password: passwordHasheada,
-      curp,
-      paypalEmail,
-      ineFrente: `/uploads/ine/${ineFrente.filename}`,
-      ineReverso: `/uploads/ine/${ineReverso.filename}`,
-      ineCodigoReverso: mrzCompleto,
-      aceptaTerminos: true,
-      recibirNotificacionesCriticas: true,
-      horarios,
-      horarioConfirmadoEn: new Date(),
-      diasSinConfirmarHorario: 0,
+    const usuarioCreado = await clientePrisma.usuario.create({
+      data: {
+        nombreCompleto,
+        direccion,
+        telefono,
+        correo,
+        rfc,
+        password: passwordHasheada,
+        curp,
+        paypalEmail: datosMetodoPago,
+        ineFrente: `/uploads/ine/${ineFrente.filename}`,
+        ineReverso: `/uploads/ine/${ineReverso.filename}`,
+        ineCodigoReverso: mrzCompleto,
+        aceptaTerminos: true,
+        recibirNotificacionesCriticas: true,
+        horarios,
+        horarioConfirmadoEn: new Date(),
+        diasSinConfirmarHorario: 0,
+      },
     });
 
-    const guardado = await nuevoUsuario.save();
-
     const token = jwt.sign(
-      { id: guardado._id, tipo: guardado.tipo },
+      { id: usuarioCreado.id, tipo: usuarioCreado.tipo },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
@@ -255,10 +279,10 @@ export async function registrarUsuario(req: Request, res: Response) {
     res.status(201).json({
       token,
       usuario: {
-        id: guardado._id,
-        nombreCompleto: guardado.nombreCompleto,
-        correo: guardado.correo,
-        tipo: guardado.tipo,
+        id: usuarioCreado.id,
+        nombreCompleto: usuarioCreado.nombreCompleto,
+        correo: usuarioCreado.correo,
+        tipo: usuarioCreado.tipo,
       },
     });
   } catch (error) {
@@ -276,7 +300,9 @@ export async function iniciarSesion(req: Request, res: Response) {
   try {
     const { correo, password } = req.body;
 
-    const usuario = await Usuario.findOne({ correo });
+    const usuario = await clientePrisma.usuario.findFirst({
+      where: { correo },
+    });
     if (!usuario) {
       return res
         .status(401)
@@ -291,7 +317,7 @@ export async function iniciarSesion(req: Request, res: Response) {
     }
 
     const token = jwt.sign(
-      { id: usuario._id, tipo: usuario.tipo },
+      { id: usuario.id, tipo: usuario.tipo },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
@@ -299,7 +325,7 @@ export async function iniciarSesion(req: Request, res: Response) {
     res.json({
       token,
       usuario: {
-        id: usuario._id,
+        id: usuario.id,
         nombreCompleto: usuario.nombreCompleto,
         correo: usuario.correo,
         tipo: usuario.tipo,
@@ -313,7 +339,34 @@ export async function iniciarSesion(req: Request, res: Response) {
 
 export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
   try {
-    const usuario = await Usuario.findById(req.usuarioId).select("-password");
+    const usuario = await clientePrisma.usuario.findUnique({
+      where: { id: req.usuarioId },
+      select: {
+        id: true,
+        nombreCompleto: true,
+        direccion: true,
+        telefono: true,
+        correo: true,
+        rfc: true,
+        tipo: true,
+        ventasExitosas: true,
+        totalReportes: true,
+        correoVerificado: true,
+        ineFrente: true,
+        ineReverso: true,
+        ineCodigoReverso: true,
+        aceptaTerminos: true,
+        recibirNotificacionesCriticas: true,
+        curp: true,
+        recibirNotificacionesPublicitarias: true,
+        paypalEmail: true,
+        horarios: true,
+        horarioConfirmadoEn: true,
+        diasSinConfirmarHorario: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
@@ -326,9 +379,15 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
 
 export async function obtenerPerfilPublico(req: Request, res: Response) {
   try {
-    const usuario = await Usuario.findById(req.params.id).select(
-      "nombreCompleto ventasExitosas reportes createdAt",
-    );
+    const usuario = await clientePrisma.usuario.findUnique({
+      where: { id: Number(req.params.id) },
+      select: {
+        nombreCompleto: true,
+        ventasExitosas: true,
+        totalReportes: true,
+        createdAt: true,
+      },
+    });
     if (!usuario) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
@@ -354,10 +413,13 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
     const errorHorario = validarHorarioSemanal(horarios);
     if (errorHorario) return res.status(400).json({ message: errorHorario });
 
-    await Usuario.findByIdAndUpdate(req.usuarioId, {
-      horarios,
-      horarioConfirmadoEn: new Date(),
-      diasSinConfirmarHorario: 0,
+    await clientePrisma.usuario.update({
+      where: { id: req.usuarioId },
+      data: {
+        horarios,
+        horarioConfirmadoEn: new Date(),
+        diasSinConfirmarHorario: 0,
+      },
     });
 
     res.json({ message: "Horario confirmado" });
@@ -375,22 +437,32 @@ export async function solicitarRecuperacion(req: Request, res: Response) {
       return res.status(400).json({ message: "El correo es obligatorio" });
     }
 
-    const usuario = await Usuario.findOne({ correo });
+    const usuario = await clientePrisma.usuario.findFirst({
+      where: { correo },
+    });
 
     if (!usuario) {
       return res.status(200).json({ message: MENSAJE_RECUPERACION_ENVIADA });
     }
 
     const codigo = generarCodigoRecuperacion();
-    usuario.codigoRecuperacion = codigo;
-    usuario.codigoRecuperacionExpira = new Date(
-      Date.now() + MINUTOS_EXPIRACION_RECUPERACION * 60 * 1000,
-    );
-    await usuario.save();
+    await clientePrisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        codigoRecuperacion: codigo,
+        codigoRecuperacionExpira: new Date(
+          Date.now() + MINUTOS_EXPIRACION_RECUPERACION * 60 * 1000,
+        ),
+      },
+    });
 
-    await enviarCorreoRecuperacion(usuario.correo, codigo);
+    const enviado = await enviarCorreoRecuperacion(usuario.correo, codigo);
 
-    res.status(200).json({ message: MENSAJE_RECUPERACION_ENVIADA });
+    res.status(200).json({
+      message: enviado
+        ? MENSAJE_RECUPERACION_ENVIADA
+        : `Modo local: tu código de recuperación es ${codigo}`,
+    });
   } catch (error) {
     console.error("Error real:", error);
     res
@@ -412,7 +484,9 @@ export async function verificarCodigoRecuperacion(
         .json({ message: "El correo y el código son obligatorios" });
     }
 
-    const usuario = await Usuario.findOne({ correo });
+    const usuario = await clientePrisma.usuario.findFirst({
+      where: { correo },
+    });
 
     if (
       !usuario ||
@@ -456,7 +530,9 @@ export async function restablecerPassword(req: Request, res: Response) {
       return res.status(400).json({ message: errorPassword });
     }
 
-    const usuario = await Usuario.findOne({ correo });
+    const usuario = await clientePrisma.usuario.findFirst({
+      where: { correo },
+    });
 
     if (
       !usuario ||
@@ -478,10 +554,14 @@ export async function restablecerPassword(req: Request, res: Response) {
       return res.status(400).json({ message: "Código incorrecto" });
     }
 
-    usuario.password = await bcrypt.hash(password, 10);
-    usuario.codigoRecuperacion = undefined;
-    usuario.codigoRecuperacionExpira = undefined;
-    await usuario.save();
+    await clientePrisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        password: await bcrypt.hash(password, 10),
+        codigoRecuperacion: null,
+        codigoRecuperacionExpira: null,
+      },
+    });
 
     res.json({ message: "Contraseña actualizada correctamente" });
   } catch (error) {

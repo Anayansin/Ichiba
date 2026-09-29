@@ -123,6 +123,11 @@ function Header({ onOpenLogin }: HeaderProps) {
               >
                 Estadísticas
               </Link>
+              {usuario.tipo === "admin" && (
+                <Link to="/admin/reportes" className="header__menu-item">
+                  Reportes
+                </Link>
+              )}
               <button
                 className="header__menu-item header__logout"
                 onClick={handleLogout}

@@ -8,8 +8,10 @@ import {
 } from "../../services/productoService";
 import { useAuth } from "../../context/AuthContext";
 import { URL_BACKEND } from "../../services/api";
+import { mensajeDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
+  CONDICIONES_USO,
   METODOS_ENTREGA,
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
@@ -39,6 +41,7 @@ function EditarProducto() {
   const [categoria, setCategoria] = useState(categorias[0]);
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
+  const [condicionUso, setCondicionUso] = useState(CONDICIONES_USO[0].valor);
   const [metodoEntrega, setMetodoEntrega] = useState(METODOS_ENTREGA[0].valor);
   const [horarioInicio, setHorarioInicio] = useState("09:00");
   const [horarioFin, setHorarioFin] = useState("18:00");
@@ -61,6 +64,7 @@ function EditarProducto() {
         setCategoria(data.categoria);
         setDescripcion(data.descripcion);
         setCondicion(data.condicion ?? CONDICIONES_PRODUCTO[0].valor);
+        setCondicionUso(data.condicionUso ?? CONDICIONES_USO[0].valor);
         setMetodoEntrega(data.metodoEntrega ?? METODOS_ENTREGA[0].valor);
         setHorarioInicio(data.horarioEntrega?.inicio ?? "09:00");
         setHorarioFin(data.horarioEntrega?.fin ?? "18:00");
@@ -76,7 +80,7 @@ function EditarProducto() {
     return <p className="editar-producto__cargando">Cargando producto...</p>;
   if (!producto)
     return <p className="editar-producto__cargando">Producto no encontrado</p>;
-  if (producto.vendedorId !== usuario.id)
+  if (String(producto.vendedorId) !== String(usuario.id))
     return <Navigate to="/panel-vendedor" replace />;
 
   const totalImagenes = imagenesExistentes.length + archivosNuevos.length;
@@ -140,6 +144,7 @@ function EditarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
+      formData.append("condicionUso", condicionUso);
       formData.append("metodoEntrega", metodoEntrega);
       formData.append("horarioInicio", horarioInicio);
       formData.append("horarioFin", horarioFin);
@@ -149,9 +154,9 @@ function EditarProducto() {
 
       await actualizarProducto(id as string, formData);
       navigate(`/producto/${id}`);
-    } catch (err: any) {
+    } catch (err) {
       setError(
-        err.response?.data?.message || "Error al actualizar el producto",
+        mensajeDeError(err) || "Error al actualizar el producto",
       );
     } finally {
       setCargando(false);
@@ -222,6 +227,21 @@ function EditarProducto() {
             onChange={(e) => setCondicion(e.target.value)}
           >
             {CONDICIONES_PRODUCTO.map((opcion) => (
+              <option key={opcion.valor} value={opcion.valor}>
+                {opcion.texto}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Condición de uso</label>
+          <select
+            className="editar-producto-input"
+            value={condicionUso}
+            onChange={(e) => setCondicionUso(e.target.value)}
+          >
+            {CONDICIONES_USO.map((opcion) => (
               <option key={opcion.valor} value={opcion.valor}>
                 {opcion.texto}
               </option>

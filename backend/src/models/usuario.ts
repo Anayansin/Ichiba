@@ -11,6 +11,7 @@ const usuarioSchema = new Schema(
     tipo: { type: String, enum: ["vendedor"], default: "vendedor" },
     ventasExitosas: { type: Number, default: 0 },
     reportes: { type: Number, default: 0 },
+    faltasLeves: { type: Number, default: 0 },
     correoVerificado: { type: Boolean, default: false },
     codigoCorreo: { type: String },
     codigoCorreoExpira: { type: Date },
@@ -23,7 +24,8 @@ const usuarioSchema = new Schema(
     curp: { type: String },
     ineCodigoReverso: { type: String },
     recibirNotificacionesPublicitarias: { type: Boolean, default: false },
-    paypalEmail: { type: String, required: true },
+    metodoPago: { type: String, enum: ["paypal", "mercadopago"], required: true },
+    datosMetodoPago: { type: String, required: true },
     horarios: [
       {
         dia: { type: String, required: true },

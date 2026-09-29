@@ -1,72 +1,124 @@
-import { Response, Request } from "express";
+import { Response } from "express";
+import { Promocional } from "../models/Promocional.js";
+import { RequestConUsuario } from "../middleware/auth.js";
+import { buscarUsuarioPorId } from "../services/usuarioService.js";
+import { Request } from "express";
 import path from "path";
 import fs from "fs";
-import { Promocional } from "../models/Promocional.js";
-import { Usuario } from "../models/usuario.js";
-import { RequestConUsuario } from "../middleware/auth.js";
-import {
-  CATEGORIAS_PROMOCIONAL,
-  esCategoriaPromocional,
-} from "../configuracion/categorias.js";
+import { CONDICIONES_USO_PROMOCIONAL } from "../models/Promocional.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
+import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 
-function imagenesSubidas(req: Request): Express.Multer.File[] {
-  return (req.files as Express.Multer.File[] | undefined) || [];
-}
+function validarPromocional(req: Request): string | null {
+  const { condicionUso, precio, nombre, descripcion, coberturaEnvio } = req.body;
 
-/** Borra los archivos subidos cuando el promocional no se va a guardar. */
-function descartarImagenes(req: Request) {
-  imagenesSubidas(req).forEach((archivo) => fs.unlink(archivo.path, () => {}));
-}
+  if (!CONDICIONES_USO_PROMOCIONAL.includes(condicionUso)) {
+    return "Selecciona la condición de uso del promocional";
+  }
 
-function validarDatos(req: Request): string | null {
-  const { nombre, categoria, descripcion, precio } = req.body;
+  const precioNumerico = Number(precio);
+  if (!Number.isFinite(precioNumerico) || precioNumerico < 5001) {
+    return "El precio del promocional debe ser mayor a $5,000";
+  }
 
-  if (typeof nombre !== "string" || !nombre.trim())
-    return "Escribe el nombre del promocional";
+  const longitudNombre = nombre?.length ?? 0;
+  if (longitudNombre < 10 || longitudNombre > 35) {
+    return "El nombre del promocional debe tener entre 10 y 35 caracteres";
+  }
 
-  if (!esCategoriaPromocional(categoria))
-    return "Selecciona un tipo de promocional válido";
+  const longitudDescripcion = descripcion?.length ?? 0;
+  if (longitudDescripcion < 30 || longitudDescripcion > 100) {
+    return "La descripción del promocional debe tener entre 30 y 100 caracteres";
+  }
 
-  if (typeof descripcion !== "string" || !descripcion.trim())
-    return "Escribe una descripción";
-
-  const precioNumero = Number(precio);
-  if (!Number.isFinite(precioNumero) || precioNumero < 0)
-    return "Indica un precio de referencia válido";
+  if (!coberturaEnvio || coberturaEnvio.trim() === "") {
+    return "La cobertura de envío es obligatoria";
+  }
 
   return null;
 }
 
-export async function getPromocionales(req: Request, res: Response) {
+export async function crearPromocional(req: RequestConUsuario, res: Response) {
   try {
-    const categoria = req.query.categoria;
-
-    if (categoria !== undefined && !esCategoriaPromocional(categoria)) {
-      return res.status(400).json({ message: "Tipo de promocional no válido" });
+    const usuario = await buscarUsuarioPorId(req.usuarioId);
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    type CategoriaPromocional = (typeof CATEGORIAS_PROMOCIONAL)[number];
-    const filtro: { activo: boolean; categoria?: CategoriaPromocional } = {
-      activo: true,
-    };
-    if (typeof categoria === "string")
-      filtro.categoria = categoria as CategoriaPromocional;
+    const archivos = req.files as Express.Multer.File[];
 
-    const promocionales = await Promocional.find(filtro).sort({
-      createdAt: -1,
+    if (!archivos || archivos.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Debes subir al menos una imagen" });
+    }
+
+    for (const archivo of archivos) {
+      const dimensionesValidas = await validarDimensionesProducto(archivo.path);
+      if (!dimensionesValidas) {
+        archivos.forEach((archivo) => {
+          fs.unlink(archivo.path, () => {});
+        });
+        return res.status(400).json({
+          message:
+            "Las imágenes del promocional deben medir entre 420x540 y 2560x2560 píxeles",
+        });
+      }
+    }
+
+    const imagenes = archivos.map((archivo) => `/uploads/${archivo.filename}`);
+
+    const errorPromocional = validarPromocional(req);
+    if (errorPromocional) {
+      return res.status(400).json({ message: errorPromocional });
+    }
+
+    const campoProhibido = campoConPalabrasProhibidas({
+      nombre: req.body.nombre,
+      descripcion: req.body.descripcion,
+      coberturaEnvio: req.body.coberturaEnvio,
     });
-    res.json(promocionales);
+    if (campoProhibido) {
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    const nuevoPromocional = new Promocional({
+      nombre: req.body.nombre,
+      descripcion: req.body.descripcion,
+      condicionUso: req.body.condicionUso,
+      imagenes,
+      precio: Number(req.body.precio),
+      coberturaEnvio: req.body.coberturaEnvio,
+      chatHabilitado: req.body.chatHabilitado === "true",
+      zonaComentariosHabilitada: req.body.zonaComentariosHabilitada === "true",
+      vendedorId: req.usuarioId,
+      vendedor: usuario.nombreCompleto,
+    });
+
+    const guardado = await nuevoPromocional.save();
+    res.status(201).json(guardado);
   } catch (error) {
     console.error("Error real:", error);
-    res.status(500).json({ message: "Error al obtener los promocionales" });
+    res.status(400).json({ message: "Error al crear promocional" });
   }
 }
 
-export async function getPromocionalPorId(req: Request, res: Response) {
+export async function obtenerPromocionales(req: Request, res: Response) {
+  try {
+    const promocionales = await Promocional.find({ activo: true });
+    res.json(promocionales);
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al obtener promocionales" });
+  }
+}
+
+export async function obtenerPromocionalPorId(req: Request, res: Response) {
   try {
     const promocional = await Promocional.findById(req.params.id);
     if (!promocional) {
@@ -79,74 +131,18 @@ export async function getPromocionalPorId(req: Request, res: Response) {
   }
 }
 
-export async function getMisPromocionales(
+export async function obtenerMisPromocionales(
   req: RequestConUsuario,
   res: Response,
 ) {
   try {
-    const promocionales = await Promocional.find({ vendedorId: req.usuarioId });
+    const promocionales = await Promocional.find({
+      vendedorId: String(req.usuarioId),
+    });
     res.json(promocionales);
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener tus promocionales" });
-  }
-}
-
-export async function crearPromocional(
-  req: RequestConUsuario,
-  res: Response,
-) {
-  try {
-    const usuario = await Usuario.findById(req.usuarioId);
-    if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
-
-    if (imagenesSubidas(req).length === 0) {
-      descartarImagenes(req);
-      return res
-        .status(400)
-        .json({ message: "Debes subir al menos una imagen" });
-    }
-
-    const errorDatos = validarDatos(req);
-    if (errorDatos) {
-      descartarImagenes(req);
-      return res.status(400).json({ message: errorDatos });
-    }
-
-    // El filtro global corre antes de que Multer arme el cuerpo multipart
-    const campoProhibido = campoConPalabrasProhibidas({
-      nombre: req.body.nombre,
-      descripcion: req.body.descripcion,
-    });
-    if (campoProhibido) {
-      descartarImagenes(req);
-      return res
-        .status(400)
-        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
-    }
-
-    const imagenes = imagenesSubidas(req).map(
-      (archivo) => `/uploads/${archivo.filename}`,
-    );
-
-    const nuevoPromocional = new Promocional({
-      nombre: req.body.nombre.trim(),
-      precio: Number(req.body.precio),
-      categoria: req.body.categoria,
-      descripcion: req.body.descripcion.trim(),
-      imagenes,
-      vendedorId: req.usuarioId,
-      vendedor: usuario.nombreCompleto,
-    });
-
-    const saved = await nuevoPromocional.save();
-    res.status(201).json(saved);
-  } catch (error) {
-    console.error("Error real:", error);
-    descartarImagenes(req);
-    res.status(400).json({ message: "Error al crear el promocional" });
   }
 }
 
@@ -156,10 +152,11 @@ export async function cambiarEstadoPromocional(
 ) {
   try {
     const promocional = await Promocional.findById(req.params.id);
-    if (!promocional)
+    if (!promocional) {
       return res.status(404).json({ message: "Promocional no encontrado" });
+    }
 
-    if (promocional.vendedorId.toString() !== req.usuarioId) {
+    if (String(promocional.vendedorId) !== String(req.usuarioId)) {
       return res
         .status(403)
         .json({ message: "No tienes permiso sobre este promocional" });
@@ -176,6 +173,92 @@ export async function cambiarEstadoPromocional(
   }
 }
 
+export async function actualizarPromocional(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const promocional = await Promocional.findById(req.params.id);
+    if (!promocional)
+      return res.status(404).json({ message: "Promocional no encontrado" });
+
+    if (String(promocional.vendedorId) !== String(req.usuarioId)) {
+      return res
+        .status(403)
+        .json({ message: "No tienes permiso para editar este promocional" });
+    }
+
+    const archivosNuevos = req.files as Express.Multer.File[];
+    const imagenesExistentes: string[] = req.body.imagenesExistentes
+      ? JSON.parse(req.body.imagenesExistentes)
+      : [];
+
+    for (const archivo of archivosNuevos || []) {
+      const dimensionesValidas = await validarDimensionesProducto(archivo.path);
+      if (!dimensionesValidas) {
+        (archivosNuevos || []).forEach((archivo) => {
+          fs.unlink(archivo.path, () => {});
+        });
+        return res.status(400).json({
+          message:
+            "Las imágenes del promocional deben medir entre 420x540 y 2560x2560 píxeles",
+        });
+      }
+    }
+
+    const imagenesEliminadas = promocional.imagenes.filter(
+      (img) => !imagenesExistentes.includes(img),
+    );
+    imagenesEliminadas.forEach((rutaRelativa) => {
+      const rutaCompleta = path.join(process.cwd(), rutaRelativa);
+      fs.unlink(rutaCompleta, () => {});
+    });
+
+    const imagenesNuevas = (archivosNuevos || []).map(
+      (archivo) => `/uploads/${archivo.filename}`,
+    );
+    const imagenesFinal = [...imagenesExistentes, ...imagenesNuevas];
+
+    if (imagenesFinal.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "El promocional debe tener al menos una imagen" });
+    }
+
+    const errorPromocional = validarPromocional(req);
+    if (errorPromocional) {
+      return res.status(400).json({ message: errorPromocional });
+    }
+
+    const campoProhibido = campoConPalabrasProhibidas({
+      nombre: req.body.nombre,
+      descripcion: req.body.descripcion,
+      coberturaEnvio: req.body.coberturaEnvio,
+    });
+    if (campoProhibido) {
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    promocional.nombre = req.body.nombre;
+    promocional.descripcion = req.body.descripcion;
+    promocional.condicionUso = req.body.condicionUso;
+    promocional.precio = Number(req.body.precio);
+    promocional.coberturaEnvio = req.body.coberturaEnvio;
+    promocional.chatHabilitado = req.body.chatHabilitado === "true";
+    promocional.zonaComentariosHabilitada =
+      req.body.zonaComentariosHabilitada === "true";
+    promocional.imagenes = imagenesFinal;
+
+    const actualizado = await promocional.save();
+    res.json(actualizado);
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(400).json({ message: "Error al actualizar promocional" });
+  }
+}
+
 export async function eliminarPromocional(
   req: RequestConUsuario,
   res: Response,
@@ -185,7 +268,7 @@ export async function eliminarPromocional(
     if (!promocional)
       return res.status(404).json({ message: "Promocional no encontrado" });
 
-    if (promocional.vendedorId.toString() !== req.usuarioId) {
+    if (String(promocional.vendedorId) !== String(req.usuarioId)) {
       return res
         .status(403)
         .json({ message: "No tienes permiso sobre este promocional" });

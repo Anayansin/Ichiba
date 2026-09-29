@@ -7,6 +7,13 @@ export const CONDICIONES_PRODUCTO = [
   "usado-aceptable",
 ] as const;
 
+export const CONDICIONES_USO = [
+  "nuevo",
+  "usado-como-nuevo",
+  "usado-buen-estado",
+  "usado-aceptable",
+] as const;
+
 export const METODOS_ENTREGA = [
   "domicilio",
   "tienda",
@@ -25,13 +32,12 @@ const productoSchema = new Schema(
     categoria: { type: String, required: true },
     descripcion: { type: String, required: true },
     vendedor: { type: String, required: true },
-    vendedorId: { type: Schema.Types.ObjectId, ref: "Usuario", required: true },
+    vendedorId: { type: String, ref: "Usuario", required: true },
     condicion: { type: String, enum: CONDICIONES_PRODUCTO },
+    condicionUso: { type: String, enum: CONDICIONES_USO, required: true },
     metodoEntrega: { type: String, enum: METODOS_ENTREGA },
-    horarioEntrega: {
-      inicio: { type: String },
-      fin: { type: String },
-    },
+    horarioEntregaInicio: { type: String, required: true },
+    horarioEntregaFin: { type: String, required: true },
     tiempoLimitePago: {
       type: Number,
       default: TIEMPO_PAGO_DEFECTO,

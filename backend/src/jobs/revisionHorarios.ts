@@ -1,5 +1,12 @@
 import cron from "node-cron";
+import fs from "fs";
+import path from "path";
 import { Usuario } from "../models/usuario.js";
+import { Producto } from "../models/producto.js";
+import { Cola } from "../models/Cola.js";
+import { Venta } from "../models/Venta.js";
+import { Mensaje } from "../models/Mensaje.js";
+import { Reporte } from "../models/Reporte.js";
 import { enviarCorreoAdvertencia } from "../services/emailService.js";
 
 export function iniciarJobRevisionHorarios() {
@@ -19,7 +26,35 @@ export function iniciarJobRevisionHorarios() {
       if (esPrimerDiaDelMes && diasDesdeConfirmacion >= 28) {
         usuario.diasSinConfirmarHorario += 1;
 
-        if (usuario.diasSinConfirmarHorario >= 3) {
+        if (usuario.diasSinConfirmarHorario >= 2) {
+          const productosDelVendedor = await Producto.find({
+            vendedorId: String(usuario._id),
+          });
+          const idsProductos = productosDelVendedor.map((p) => p._id);
+
+          await Cola.deleteMany({ productoId: { $in: idsProductos } });
+
+          const ventasDelVendedor = await Venta.find({
+            vendedorId: String(usuario._id),
+          });
+          const idsVentas = ventasDelVendedor.map((v) => v._id);
+
+          await Mensaje.deleteMany({ ventaId: { $in: idsVentas } });
+          await Venta.deleteMany({ vendedorId: String(usuario._id) });
+          await Reporte.deleteMany({ vendedorId: usuario._id });
+          await Producto.deleteMany({ vendedorId: String(usuario._id) });
+
+          for (const producto of productosDelVendedor) {
+            for (const imagen of producto.imagenes) {
+              const rutaImagen = path.join(
+                __dirname,
+                "../../uploads",
+                imagen.replace("/uploads/", ""),
+              );
+              fs.unlink(rutaImagen, () => {});
+            }
+          }
+
           await Usuario.findByIdAndDelete(usuario._id);
           continue;
         }
@@ -27,10 +62,17 @@ export function iniciarJobRevisionHorarios() {
         await usuario.save();
       }
 
-      if (diasDesdeConfirmacion === 2 || diasDesdeConfirmacion === 15) {
+      if (diasDesdeConfirmacion === 2) {
         await enviarCorreoAdvertencia(
           usuario.correo,
-          `Tu cuenta será eliminada si no confirmas tu horario. Llevas ${diasDesdeConfirmacion} días sin confirmar.`,
+          "Tu cuenta será eliminada si no confirmas tu horario el próximo mes. Llevas 2 días sin confirmar.",
+        );
+      }
+
+      if (diasDesdeConfirmacion === 17) {
+        await enviarCorreoAdvertencia(
+          usuario.correo,
+          "Tu cuenta será eliminada mañana si no confirmas tu horario. Esta es tu segunda falta consecutiva.",
         );
       }
     }
