@@ -119,8 +119,8 @@ export async function actualizarProducto(
     for (const archivo of archivosNuevos || []) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        (archivosNuevos || []).forEach((archivo) => {
-          fs.unlink(archivo.path, () => {});
+        (archivosNuevos || []).forEach((archivoSubido) => {
+          fs.unlink(archivoSubido.path, () => {});
         });
         return res.status(400).json({
           message:
@@ -225,8 +225,8 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
     for (const archivo of archivos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        archivos.forEach((archivo) => {
-          fs.unlink(archivo.path, () => {});
+        archivos.forEach((archivoSubido) => {
+          fs.unlink(archivoSubido.path, () => {});
         });
         return res.status(400).json({
           message:

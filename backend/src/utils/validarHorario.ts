@@ -22,13 +22,41 @@ const DIAS_VALIDOS = [
   "domingo",
 ];
 
+const NOMBRES_DE_DIA = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+];
+
 function minutosDesdeMedianoche(hora: string): number {
   const [h, m] = hora.split(":").map(Number);
   return h * 60 + m;
 }
 
+function minutosDesdeMedianocheDeFecha(fecha: Date): number {
+  return fecha.getHours() * 60 + fecha.getMinutes();
+}
+
 function formatoHoraValido(hora: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(hora);
+}
+
+function bloqueUtilizable(bloque: BloqueHorario): boolean {
+  return (
+    bloque.activo &&
+    formatoHoraValido(bloque.horaInicio) &&
+    formatoHoraValido(bloque.horaFin)
+  );
+}
+
+function etiquetaDeDia(diasAdelante: number, nombreDelDia: string): string {
+  if (diasAdelante === 0) return "hoy";
+  if (diasAdelante === 1) return "mañana";
+  return `el próximo ${nombreDelDia}`;
 }
 
 /**
@@ -112,6 +140,58 @@ export function validarHorarioSemanal(
 
   if (minutosTotales < 60) {
     return "Debes tener al menos 1 hora de disponibilidad a la semana";
+  }
+
+  return null;
+}
+
+export function estaDentroDeSuHorario(
+  horarios: BloqueHorario[],
+  fechaActual: Date,
+): boolean {
+  if (!Array.isArray(horarios)) return false;
+
+  const nombreDelDia = NOMBRES_DE_DIA[fechaActual.getDay()];
+  const minutosAhora = minutosDesdeMedianocheDeFecha(fechaActual);
+
+  const bloqueDeHoy = horarios.find(
+    (bloque) => bloque.dia === nombreDelDia && bloqueUtilizable(bloque),
+  );
+
+  if (!bloqueDeHoy) return false;
+
+  const inicio = minutosDesdeMedianoche(bloqueDeHoy.horaInicio);
+  const fin = minutosDesdeMedianoche(bloqueDeHoy.horaFin);
+
+  return minutosAhora >= inicio && minutosAhora < fin;
+}
+
+export function obtenerTextoDeProximoBloque(
+  horarios: BloqueHorario[],
+  fechaActual: Date,
+): string | null {
+  if (!Array.isArray(horarios)) return null;
+
+  const minutosAhora = minutosDesdeMedianocheDeFecha(fechaActual);
+
+  for (let diasAdelante = 0; diasAdelante <= 7; diasAdelante += 1) {
+    const fechaBuscada = new Date(fechaActual);
+    fechaBuscada.setDate(fechaActual.getDate() + diasAdelante);
+    const nombreDelDia = NOMBRES_DE_DIA[fechaBuscada.getDay()];
+
+    const bloque = horarios.find(
+      (item) => item.dia === nombreDelDia && bloqueUtilizable(item),
+    );
+
+    if (!bloque) continue;
+
+    const bloqueDeHoyYaTermino =
+      diasAdelante === 0 &&
+      minutosDesdeMedianoche(bloque.horaFin) <= minutosAhora;
+
+    if (bloqueDeHoyYaTermino) continue;
+
+    return `${etiquetaDeDia(diasAdelante, nombreDelDia)} de ${bloque.horaInicio} a ${bloque.horaFin}`;
   }
 
   return null;

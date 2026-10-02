@@ -72,6 +72,8 @@ export type PerfilPublico = {
     totalReportes: number;
   };
   productos: Producto[];
+  vendedorDisponibleAhora: boolean;
+  proximoBloque: string | null;
 };
 
 export async function fetchPerfilPublico(id: string): Promise<PerfilPublico> {

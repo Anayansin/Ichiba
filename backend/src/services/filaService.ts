@@ -1,5 +1,6 @@
 import { Producto, TIEMPO_PAGO_DEFECTO } from "../models/producto.js";
 import clientePrisma from "../configuracion/prisma.js";
+import { enviarCorreoTurnoDePago } from "./emailService.js";
 
 export type Fila = {
   id?: unknown;
@@ -92,6 +93,19 @@ export async function reacomodarFila(
       where: { id: Number(persona.id) },
       data: datos,
     });
+
+    if (nuevaPosicion === 1 && persona.correo) {
+      try {
+        const producto = await Producto.findById(productoId);
+        await enviarCorreoTurnoDePago(
+          persona.correo,
+          producto?.nombre ?? "",
+          tiempoLimite,
+        );
+      } catch (error) {
+        console.error("Error real:", error);
+      }
+    }
   }
 }
 

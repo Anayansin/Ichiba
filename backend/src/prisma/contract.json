@@ -34,6 +34,13 @@
                   "kind": "scalar"
                 }
               },
+              "correo": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -89,6 +96,9 @@
               "fields": {
                 "compradorId": {
                   "column": "compradorId"
+                },
+                "correo": {
+                  "column": "correo"
                 },
                 "createdAt": {
                   "column": "createdAt"
@@ -790,6 +800,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "correo": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "default": {
@@ -1291,7 +1306,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8c649b006e9462a1791ad51902243b91199196e61f1fb970ba075aad7a07bf71"
+    "storageHash": "65dc47af40794a552be9d3ad3e41fdb9ae37ad3b1a6838b70318d4fcd8cd8550"
   },
   "execution": {
     "executionHash": "ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037",

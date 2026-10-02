@@ -358,7 +358,7 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
 /**
  * Normaliza el texto: minúsculas, sin acentos ni signos de puntuación.
  */
-function normalizar(texto: string): string {
+export function normalizar(texto: string): string {
   return texto
     .toLowerCase()
     .normalize("NFD")

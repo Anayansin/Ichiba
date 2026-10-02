@@ -25,9 +25,21 @@ function VendedorPerfil() {
   if (!perfil)
     return <p className="vendedor-perfil__cargando">Vendedor no encontrado</p>;
 
+  const fueraDeHorario = perfil.vendedorDisponibleAhora === false;
+
   return (
     <div className="vendedor-perfil">
       <h1>{perfil.usuario.nombreCompleto}</h1>
+
+      {fueraDeHorario && (
+        <div className="vendedor-perfil__aviso">
+          <p>
+            {perfil.proximoBloque
+              ? `Fuera de horario: el vendedor atenderá ${perfil.proximoBloque}.`
+              : "Fuera de horario: este vendedor no tiene atención programada."}
+          </p>
+        </div>
+      )}
 
       <div className="vendedor-perfil__stats">
         <div className="vendedor-perfil__stat-card">
@@ -62,22 +74,42 @@ function VendedorPerfil() {
           </p>
         ) : (
           <div className="vendedor-perfil__lista">
-            {perfil.productos.map((producto) => (
-              <Link
-                key={producto._id}
-                to={`/producto/${producto._id}`}
-                className="vendedor-perfil__item"
-              >
-                <img
-                  src={`${URL_BACKEND}${producto.imagenes[0]}`}
-                  alt={producto.nombre}
-                />
-                <div>
-                  <p>{producto.nombre}</p>
-                  <span>${producto.precio}</span>
-                </div>
-              </Link>
-            ))}
+            {perfil.productos.map((producto) => {
+              const ficha = (
+                <>
+                  <img
+                    src={`${URL_BACKEND}${producto.imagenes[0]}`}
+                    alt={producto.nombre}
+                  />
+                  <div>
+                    <p>{producto.nombre}</p>
+                    <span>${producto.precio}</span>
+                  </div>
+                </>
+              );
+
+              if (fueraDeHorario) {
+                return (
+                  <div
+                    key={producto._id}
+                    className="vendedor-perfil__item vendedor-perfil__item-bloqueado"
+                    title="Vuelve cuando el vendedor esté en su horario de atención"
+                  >
+                    {ficha}
+                  </div>
+                );
+              }
+
+              return (
+                <Link
+                  key={producto._id}
+                  to={`/producto/${producto._id}`}
+                  className="vendedor-perfil__item"
+                >
+                  {ficha}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

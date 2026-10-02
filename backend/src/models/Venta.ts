@@ -8,6 +8,8 @@ const ventaSchema = new Schema(
     monto: { type: Number, required: true },
     paypalOrderId: { type: String, required: true },
     estado: { type: String, enum: ["completada"], default: "completada" },
+    calificacionComprador: { type: Number, min: 1, max: 5 },
+    calificacionVendedor: { type: Number, min: 1, max: 5 },
   },
   { timestamps: true },
 );

@@ -12,6 +12,13 @@ import {
 } from "../utils/filtroPalabras.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 
+function booleanoDeTexto(valor: unknown, porDefecto: boolean): boolean {
+  if (valor === undefined || valor === null || valor === "") {
+    return porDefecto;
+  }
+  return valor === true || valor === "true";
+}
+
 function validarPromocional(req: Request): string | null {
   const { condicionUso, precio, nombre, descripcion, coberturaEnvio } = req.body;
 
@@ -59,8 +66,8 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
     for (const archivo of archivos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        archivos.forEach((archivo) => {
-          fs.unlink(archivo.path, () => {});
+        archivos.forEach((archivoSubido) => {
+          fs.unlink(archivoSubido.path, () => {});
         });
         return res.status(400).json({
           message:
@@ -94,8 +101,11 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
       imagenes,
       precio: Number(req.body.precio),
       coberturaEnvio: req.body.coberturaEnvio,
-      chatHabilitado: req.body.chatHabilitado === "true",
-      zonaComentariosHabilitada: req.body.zonaComentariosHabilitada === "true",
+      chatHabilitado: booleanoDeTexto(req.body.chatHabilitado, true),
+      zonaComentariosHabilitada: booleanoDeTexto(
+        req.body.zonaComentariosHabilitada,
+        true,
+      ),
       vendedorId: req.usuarioId,
       vendedor: usuario.nombreCompleto,
     });
@@ -196,8 +206,8 @@ export async function actualizarPromocional(
     for (const archivo of archivosNuevos || []) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        (archivosNuevos || []).forEach((archivo) => {
-          fs.unlink(archivo.path, () => {});
+        (archivosNuevos || []).forEach((archivoSubido) => {
+          fs.unlink(archivoSubido.path, () => {});
         });
         return res.status(400).json({
           message:
@@ -246,9 +256,14 @@ export async function actualizarPromocional(
     promocional.condicionUso = req.body.condicionUso;
     promocional.precio = Number(req.body.precio);
     promocional.coberturaEnvio = req.body.coberturaEnvio;
-    promocional.chatHabilitado = req.body.chatHabilitado === "true";
-    promocional.zonaComentariosHabilitada =
-      req.body.zonaComentariosHabilitada === "true";
+    promocional.chatHabilitado = booleanoDeTexto(
+      req.body.chatHabilitado,
+      promocional.chatHabilitado ?? true,
+    );
+    promocional.zonaComentariosHabilitada = booleanoDeTexto(
+      req.body.zonaComentariosHabilitada,
+      promocional.zonaComentariosHabilitada ?? true,
+    );
     promocional.imagenes = imagenesFinal;
 
     const actualizado = await promocional.save();

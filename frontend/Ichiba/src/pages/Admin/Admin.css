@@ -1,0 +1,61 @@
+.admin {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.admin h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 0.4rem;
+}
+
+.admin__bienvenida {
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 1.2rem;
+}
+
+.admin__menu {
+  display: flex;
+  gap: 0.6rem;
+  border-bottom: 1px solid #e1e8ed;
+  margin-bottom: 1.4rem;
+}
+
+.admin__menu-item {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.6rem 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.admin__menu-item:hover {
+  color: #d90429;
+}
+
+.admin__menu-item--activo {
+  color: #d90429;
+  border-bottom-color: #d90429;
+}
+
+.admin__contenido {
+  display: block;
+}
+
+.admin__seccion {
+  color: #666;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.admin__seccion a {
+  color: #d90429;
+  font-weight: 600;
+}

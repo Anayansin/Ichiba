@@ -11,11 +11,14 @@ import usuarioRoutes from "./routes/usuarioRoutes.js";
 import verificacionRoutes from "./routes/verificacionRoutes.js";
 import pagoRoutes from "./routes/pagoRoutes.js";
 import colaRoutes from "./routes/colaRoutes.js";
+import suscripcionRoutes from "./routes/suscripcionRoutes.js";
 import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
 import { iniciarJobRevisionPagos } from "./jobs/revisionPagos.js";
+import { iniciarJobNotificacionesCategoria } from "./jobs/notificacionesCategoria.js";
 import mensajeRoutes from "./routes/mensajeRoutes.js";
 import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
 import { ApolloServer as ServidorApollo } from "@apollo/server";
 import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
@@ -42,7 +45,9 @@ app.use("/api/colas", colaRoutes);
 app.use("/api/mensajes", mensajeRoutes);
 app.use("/api/promocionales", promocionalRoutes);
 app.use("/api/reportes", reporteRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
+app.use("/api/suscripciones", suscripcionRoutes);
 
 const servidorApollo = new ServidorApollo({
   typeDefs: definicionesEsquema,
@@ -67,3 +72,4 @@ coneccionDB().then(() => {
 
 iniciarJobRevisionHorarios();
 iniciarJobRevisionPagos();
+iniciarJobNotificacionesCategoria();

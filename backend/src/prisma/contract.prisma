@@ -51,6 +51,7 @@ model cola {
   id            Int       @id @default(autoincrement())
   productoId    String
   compradorId   String
+  correo        String?
   posicion      Int
   estado        String    @default("activa")
   pagoExpiraEn  DateTime?

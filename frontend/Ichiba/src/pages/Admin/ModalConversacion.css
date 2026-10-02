@@ -1,0 +1,107 @@
+.modal-conversacion__fondo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-conversacion {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.modal-conversacion__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modal-conversacion__cabecera h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1a1a1a;
+}
+
+.modal-conversacion__producto {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: #666666;
+}
+
+.modal-conversacion__cerrar {
+  border: none;
+  background: #f2f4f5;
+  color: #333333;
+  border-radius: 999px;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.modal-conversacion__cerrar:hover {
+  background: #e4e8ea;
+}
+
+.modal-conversacion__lista {
+  display: flex;
+  flex-direction: column;
+  background: #f9f9f9;
+  border-radius: 10px;
+  padding: 0.6rem 0.4rem;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.modal-conversacion__mensaje {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-conversacion__remitente {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #666666;
+  padding: 0 1rem;
+}
+
+.modal-conversacion__remitente--vendedor {
+  color: #14683a;
+  text-align: right;
+}
+
+.modal-conversacion__remitente--comprador {
+  color: #1d4ed8;
+}
+
+.modal-conversacion__estado {
+  margin: 0;
+  color: #666666;
+  font-size: 0.9rem;
+}
+
+.modal-conversacion__error {
+  margin: 0;
+  background: #fdecea;
+  color: #d90429;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}

@@ -6,6 +6,10 @@ export type Promocional = {
   precio: number;
   categoria: string;
   descripcion: string;
+  condicionUso: string;
+  coberturaEnvio: string;
+  chatHabilitado: boolean;
+  zonaComentariosHabilitada: boolean;
   imagenes: string[];
   vendedor: string;
   vendedorId: string;
