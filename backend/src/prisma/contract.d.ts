@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'8c649b006e9462a1791ad51902243b91199196e61f1fb970ba075aad7a07bf71'>;
+  StorageHashBase<'65dc47af40794a552be9d3ad3e41fdb9ae37ad3b1a6838b70318d4fcd8cd8550'>;
 export type ExecutionHash =
   ExecutionHashBase<'ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037'>;
 export type ProfileHash =
@@ -252,6 +252,7 @@ export type FieldOutputTypes = {
   readonly public: {
     readonly cola: {
       readonly compradorId: CodecTypes['pg/text@1']['output'];
+      readonly correo: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -328,6 +329,7 @@ export type FieldInputTypes = {
   readonly public: {
     readonly cola: {
       readonly compradorId: CodecTypes['pg/text@1']['input'];
+      readonly correo: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -404,6 +406,7 @@ export type StorageColumnTypes = {
   readonly public: {
     readonly cola: {
       readonly compradorId: CodecTypes['pg/text@1']['output'];
+      readonly correo: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
@@ -480,6 +483,7 @@ export type StorageColumnInputTypes = {
   readonly public: {
     readonly cola: {
       readonly compradorId: CodecTypes['pg/text@1']['input'];
+      readonly correo: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
@@ -556,6 +560,7 @@ export type StorageColumnInputTypes = {
 export namespace Models {
   export type public_cola = {
     compradorId: CodecTypes['pg/text@1']['output'];
+    correo: CodecTypes['pg/text@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     estado: CodecTypes['pg/text@1']['output'];
     id: CodecTypes['pg/int4@1']['output'];
@@ -669,6 +674,11 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly correo: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
@@ -1145,6 +1155,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly correo: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1189,6 +1203,7 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly compradorId: { readonly column: 'compradorId' };
+                readonly correo: { readonly column: 'correo' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly estado: { readonly column: 'estado' };
                 readonly id: { readonly column: 'id' };

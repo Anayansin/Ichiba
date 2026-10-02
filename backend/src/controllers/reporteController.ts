@@ -365,7 +365,7 @@ export async function crearReporteComprador(
   }
 }
 
-async function aplicarFaltaConfirmada(
+export async function aplicarFaltaConfirmada(
   idVendedor: number,
   faltasActuales: number,
 ) {

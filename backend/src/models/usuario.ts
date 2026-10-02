@@ -1,5 +1,7 @@
 import { Schema, model } from "mongoose";
 
+export const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const usuarioSchema = new Schema(
   {
     nombreCompleto: { type: String, required: true },
@@ -8,7 +10,11 @@ const usuarioSchema = new Schema(
     correo: { type: String, required: true, unique: true },
     rfc: { type: String, required: true },
     password: { type: String, required: true },
-    tipo: { type: String, enum: ["vendedor"], default: "vendedor" },
+    tipo: {
+      type: String,
+      enum: ["vendedor", "admin"],
+      default: "vendedor",
+    },
     ventasExitosas: { type: Number, default: 0 },
     reportes: { type: Number, default: 0 },
     faltasLeves: { type: Number, default: 0 },
@@ -36,6 +42,7 @@ const usuarioSchema = new Schema(
     ],
     horarioConfirmadoEn: { type: Date },
     diasSinConfirmarHorario: { type: Number, default: 0 },
+    suspendido: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

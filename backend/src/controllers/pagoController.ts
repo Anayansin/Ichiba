@@ -1,4 +1,5 @@
-import { Response } from "express";
+import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import { Producto } from "../models/producto.js";
 import { Usuario } from "../models/usuario.js";
 import { Cola } from "../models/Cola.js";
@@ -24,6 +25,31 @@ async function buscarVendedorDeProducto(vendedorId: unknown) {
   const idNumerico = Number(vendedorId);
   if (!Number.isInteger(idNumerico)) return null;
   return clientePrisma.usuario.findUnique({ where: { id: idNumerico } });
+}
+
+type IdentidadQueCalifica = { tipo: "usuario" | "comprador"; id: string };
+
+function identificarQuienCalifica(req: Request): IdentidadQueCalifica | null {
+  const cabeceraAutorizacion = req.headers.authorization;
+
+  if (cabeceraAutorizacion) {
+    try {
+      const payload = jwt.verify(
+        cabeceraAutorizacion.split(" ")[1],
+        process.env.JWT_SECRET as string,
+      ) as { id: string };
+      return { tipo: "usuario", id: String(payload.id) };
+    } catch {
+      return null;
+    }
+  }
+
+  const compradorIdCabecera = req.headers["x-comprador-id"];
+  if (typeof compradorIdCabecera === "string" && compradorIdCabecera !== "") {
+    return { tipo: "comprador", id: compradorIdCabecera };
+  }
+
+  return null;
 }
 
 export async function crearOrden(req: RequestConComprador, res: Response) {
@@ -144,5 +170,84 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al capturar el pago" });
+  }
+}
+
+export async function calificar(req: Request, res: Response) {
+  try {
+    const ventaId = req.params.ventaId as string;
+    const cuerpo = req.body ?? {};
+    const quienCalifica = cuerpo.quienCalifica;
+    const puntuacion = cuerpo.puntuacion ?? cuerpo.calificacion;
+
+    if (quienCalifica !== "comprador" && quienCalifica !== "vendedor") {
+      return res
+        .status(400)
+        .json({ message: "Indica quién califica: comprador o vendedor" });
+    }
+
+    if (!Number.isInteger(puntuacion) || puntuacion < 1 || puntuacion > 5) {
+      return res
+        .status(400)
+        .json({ message: "La calificación debe ser un número de 1 a 5" });
+    }
+
+    if (!/^[0-9a-fA-F]{24}$/.test(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await Venta.findById(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const personaQueCalifica = identificarQuienCalifica(req);
+    if (!personaQueCalifica) {
+      return res
+        .status(401)
+        .json({ message: "Identifícate para calificar esta compra" });
+    }
+
+    const esElCompradorDeLaVenta =
+      quienCalifica === "comprador" &&
+      personaQueCalifica.tipo === "comprador" &&
+      personaQueCalifica.id === venta.compradorId;
+
+    const esElVendedorDeLaVenta =
+      quienCalifica === "vendedor" &&
+      personaQueCalifica.tipo === "usuario" &&
+      personaQueCalifica.id === String(venta.vendedorId);
+
+    if (!esElCompradorDeLaVenta && !esElVendedorDeLaVenta) {
+      return res
+        .status(403)
+        .json({ message: "No puedes calificar esta compra" });
+    }
+
+    const calificacionActual =
+      quienCalifica === "comprador"
+        ? venta.calificacionComprador
+        : venta.calificacionVendedor;
+
+    if (typeof calificacionActual === "number") {
+      return res.status(400).json({ message: "Ya calificaste esta compra" });
+    }
+
+    if (quienCalifica === "comprador") {
+      venta.calificacionComprador = puntuacion;
+    } else {
+      venta.calificacionVendedor = puntuacion;
+    }
+
+    await venta.save();
+
+    res.json({
+      message: "Calificación registrada",
+      calificacionComprador: venta.calificacionComprador ?? null,
+      calificacionVendedor: venta.calificacionVendedor ?? null,
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al calificar la compra" });
   }
 }

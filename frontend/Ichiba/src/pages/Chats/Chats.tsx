@@ -16,18 +16,57 @@ import {
   CATEGORIAS_REPORTE,
   ELEMENTOS_REPORTE,
 } from "../../configuracion/categoriasReporte";
-import { URL_BACKEND } from "../../services/api";
+import api, { URL_BACKEND } from "../../services/api";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
 import "./Chats.css";
 
 const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024; // 5 MB (límite del backend)
 const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
 
+type VentaConCalificacion = VentaConProducto & {
+  calificacionComprador?: number | null;
+  calificacionVendedor?: number | null;
+};
+
+const estiloPanelCalificacion: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "0.75rem",
+  padding: "0.7rem 1.2rem",
+  borderTop: "1px solid #eee",
+  background: "#ffffff",
+  fontSize: "0.88rem",
+  fontWeight: 600,
+  color: "#333",
+};
+
+const estiloEstrellas: React.CSSProperties = {
+  display: "flex",
+  gap: "0.15rem",
+};
+
+const estiloEstrella: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  padding: 0,
+  fontSize: "1.6rem",
+  lineHeight: 1,
+  color: "#d90429",
+  cursor: "pointer",
+};
+
+const estiloEstrellaDeshabilitada: React.CSSProperties = {
+  ...estiloEstrella,
+  cursor: "default",
+  opacity: 0.55,
+};
+
 function Chats() {
   const { usuario } = useAuth();
   const esVendedor = !!usuario;
 
-  const [ventas, setVentas] = useState<VentaConProducto[]>([]);
+  const [ventas, setVentas] = useState<VentaConCalificacion[]>([]);
   const [ventaActivaId, setVentaActivaId] = useState<string | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState("");
@@ -51,6 +90,12 @@ function Chats() {
   const [reporteError, setReporteError] = useState("");
   const [reporteEnviando, setReporteEnviando] = useState(false);
   const [reporteEnviado, setReporteEnviado] = useState(false);
+
+  const [calificacionEnviando, setCalificacionEnviando] = useState(false);
+  const [calificacionesEnviadas, setCalificacionesEnviadas] = useState<
+    string[]
+  >([]);
+  const [calificacionError, setCalificacionError] = useState("");
 
   const fetchVentas = esVendedor
     ? fetchMisVentasVendedor
@@ -92,11 +137,21 @@ function Chats() {
 
     cargarMensajes();
     setErrorChat("");
+    setCalificacionError("");
     const intervalo = setInterval(cargarMensajes, 5000);
     return () => clearInterval(intervalo);
   }, [ventaActivaId, fetchMensajesFn, quitarImagen]);
 
   const ventaActiva = ventas.find((venta) => venta._id === ventaActivaId);
+
+  const calificacionPropia = esVendedor
+    ? ventaActiva?.calificacionVendedor
+    : ventaActiva?.calificacionComprador;
+
+  const puedeCalificar =
+    !!ventaActiva &&
+    !calificacionesEnviadas.includes(ventaActiva._id) &&
+    typeof calificacionPropia !== "number";
 
   function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
@@ -176,6 +231,32 @@ function Chats() {
     }
   }
 
+  async function handleCalificar(puntuacion: number) {
+    if (!ventaActivaId || calificacionEnviando) return;
+
+    setCalificacionEnviando(true);
+    setCalificacionError("");
+    try {
+      await api.post(`/pagos/${ventaActivaId}/calificar`, {
+        quienCalifica: esVendedor ? "vendedor" : "comprador",
+        puntuacion,
+      });
+      setCalificacionesEnviadas((anteriores) => [
+        ...anteriores,
+        ventaActivaId,
+      ]);
+      const ventasActualizadas = await fetchVentas();
+      setVentas(ventasActualizadas);
+    } catch (error) {
+      setCalificacionError(
+        (axios.isAxiosError(error) && error.response?.data?.message) ||
+          "Error al enviar la calificación",
+      );
+    } finally {
+      setCalificacionEnviando(false);
+    }
+  }
+
   if (cargandoVentas)
     return <p className="chats__cargando">Cargando tus conversaciones...</p>;
 
@@ -242,6 +323,45 @@ function Chats() {
                 />
               ))}
             </div>
+
+            {puedeCalificar && (
+              <div style={estiloPanelCalificacion}>
+                <span>
+                  {esVendedor
+                    ? "Califica al comprador de esta compra"
+                    : "Califica al vendedor de esta compra"}
+                </span>
+                <div style={estiloEstrellas}>
+                  {[1, 2, 3, 4, 5].map((estrella) => (
+                    <button
+                      key={estrella}
+                      type="button"
+                      style={
+                        calificacionEnviando
+                          ? estiloEstrellaDeshabilitada
+                          : estiloEstrella
+                      }
+                      onClick={() => handleCalificar(estrella)}
+                      disabled={calificacionEnviando}
+                      title={`${estrella} de 5`}
+                      aria-label={`Calificar con ${estrella} ${
+                        estrella === 1 ? "estrella" : "estrellas"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                {calificacionError && (
+                  <p
+                    className="chats__error"
+                    style={{ margin: 0, flexBasis: "100%" }}
+                  >
+                    {calificacionError}
+                  </p>
+                )}
+              </div>
+            )}
 
             {errorChat && <p className="chats__error">{errorChat}</p>}
 

@@ -102,3 +102,100 @@ export async function enviarCorreoAdvertencia(correo: string, mensaje: string) {
     `,
   });
 }
+
+function escaparHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function enviarCorreoNovedadesCategoria(
+  correo: string,
+  categoria: string,
+  productos: { nombre: string; precio: number }[],
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] ${productos.length} productos nuevos en ${categoria} para ${correo}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const listaProductos = productos
+    .map(
+      (producto) =>
+        `<li>${escaparHtml(producto.nombre)} — $${producto.precio}</li>`,
+    )
+    .join("");
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: `Nuevos productos en ${categoria}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hay nuevos productos en la categoría ${escaparHtml(categoria)}:</p>
+        <ul>${listaProductos}</ul>
+        <p style="color: #888; font-size: 12px;">
+          Recibes este correo porque dejaste tu correo para recibir novedades de esta categoría en Ichiba.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+export async function enviarCorreoTurnoDePago(
+  correo: string,
+  nombreProducto: string,
+  minutosDePago: number,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Turno de pago para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const detalleProducto = nombreProducto
+    ? `<p>Ya puedes pagar <strong>${escaparHtml(nombreProducto)}</strong>.</p>`
+    : "<p>Ya es tu turno de pagar.</p>";
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Ya es tu turno de pagar en Ichiba",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        ${detalleProducto}
+        <p>Tienes ${minutosDePago} minutos para completar tu pago antes de perder tu lugar en la fila.</p>
+        <p style="color: #888; font-size: 12px;">
+          Recibes este correo porque dejaste tu correo al entrar en la fila.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}

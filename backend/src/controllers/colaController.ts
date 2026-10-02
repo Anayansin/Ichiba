@@ -2,6 +2,7 @@ import { Response } from "express";
 import { RequestConComprador } from "../middleware/comprador.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { Producto } from "../models/producto.js";
+import { FORMATO_CORREO } from "../models/usuario.js";
 import {
   reacomodarFila,
   iniciarTemporizadorPago,
@@ -27,8 +28,15 @@ async function productosDeFilas(filas: any[]) {
 
 export async function entrarEnFila(req: RequestConComprador, res: Response) {
   try {
-    const { productoId } = req.body;
+    const { productoId, correo } = req.body;
     const compradorId = req.compradorId as string;
+
+    const correoLimpio =
+      typeof correo === "string" ? correo.trim().toLowerCase() : "";
+
+    if (correoLimpio && !FORMATO_CORREO.test(correoLimpio)) {
+      return res.status(400).json({ message: "Escribe un correo válido" });
+    }
 
     await limpiarFilasHuerfanas(compradorId);
 
@@ -75,6 +83,7 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
         productoId,
         compradorId,
         posicion,
+        correo: correoLimpio || null,
       },
     });
 

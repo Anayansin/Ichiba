@@ -10,3 +10,53 @@
   margin: 0;
   line-height: 1.5;
 }
+
+.registrar-promocional-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.registrar-promocional-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.registrar-promocional-switch__pista {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background-color: #cdcdcd;
+  transition: background-color 0.2s;
+}
+
+.registrar-promocional-switch__pista::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transition: transform 0.2s;
+}
+
+.registrar-promocional-switch input:checked + .registrar-promocional-switch__pista {
+  background-color: #d90429;
+}
+
+.registrar-promocional-switch input:checked + .registrar-promocional-switch__pista::after {
+  transform: translateX(20px);
+}
+
+.registrar-promocional-switch input:focus-visible + .registrar-promocional-switch__pista {
+  outline: 2px solid #d90429;
+  outline-offset: 2px;
+}

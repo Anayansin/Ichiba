@@ -73,6 +73,26 @@
   font-weight: 700;
 }
 
+.vendedor-perfil__aviso {
+  background-color: #fff4e5;
+  border-left: 4px solid #e69500;
+  color: #8a5a00;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.vendedor-perfil__aviso p {
+  margin: 0;
+}
+
+.vendedor-perfil__item-bloqueado {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .vendedor-perfil__cargando,
 .vendedor-perfil__sin-productos {
   text-align: center;

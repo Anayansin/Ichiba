@@ -13,7 +13,11 @@ import {
   validarNitidezINE,
 } from "../services/ineService.js";
 import { extraerDatosINE, coincideNombreConDatosINE } from "../services/structOcrService.js";
-import { validarHorarioSemanal } from "../utils/validarHorario.js";
+import {
+  validarHorarioSemanal,
+  estaDentroDeSuHorario,
+  obtenerTextoDeProximoBloque,
+} from "../utils/validarHorario.js";
 import { enviarCorreoRecuperacion } from "../services/emailService.js";
 import {
   campoConPalabrasProhibidas,
@@ -386,18 +390,32 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
         ventasExitosas: true,
         totalReportes: true,
         createdAt: true,
+        horarios: true,
       },
     });
     if (!usuario) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
 
+    const { horarios, ...usuarioPublico } = usuario;
+
     const productos = await Producto.find({
       vendedorId: req.params.id,
       activo: true,
     });
 
-    res.json({ usuario, productos });
+    const ahora = new Date();
+    const vendedorDisponibleAhora = estaDentroDeSuHorario(horarios, ahora);
+    const proximoBloque = vendedorDisponibleAhora
+      ? null
+      : obtenerTextoDeProximoBloque(horarios, ahora);
+
+    res.json({
+      usuario: usuarioPublico,
+      productos,
+      vendedorDisponibleAhora,
+      proximoBloque,
+    });
   } catch (error) {
     console.error("Error real:", error);
     res

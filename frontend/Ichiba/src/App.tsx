@@ -14,6 +14,7 @@ import Promocionales from "./pages/Promocionales/Promocionales";
 import PromocionalDetalle from "./pages/PromocionalDetalle/PromocionalDetalle";
 import VendedorPerfil from "./pages/PerfilDelVendedor/PerfilDelVendedor";
 import ColaBubble from "./components/ColaBubble/ColaBubble";
+import ChatBotAyuda from "./components/ChatBotAyuda/ChatBotAyuda";
 import { useState } from "react";
 import { AuthProvider } from "./context/AuthProvider";
 import { ColasProvider } from "./context/ColasProvider";
@@ -21,6 +22,7 @@ import EditarProducto from "./pages/EditarProducto/EditarProducto";
 import PagoExitoso from "./pages/PagoExitoso/PagoExitoso";
 import HorarioVendedor from "./pages/HorarioVendedor/HorarioVendedor";
 import ReportarComprador from "./pages/ReportarComprador/ReportarComprador";
+import Admin from "./pages/Admin/Admin";
 import AdminReportes from "./pages/AdminReportes/AdminReportes";
 import RecuperarPassword from "./pages/RecuperarPassword/RecuperarPassword";
 import Estadisticas from "./pages/Estadisticas/Estadisticas";
@@ -55,7 +57,7 @@ function App() {
             element={<RegistrarProducto />}
           />
           <Route
-            path="/panel-vendedor/publicar-promocional"
+            path="/panel-vendedor/promocionar"
             element={<RegistrarPromocional />}
           />
           <Route path="/panel-vendedor/horario" element={<HorarioVendedor />} />
@@ -67,6 +69,7 @@ function App() {
             path="/panel-vendedor/estadisticas"
             element={<Estadisticas />}
           />
+          <Route path="/admin" element={<Admin />} />
           <Route path="/admin/reportes" element={<AdminReportes />} />
           <Route path="/recuperar-password" element={<RecuperarPassword />} />
           <Route path="/vendedor/:id" element={<VendedorPerfil />} />
@@ -77,6 +80,7 @@ function App() {
           <IniciarSesion onClose={() => setInicioSesion(false)} />
         )}
         <ColaBubble />
+        <ChatBotAyuda />
       </ColasProvider>
     </AuthProvider>
   );

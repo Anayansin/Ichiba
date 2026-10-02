@@ -239,7 +239,7 @@ function PanelVendedor() {
           + Publicar nuevo producto
         </Link>
         <Link
-          to="/panel-vendedor/publicar-promocional"
+          to="/panel-vendedor/promocionar"
           className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
         >
           + Publicar promocional
