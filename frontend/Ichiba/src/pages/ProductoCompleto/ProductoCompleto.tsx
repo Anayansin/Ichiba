@@ -45,7 +45,11 @@ function ProductoCompleto() {
     if (!id) return;
     fetchProductoPorId(id)
       .then((data) => setProducto(data))
-      .catch((error) => console.error("Error al cargar producto:", error))
+      .catch((error) => {
+        if (error?.response?.status !== 404) {
+          console.error("Error al cargar producto:", error);
+        }
+      })
       .finally(() => setCargando(false));
   }, [id]);
 

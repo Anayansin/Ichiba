@@ -33,6 +33,16 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    if (res.statusCode >= 400) {
+      console.log(
+        `[respuesta fallida] ${req.method} ${req.originalUrl} -> ${res.statusCode}`,
+      );
+    }
+  });
+  next();
+});
 // Ningún campo manual del proyecto acepta palabras prohibidas
 app.use(filtroPalabrasProhibidas);
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
