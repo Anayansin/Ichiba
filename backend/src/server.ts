@@ -31,7 +31,49 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(cors());
+/**
+ * Orígenes permitidos para CORS: los que traiga `FRONTEND_URL` (pueden ser
+ * varios, separados por coma). En desarrollo además se acepta cualquier puerto
+ * de localhost/127.0.0.1 y la red local, por si se abre el sitio desde otro
+ * equipo o desde el móvil. En producción solo entra el frontend configurado.
+ */
+const orignesPermitidas = (process.env.FRONTEND_URL ?? "http://localhost:5173")
+  .split(",")
+  .map((origen) => origen.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
+const esDesarrollo = process.env.NODE_ENV !== "production";
+
+function origenPermitido(origen?: string): boolean {
+  if (!origen) return true; // curl, Postman o llamadas servidor-a-servidor
+
+  const limpio = origen.trim().replace(/\/+$/, "");
+  if (orignesPermitidas.includes(limpio)) return true;
+
+  let url: URL;
+  try {
+    url = new URL(limpio);
+  } catch {
+    return false;
+  }
+
+  const esLocal =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "[::1]";
+  if (esLocal) return true;
+
+  if (!esDesarrollo) return false;
+
+  // Desarrollo desde la red local: 192.168.x.x, 10.x o 172.16-31.x
+  return /^((192\.168|10)\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname);
+}
+
+app.use(
+  cors({
+    origin: (origen, callback) => callback(null, origenPermitido(origen)),
+  }),
+);
 app.use(express.json());
 app.use((req, res, next) => {
   res.on("finish", () => {

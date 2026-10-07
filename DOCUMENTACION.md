@@ -48,7 +48,7 @@ Contiene una sola carpeta, `frontend/Ichiba`, con la aplicación de usuario: una
 | `configuracion/` | Listas de categorías de productos y de reportes. |
 | `utils/` | `compradorId` (identificador anónimo), validación de imágenes, mensajes de error y opciones de producto. |
 
-El directorio `src/services/api.ts` fija la URL del backend en `http://localhost:5000/api` y `URL_BACKEND` en `http://localhost:5000`; ahí mismo se adjuntan el token y el `x-comprador-id` a cada petición. Este proyecto no utiliza archivos `.env`.
+El directorio `src/services/api.ts` toma la URL del backend de la variable `VITE_BACKEND_URL` (`http://localhost:5000` por defecto, definida en `frontend/Ichiba/.env` o en el panel del hosting) y arma la base `.../api` y `URL_BACKEND` a partir de ella; ahí mismo se adjuntan el token y el `x-comprador-id` a cada petición. El backend solo acepta CORS desde `FRONTEND_URL` (más localhost y la red local en desarrollo).
 
 #### `front-astro/`
 
@@ -142,7 +142,7 @@ El backend se configura en `backend/.env`. El archivo `backend/.env.example` inc
 | `GMAIL_APP_PASSWORD` | No | Contraseña de aplicación de Gmail. Si faltan ambas, el backend no falla: imprime los códigos en la consola con el prefijo `[correo local]`. |
 | `STRUCTOCR_API_KEY` | Para registro | Llave de la API de StructOCR que lee el frente y el reverso de la INE. Sin ella, el registro no puede validar la identificación. |
 
-Los frontends no necesitan variables de entorno: `frontend/Ichiba/src/services/api.ts`, `front-astro/src/servicios/api.ts`, `front-astro/src/servicios/clienteGraphql.ts` y `front-astro/src/pages/index.astro` tienen la dirección `http://localhost:5000` escrita en el código. Si cambias el puerto o despliegas el backend en otro dominio, edita esos archivos.
+`frontend/Ichiba` sí lee una variable de entorno: `VITE_BACKEND_URL` (la URL raíz del backend, sin `/api`). Si no existe, `src/services/api.ts` usa `http://localhost:5000`. En desarrollo la define `frontend/Ichiba/.env` (hay un `.env.example` como plantilla) y al publicar se define en el panel del hosting. En cambio `front-astro/src/servicios/api.ts`, `front-astro/src/servicios/clienteGraphql.ts` y `front-astro/src/pages/index.astro` todavía tienen la dirección `http://localhost:5000` escrita en el código: si cambias el puerto o despliegas el backend en otro dominio, edita esos archivos.
 
 ### Comandos de instalación y arranque
 

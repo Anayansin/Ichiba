@@ -1,8 +1,19 @@
 import axios from "axios";
 import { obtenerCompradorId } from "../utils/compradorId";
 
+/**
+ * URL raíz del backend (sin `/api`).
+ *
+ * En desarrollo es `http://localhost:5000`; al publicar basta con definir la
+ * variable `VITE_BACKEND_URL` en el hosting (o en `frontend/Ichiba/.env`) y
+ * todo el frontend apunta al servidor nuevo sin tocar código.
+ */
+export const URL_BACKEND = (
+  import.meta.env.VITE_BACKEND_URL ?? "http://localhost:5000"
+).replace(/\/+$/, "");
+
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: `${URL_BACKEND}/api`,
 });
 
 api.interceptors.request.use((config) => {
@@ -36,7 +47,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
-
-export const URL_BACKEND = "http://localhost:5000";
 
 export default api;

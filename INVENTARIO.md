@@ -92,7 +92,7 @@ para responder preguntas.
 |---|---|
 | `react` 18 + `react-dom` | UI |
 | `react-router-dom` 7 | Rutas (`src/App.tsx`) |
-| `axios` 1.19 | Cliente HTTP: `src/services/api.ts` (base `http://localhost:5000/api`), interceptor que agrega el JWT y `x-comprador-id`, y que ante un 401 borra la sesión y manda a `/inicio` |
+| `axios` 1.19 | Cliente HTTP: `src/services/api.ts` (base `${VITE_BACKEND_URL}/api`, por defecto `http://localhost:5000/api`), interceptor que agrega el JWT y `x-comprador-id`, y que ante un 401 borra la sesión y manda a `/inicio` |
 | `vite` 6 + `@vitejs/plugin-react` | Servidor de desarrollo y build (5173) |
 | `typescript` 5.2, `eslint` + plugins | Tipos y lint (`npm run lint`) |
 

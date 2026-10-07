@@ -1,6 +1,11 @@
 node_modules/
 dist/
+
+# Variables de entorno: jamás se suben; la plantilla siempre es .env.example
 .env
+.env.*
+!.env.example
+
 *.log
 
 # Documentos de identidad (INE): solo viven en disco, jamás en git
