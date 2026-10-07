@@ -136,6 +136,12 @@ function ProductoCompleto() {
     if (!producto) return;
     try {
       const { linkAprobacion } = await crearOrdenPago(producto._id);
+      if (!linkAprobacion) {
+        setMensajeFila(
+          "PayPal no devolvió el enlace de pago. Intenta de nuevo en unos segundos.",
+        );
+        return;
+      }
       window.location.href = linkAprobacion;
     } catch (err) {
       setMensajeFila(mensajeDeError(err) || "Error al iniciar el pago");
@@ -237,10 +243,10 @@ function ProductoCompleto() {
             <strong>Método de entrega:</strong>{" "}
             {textoMetodoEntrega(producto.metodoEntrega)}
           </p>
-          {producto.horarioEntrega && (
+          {producto.horarioEntregaInicio && producto.horarioEntregaFin && (
             <p>
               <strong>Horario de coordinación de entrega:</strong>{" "}
-              {producto.horarioEntrega.inicio} a {producto.horarioEntrega.fin}
+              {producto.horarioEntregaInicio} a {producto.horarioEntregaFin}
             </p>
           )}
           <p>

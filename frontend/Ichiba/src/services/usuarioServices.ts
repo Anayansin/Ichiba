@@ -49,12 +49,11 @@ export async function registrarUsuario(datos: DatosRegistro) {
 }
 
 export type PerfilUsuario = {
-  _id: string;
+  id: number;
   nombreCompleto: string;
   correo: string;
   ventasExitosas: number;
   totalReportes: number;
-  telefonoVerificado: boolean;
   correoVerificado: boolean;
   horarios: BloqueHorario[];
 };
@@ -66,7 +65,7 @@ export async function fetchPerfil(): Promise<PerfilUsuario> {
 
 export type PerfilPublico = {
   usuario: {
-    _id: string;
+    id: number;
     nombreCompleto: string;
     ventasExitosas: number;
     totalReportes: number;

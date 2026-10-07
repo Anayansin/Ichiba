@@ -13,7 +13,8 @@ export type Producto = {
   condicion?: string;
   condicionUso?: string;
   metodoEntrega?: string;
-  horarioEntrega?: { inicio: string; fin: string };
+  horarioEntregaInicio?: string;
+  horarioEntregaFin?: string;
   tiempoLimitePago?: number;
   activo: boolean;
 };
@@ -27,12 +28,29 @@ export type NuevoProducto = {
   datosDeEnvio?: string;
   condicion?: string;
   metodoEntrega?: string;
-  horarioEntrega?: { inicio: string; fin: string };
+  horarioEntregaInicio?: string;
+  horarioEntregaFin?: string;
   tiempoLimitePago?: number;
 };
 
-export async function fetchProductos(): Promise<Producto[]> {
-  const response = await api.get("/productos");
+export type FiltroProductos = {
+  /** Texto libre del buscador (nombre, descripción, categoría o vendedor). */
+  q?: string;
+  categoria?: string;
+  vendedorId?: string;
+  precioMin?: number;
+  precioMax?: number;
+};
+
+export async function fetchProductos(
+  filtro: FiltroProductos = {},
+): Promise<Producto[]> {
+  const params = Object.fromEntries(
+    Object.entries(filtro).filter(
+      ([, valor]) => valor !== undefined && valor !== null && valor !== "",
+    ),
+  );
+  const response = await api.get("/productos", { params });
   return response.data;
 }
 

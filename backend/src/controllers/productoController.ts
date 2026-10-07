@@ -18,6 +18,7 @@ import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
+import { categoriaProductoValida } from "../configuracion/categorias.js";
 import { validarHorarioEntrega } from "../utils/validarHorario.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 
@@ -112,9 +113,20 @@ export async function actualizarProducto(
     }
 
     const archivosNuevos = req.files as Express.Multer.File[];
-    const imagenesExistentes: string[] = req.body.imagenesExistentes
-      ? JSON.parse(req.body.imagenesExistentes)
-      : [];
+    let imagenesExistentes: string[] = [];
+    if (req.body.imagenesExistentes) {
+      try {
+        const parsed = JSON.parse(req.body.imagenesExistentes);
+        if (!Array.isArray(parsed)) throw new Error("no es una lista");
+        imagenesExistentes = parsed.filter(
+          (imagen): imagen is string => typeof imagen === "string",
+        );
+      } catch {
+        return res.status(400).json({
+          message: "La lista de imágenes existentes no es válida",
+        });
+      }
+    }
 
     for (const archivo of archivosNuevos || []) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
@@ -129,13 +141,14 @@ export async function actualizarProducto(
       }
     }
 
+    const categoria = categoriaProductoValida(req.body.categoria);
+    if (!categoria) {
+      return res.status(400).json({ message: "Selecciona una categoría válida" });
+    }
+
     const imagenesEliminadas = producto.imagenes.filter(
       (img) => !imagenesExistentes.includes(img),
     );
-    imagenesEliminadas.forEach((rutaRelativa) => {
-      const rutaCompleta = path.join(process.cwd(), rutaRelativa);
-      fs.unlink(rutaCompleta, () => {});
-    });
 
     const imagenesNuevas = (archivosNuevos || []).map(
       (archivo) => `/uploads/${archivo.filename}`,
@@ -164,9 +177,16 @@ export async function actualizarProducto(
         .json({ message: mensajePalabrasProhibidas(campoProhibido) });
     }
 
+    // Solo hasta aquí, que todas las validaciones pasaron, se borran del disco
+    // las imágenes que el vendedor quitó del producto.
+    imagenesEliminadas.forEach((rutaRelativa) => {
+      const rutaCompleta = path.join(process.cwd(), rutaRelativa);
+      fs.unlink(rutaCompleta, () => {});
+    });
+
     producto.nombre = req.body.nombre;
     producto.precio = Number(req.body.precio);
-    producto.categoria = req.body.categoria;
+    producto.categoria = categoria;
     producto.descripcion = req.body.descripcion;
     producto.condicion = req.body.condicion;
     producto.condicionUso = req.body.condicionUso;
@@ -253,10 +273,15 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
         .json({ message: mensajePalabrasProhibidas(campoProhibido) });
     }
 
+    const categoria = categoriaProductoValida(req.body.categoria);
+    if (!categoria) {
+      return res.status(400).json({ message: "Selecciona una categoría válida" });
+    }
+
     const nuevoProducto = new Producto({
       nombre: req.body.nombre,
       precio: Number(req.body.precio),
-      categoria: req.body.categoria,
+      categoria,
       descripcion: req.body.descripcion,
       condicion: req.body.condicion,
       condicionUso: req.body.condicionUso,
@@ -279,12 +304,88 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
 
 export async function getProductos(req: Request, res: Response) {
   try {
-    const productos = await Producto.find({ activo: true });
+    const productos = await Producto.find(filtroDeCatalogo(req));
     res.json(productos);
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener productos" });
   }
+}
+
+/**
+ * Variantes de cada vocal/consonante con aporte, para que "cafe" encuentre
+ * "café" y "cafe" encuentre "café" sin depender de índices de texto.
+ */
+const VARIANTES_DE_LETRA: Record<string, string> = {
+  a: "[aáàäâ]",
+  e: "[eéèëê]",
+  i: "[iíìïî]",
+  o: "[oóòöô]",
+  u: "[uúùüû]",
+  n: "[nñ]",
+};
+
+/** Arma una expresión regular insensible a mayúsculas y acentos, escapando lo que el usuario escriba. */
+function patronDeBusqueda(termino: string): RegExp {
+  const cuerpo = Array.from(termino.toLowerCase())
+    .map((caracter) => {
+      const variante = VARIANTES_DE_LETRA[caracter];
+      if (variante) return variante;
+      return caracter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(cuerpo, "i");
+}
+
+function textoDeConsulta(valor: unknown): string {
+  return typeof valor === "string" ? valor.trim() : "";
+}
+
+function numeroDeConsulta(valor: unknown): number | null {
+  if (valor === undefined || valor === null || valor === "") return null;
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : null;
+}
+
+/**
+ * Filtro del catálogo público. Acepta los query params:
+ * `q` (texto libre), `categoria` (una de CATEGORIAS_PRODUCTO),
+ * `vendedorId`, `precioMin` y `precioMax`.
+ */
+function filtroDeCatalogo(req: Request) {
+  const filtro: Record<string, unknown> = { activo: true };
+
+  const categoria = categoriaProductoValida(req.query.categoria);
+  if (categoria) {
+    filtro.categoria = categoria;
+  }
+
+  const vendedorId = textoDeConsulta(req.query.vendedorId);
+  if (vendedorId) {
+    filtro.vendedorId = vendedorId;
+  }
+
+  const termino = textoDeConsulta(req.query.q);
+  if (termino) {
+    const patron = patronDeBusqueda(termino);
+    filtro.$or = [
+      { nombre: patron },
+      { descripcion: patron },
+      { categoria: patron },
+      { vendedor: patron },
+    ];
+  }
+
+  const rangoDePrecio: Record<string, number> = {};
+  const precioMin = numeroDeConsulta(req.query.precioMin);
+  const precioMax = numeroDeConsulta(req.query.precioMax);
+  if (precioMin !== null) rangoDePrecio.$gte = precioMin;
+  if (precioMax !== null) rangoDePrecio.$lte = precioMax;
+  if (Object.keys(rangoDePrecio).length > 0) {
+    filtro.precio = rangoDePrecio;
+  }
+
+  return filtro;
 }
 
 export async function cambiarEstadoProducto(

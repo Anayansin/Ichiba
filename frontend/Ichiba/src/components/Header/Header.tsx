@@ -1,5 +1,6 @@
 import Boton from "../Boton/Boton";
 import { useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -18,8 +19,36 @@ function Header({ onOpenLogin }: HeaderProps) {
   const [categoriasAbiertas, setCategoriasAbiertas] = useState(false);
   const [promocionalesAbiertos, setPromocionalesAbiertos] = useState(false);
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
+  const [busquedaAbierta, setBusquedaAbierta] = useState(false);
+  const [textoBusqueda, setTextoBusqueda] = useState("");
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Al picar la lupa se esconde el resto de la barra (menos el logo y el
+  // avatar) y el buscador se ocupa el espacio que dejaron los enlaces.
+  function abrirBusqueda() {
+    setBusquedaAbierta(true);
+    setCategoriasAbiertas(false);
+    setPromocionalesAbiertos(false);
+    setMenuUsuarioAbierto(false);
+  }
+
+  function cerrarBusqueda() {
+    setBusquedaAbierta(false);
+  }
+
+  function enviarBusqueda(evento: FormEvent) {
+    evento.preventDefault();
+    const termino = textoBusqueda.trim();
+    navigate(termino ? `/inicio?q=${encodeURIComponent(termino)}` : "/inicio");
+    setBusquedaAbierta(false);
+  }
+
+  function manjarTeclasBusqueda(evento: KeyboardEvent<HTMLFormElement>) {
+    if (evento.key === "Escape") {
+      cerrarBusqueda();
+    }
+  }
 
   function handleLogout() {
     logout();
@@ -30,8 +59,14 @@ function Header({ onOpenLogin }: HeaderProps) {
   const inicialNombre = usuario?.nombreCompleto.charAt(0).toUpperCase();
 
   return (
-    <header className="header">
-      <Link to="/Inicio" className="header__logo">
+    <header
+      className={`header${busquedaAbierta ? " header--buscando" : ""}`}
+    >
+      <Link
+        to="/Inicio"
+        className="header__logo"
+        onClick={() => setBusquedaAbierta(false)}
+      >
         ICHIBA
       </Link>
 
@@ -97,7 +132,58 @@ function Header({ onOpenLogin }: HeaderProps) {
         <Link to="/Ayuda" className="header__link">
           Ayuda
         </Link>
+
+        <button
+          type="button"
+          className="header__link header__lupa"
+          onClick={abrirBusqueda}
+          aria-label="Buscar"
+          title="Buscar"
+        >
+          <svg
+            className="header__lupa-icono"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <line x1="15.5" y1="15.5" x2="21" y2="21" />
+          </svg>
+        </button>
       </nav>
+
+      {busquedaAbierta && (
+        <form
+          className="header__buscador header__buscador--expandido"
+          onSubmit={enviarBusqueda}
+          onKeyDown={manjarTeclasBusqueda}
+          role="search"
+        >
+          <input
+            type="search"
+            className="header__buscador-input"
+            placeholder="Buscar en ICHIBA..."
+            value={textoBusqueda}
+            onChange={(evento) => setTextoBusqueda(evento.target.value)}
+            aria-label="Buscar productos"
+            autoFocus
+          />
+          <button
+            type="submit"
+            className="header__buscador-boton"
+            aria-label="Buscar"
+          >
+            🔍
+          </button>
+          <button
+            type="button"
+            className="header__buscador-cerrar"
+            onClick={cerrarBusqueda}
+            aria-label="Cerrar búsqueda"
+          >
+            ✕
+          </button>
+        </form>
+      )}
 
       {usuario ? (
         <div

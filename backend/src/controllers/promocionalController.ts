@@ -6,6 +6,7 @@ import { Request } from "express";
 import path from "path";
 import fs from "fs";
 import { CONDICIONES_USO_PROMOCIONAL } from "../models/Promocional.js";
+import { esCategoriaPromocional, CATEGORIAS_PROMOCIONAL } from "../configuracion/categorias.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -21,6 +22,10 @@ function booleanoDeTexto(valor: unknown, porDefecto: boolean): boolean {
 
 function validarPromocional(req: Request): string | null {
   const { condicionUso, precio, nombre, descripcion, coberturaEnvio } = req.body;
+
+  if (!esCategoriaPromocional(req.body.categoria)) {
+    return "Selecciona una categoría de promocional válida";
+  }
 
   if (!CONDICIONES_USO_PROMOCIONAL.includes(condicionUso)) {
     return "Selecciona la condición de uso del promocional";
@@ -96,6 +101,7 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
 
     const nuevoPromocional = new Promocional({
       nombre: req.body.nombre,
+      categoria: req.body.categoria,
       descripcion: req.body.descripcion,
       condicionUso: req.body.condicionUso,
       imagenes,
@@ -120,7 +126,16 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
 
 export async function obtenerPromocionales(req: Request, res: Response) {
   try {
-    const promocionales = await Promocional.find({ activo: true });
+    const categoria =
+      typeof req.query.categoria === "string" ? req.query.categoria : undefined;
+    const filtro: {
+      activo: boolean;
+      categoria?: (typeof CATEGORIAS_PROMOCIONAL)[number];
+    } = { activo: true };
+    if (esCategoriaPromocional(categoria)) {
+      filtro.categoria = categoria;
+    }
+    const promocionales = await Promocional.find(filtro);
     res.json(promocionales);
   } catch (error) {
     console.error("Error real:", error);
@@ -252,6 +267,7 @@ export async function actualizarPromocional(
     }
 
     promocional.nombre = req.body.nombre;
+    promocional.categoria = req.body.categoria;
     promocional.descripcion = req.body.descripcion;
     promocional.condicionUso = req.body.condicionUso;
     promocional.precio = Number(req.body.precio);

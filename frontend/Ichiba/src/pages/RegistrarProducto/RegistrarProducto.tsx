@@ -102,9 +102,9 @@ function RegistrarProducto() {
       return;
     }
 
-    if (horarioEntregaInicio < "07:00" || horarioEntregaFin > "19:00") {
+    if (horarioEntregaInicio < "05:00" || horarioEntregaFin > "23:59") {
       setError(
-        "El horario de coordinación de entrega debe estar entre las 07:00 y las 19:00",
+        "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59",
       );
       return;
     }
@@ -194,7 +194,7 @@ function RegistrarProducto() {
             onChange={(e) => setCategoria(e.target.value)}
           >
             {categorias.map((cat) => (
-              <option key={cat} value={cat.toLowerCase()}>
+              <option key={cat} value={cat}>
                 {cat}
               </option>
             ))}
@@ -268,8 +268,8 @@ function RegistrarProducto() {
               className="registrar-producto-input"
               value={horarioEntregaInicio}
               onChange={(e) => setHorarioEntregaInicio(e.target.value)}
-              min="07:00"
-              max="19:00"
+              min="05:00"
+              max="23:59"
               required
             />
             <span>a</span>
@@ -278,13 +278,13 @@ function RegistrarProducto() {
               className="registrar-producto-input"
               value={horarioEntregaFin}
               onChange={(e) => setHorarioEntregaFin(e.target.value)}
-              min="07:00"
-              max="19:00"
+              min="05:00"
+              max="23:59"
               required
             />
           </div>
           <small className="registrar-producto-nota">
-            El horario de entrega debe estar entre las 07:00 y las 19:00, dentro
+            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
             de tu disponibilidad de trabajo.
           </small>
         </div>

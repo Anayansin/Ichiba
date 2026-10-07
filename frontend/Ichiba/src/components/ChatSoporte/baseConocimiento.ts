@@ -218,7 +218,7 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
     id: "recuperar-contrasena",
     pregunta: "¿Cómo recupero mi contraseña?",
     respuesta:
-      "En la ventana de inicio de sesión pulsa «¿Olvidaste tu contraseña?». Escribe tu correo y te enviaremos un código de 6 dígitos (válido por 15 minutos). Después elige tu nueva contraseña: mínimo 10 caracteres, con mayúscula, minúscula, número y un carácter especial (!@#$%&*-_).",
+      "En la ventana de inicio de sesión pulsa «¿Olvidaste tu contraseña?». Escribe tu correo y te enviaremos un código de 4 dígitos (válido por 10 minutos). Después elige tu nueva contraseña: mínimo 10 caracteres, con mayúscula, minúscula, número y un carácter especial (!@#$%&*-_).",
     claves: [
       "olvide mi contrasena",
       "recuperar cuenta",

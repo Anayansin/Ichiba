@@ -228,7 +228,7 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder="6 dígitos"
+                placeholder="4 dígitos"
                 className="modal-input modal-input-codigo"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}

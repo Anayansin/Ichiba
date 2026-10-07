@@ -7,6 +7,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec \"node --harmony-temporal --import tsx\" src/server.ts",
+    "seed": "node --harmony-temporal --import tsx scripts/seed.ts",
+    "admin": "node --harmony-temporal --import tsx scripts/crear-admin.ts",
+    "correo-test": "node --harmony-temporal --import tsx scripts/probar-correo.ts",
     "contract:emit": "prisma contract emit"
   },
   "nodemonConfig": {

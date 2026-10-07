@@ -4,6 +4,8 @@ export const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const usuarioSchema = new Schema(
   {
+    /** Id numérico de la cuenta en PostgreSQL (la copia sincronizada). */
+    usuarioId: { type: Number, index: true },
     nombreCompleto: { type: String, required: true },
     direccion: { type: String, required: true },
     telefono: { type: String, required: true },

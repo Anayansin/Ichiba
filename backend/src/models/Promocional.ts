@@ -1,4 +1,5 @@
 import { Schema, model } from "mongoose";
+import { CATEGORIAS_PROMOCIONAL } from "../configuracion/categorias.js";
 
 export const CONDICIONES_USO_PROMOCIONAL = [
   "nuevo",
@@ -10,6 +11,12 @@ export const CONDICIONES_USO_PROMOCIONAL = [
 const promocionalSchema = new Schema(
   {
     nombre: { type: String, required: true },
+    categoria: {
+      type: String,
+      enum: [...CATEGORIAS_PROMOCIONAL],
+      default: CATEGORIAS_PROMOCIONAL[0],
+      required: true,
+    },
     descripcion: { type: String, required: true },
     condicionUso: { type: String, enum: CONDICIONES_USO_PROMOCIONAL, required: true },
     imagenes: { type: [String], required: true },

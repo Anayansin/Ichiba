@@ -28,6 +28,13 @@ const categorias = [
 ];
 const MAX_IMAGENES = 6;
 
+/** Las categorías se guardan con la grafía del catálogo ("Artesanias"). */
+function categoriaCanonica(valor: string): string {
+  return (
+    categorias.find((cat) => cat.toLowerCase() === valor.toLowerCase()) ?? valor
+  );
+}
+
 function EditarProducto() {
   const { id } = useParams();
   const { usuario } = useAuth();
@@ -61,13 +68,13 @@ function EditarProducto() {
         setProducto(data);
         setNombre(data.nombre);
         setPrecio(String(data.precio));
-        setCategoria(data.categoria);
+        setCategoria(categoriaCanonica(data.categoria));
         setDescripcion(data.descripcion);
         setCondicion(data.condicion ?? CONDICIONES_PRODUCTO[0].valor);
         setCondicionUso(data.condicionUso ?? CONDICIONES_USO[0].valor);
         setMetodoEntrega(data.metodoEntrega ?? METODOS_ENTREGA[0].valor);
-        setHorarioInicio(data.horarioEntrega?.inicio ?? "09:00");
-        setHorarioFin(data.horarioEntrega?.fin ?? "18:00");
+        setHorarioInicio(data.horarioEntregaInicio ?? "09:00");
+        setHorarioFin(data.horarioEntregaFin ?? "18:00");
         setTiempoLimitePago(String(data.tiempoLimitePago ?? 60));
         setImagenesExistentes(data.imagenes);
       })
@@ -146,8 +153,8 @@ function EditarProducto() {
       formData.append("condicion", condicion);
       formData.append("condicionUso", condicionUso);
       formData.append("metodoEntrega", metodoEntrega);
-      formData.append("horarioInicio", horarioInicio);
-      formData.append("horarioFin", horarioFin);
+      formData.append("horarioEntregaInicio", horarioInicio);
+      formData.append("horarioEntregaFin", horarioFin);
       formData.append("tiempoLimitePago", tiempoLimitePago);
       formData.append("imagenesExistentes", JSON.stringify(imagenesExistentes));
       archivosNuevos.forEach((archivo) => formData.append("imagenes", archivo));
@@ -202,7 +209,7 @@ function EditarProducto() {
             onChange={(e) => setCategoria(e.target.value)}
           >
             {categorias.map((cat) => (
-              <option key={cat} value={cat.toLowerCase()}>
+              <option key={cat} value={cat}>
                 {cat}
               </option>
             ))}

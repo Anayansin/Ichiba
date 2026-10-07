@@ -167,6 +167,16 @@ npm run dev
 
 Este comando ejecuta `src/server.ts` con nodemon y tsx en modo de desarrollo (reinicia al detectar cambios en `src`). Al estar listo, la consola muestra la conexión exitosa a MongoDB y `Servidor corriendo en http://localhost:5000`. La carpeta `uploads/` se crea sola en la primera subida de una imagen.
 
+**Datos de prueba**
+
+Con MongoDB en marcha puedes llenar el catálogo de ejemplo (30 productos, 5 por cada categoría, y 35 promocionales, 5 por cada tipo) desde la carpeta `backend`:
+
+```bash
+npm run seed
+```
+
+El script `scripts/seed.ts` valida cada dato con las mismas reglas del controlador (longitudes, precios y palabras no permitidas), reutiliza las imágenes que ya existen en `uploads/` y es idempotente: todo lo que inserta queda marcado con `semilla: true`, se borra antes de volver a insertar y nunca toca datos reales. Si PostgreSQL está disponible los artículos se ligan a un usuario existente; si no, usan un vendedor de respaldo.
+
 **Paso 2. Frontend React**
 
 ```bash

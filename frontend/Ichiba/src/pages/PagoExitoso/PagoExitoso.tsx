@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { capturarOrdenPago } from "../../services/pagoService";
 import AdvertenciaEncuentroModal from "../../components/AdvertenciaEncuentroModal/AdvertenciaEncuentroModal";
@@ -14,8 +14,14 @@ function PagoExitoso() {
   );
   const [mensaje, setMensaje] = useState("");
   const [mostrarAdvertencia, setMostrarAdvertencia] = useState(false);
+  // En desarrollo React ejecuta el efecto dos veces; la captura solo debe
+  // dispararse una vez por regreso de PayPal.
+  const capturaIniciada = useRef(false);
 
   useEffect(() => {
+    if (capturaIniciada.current) return;
+    capturaIniciada.current = true;
+
     const orderId = searchParams.get("token");
     if (!orderId) {
       setEstado("error");

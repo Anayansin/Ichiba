@@ -4,6 +4,7 @@ import { generarCodigo } from "../utils/generarCodigo.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { buscarUsuarioPorId } from "../services/usuarioService.js";
+import { Usuario } from "../models/usuario.js";
 
 const MINUTOS_EXPIRACION = 10;
 
@@ -76,6 +77,24 @@ export async function verificarCodigoCorreo(
         codigoCorreo: null,
         codigoCorreoExpira: null,
       },
+    });
+
+    // La copia de MongoDB (panel de administración, GraphQL y trabajos)
+    // también debe quedar marcada como verificada.
+    await Usuario.updateOne(
+      { correo: usuario.correo },
+      {
+        $set: {
+          correoVerificado: true,
+          codigoCorreo: null,
+          codigoCorreoExpira: null,
+        },
+      },
+    ).catch((errorMongo) => {
+      console.error(
+        "[mongo] No se pudo actualizar el espejo del usuario:",
+        errorMongo?.message ?? errorMongo,
+      );
     });
 
     res.json({ message: "Correo verificado correctamente" });

@@ -15,8 +15,15 @@
   font-weight: 600;
 }
 
-.Contenedor__filtro-activo a {
+.Contenedor__filtro-activo button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   color: #d90429;
   text-decoration: none;
   font-size: 0.85rem;
+  font-weight: 600;
 }
+
+

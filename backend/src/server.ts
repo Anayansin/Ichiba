@@ -45,6 +45,11 @@ app.use((req, res, next) => {
 });
 // Ningún campo manual del proyecto acepta palabras prohibidas
 app.use(filtroPalabrasProhibidas);
+// Las fotos de INE son documentos personales: solo se usan durante el
+// registro (OCR) y viven en disco. Nunca se sirven por HTTP.
+app.use("/uploads/ine", (_req, res) => {
+  res.status(404).json({ message: "No encontrado" });
+});
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use("/api/productos", productoRoutes);
@@ -58,6 +63,31 @@ app.use("/api/reportes", reporteRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
+
+// Los errores de Multer (archivo muy pesado o tipo no permitido) deben
+// responder JSON y no el HTML del manejador por defecto de Express.
+app.use(
+  (
+    error: any,
+    _req: import("express").Request,
+    res: import("express").Response,
+    siguiente: import("express").NextFunction,
+  ) => {
+    if (error?.name === "MulterError") {
+      const mensajes: Record<string, string> = {
+        LIMIT_FILE_SIZE: "Las imágenes no pueden pesar más de 5 MB",
+        LIMIT_UNEXPECTED_FILE: "Solo se aceptan imágenes",
+        LIMIT_FILE_COUNT: "Puedes subir máximo 6 imágenes por producto",
+      };
+      return res.status(400).json({
+        message: mensajes[error.code] ?? "No se pudieron procesar las imágenes",
+      });
+    }
+    console.error("[error no manejado]", error);
+    if (res.headersSent) return siguiente(error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  },
+);
 
 const servidorApollo = new ServidorApollo({
   typeDefs: definicionesEsquema,

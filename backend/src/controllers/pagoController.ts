@@ -7,6 +7,7 @@ import { Venta } from "../models/Venta.js";
 import {
   crearOrdenPaypal,
   capturarOrdenPaypal,
+  obtenerOrdenPaypal,
 } from "../services/paypalService.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import {
@@ -91,20 +92,41 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     if (!vendedor)
       return res.status(404).json({ message: "Vendedor no encontrado" });
 
+    const paypalEmail = (vendedor as { paypalEmail?: string | null })
+      .paypalEmail;
+    if (!paypalEmail) {
+      return res.status(400).json({
+        message:
+          "El vendedor aún no tiene configurado su correo de PayPal. Inténtalo más tarde.",
+      });
+    }
+
     const orden = await crearOrdenPaypal(
       producto.precio,
-      vendedor.paypalEmail,
+      paypalEmail,
       productoId,
     );
 
-    const linkAprobacion = orden.links.find(
+    const linkAprobacion = orden.links?.find(
       (l: any) => l.rel === "approve",
     )?.href;
 
+    if (!orden.id || !linkAprobacion) {
+      console.error("[paypal] Orden creada sin enlace de aprobación:", orden);
+      return res.status(500).json({
+        message: "PayPal no devolvió el enlace de pago. Intenta de nuevo.",
+      });
+    }
+
     res.json({ orderId: orden.id, linkAprobacion });
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al crear la orden de pago" });
+    console.error("[paypal] Error al crear la orden:", error);
+    const detalle = error instanceof Error ? error.message : "";
+    res.status(500).json({
+      message: detalle
+        ? `No se pudo iniciar el pago con PayPal: ${detalle}`
+        : "Error al crear la orden de pago",
+    });
   }
 }
 
@@ -113,17 +135,53 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
     const orderId = req.params.orderId as string;
     const compradorId = req.compradorId as string;
 
-    const resultado = await capturarOrdenPaypal(orderId);
+    let resultado: any;
+    try {
+      resultado = await capturarOrdenPaypal(orderId);
+    } catch (error) {
+      // PayPal responde 422 ORDER_ALREADY_CAPTURED cuando la página se
+      // recarga o la captura se intenta dos veces: en ese caso consultamos
+      // la orden y, si ya está COMPLETED, seguimos como si fuera la primera.
+      const respuesta = (error as any)?.respuestaPaypal;
+      const nombreError = respuesta?.name;
+      const incidencia = respuesta?.details?.[0]?.issue ?? "";
 
-    if (resultado.status !== "COMPLETED") {
-      return res
-        .status(400)
-        .json({ message: "El pago no se completó correctamente" });
+      if (nombreError === "ORDER_ALREADY_CAPTURED") {
+        resultado = await obtenerOrdenPaypal(orderId);
+      } else if (
+        incidencia === "PAYER_NOT_APPROVED" ||
+        incidencia === "ORDER_NOT_APPROVED" ||
+        incidencia === "INSTRUMENT_DECLINED" ||
+        nombreError === "ORDER_NOT_APPROVED"
+      ) {
+        // El comprador aún no termina el pago en PayPal (o lo canceló):
+        // no es un error del servidor, se reintenta desde el frontend.
+        return res.status(400).json({
+          message:
+            incidencia === "INSTRUMENT_DECLINED"
+              ? "PayPal rechazó el método de pago elegido, prueba con otro"
+              : "El pago aún no se ha aprobado en PayPal, completa el pago antes de confirmar",
+        });
+      } else {
+        throw error;
+      }
     }
 
-    const productoId = resultado.purchase_units[0].reference_id;
+    if (!resultado || resultado.status !== "COMPLETED") {
+      const detalle =
+        resultado?.details?.[0]?.description ?? resultado?.name ?? null;
+      return res.status(400).json({
+        message: detalle
+          ? `El pago no se completó correctamente (${detalle})`
+          : "El pago no se completó correctamente",
+      });
+    }
+
+    const unidadDeCompra = resultado.purchase_units?.[0];
+    const productoId = unidadDeCompra?.reference_id;
     const monto = Number(
-      resultado.purchase_units[0].payments.captures[0].amount.value,
+      unidadDeCompra?.payments?.captures?.[0]?.amount?.value ??
+        unidadDeCompra?.amount?.value,
     );
 
     const producto = await buscarProducto(productoId);
@@ -135,32 +193,54 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
 
-    await Producto.updateOne({ _id: productoId }, { activo: false });
-
-    await clientePrisma.cola.updateMany({
-      where: { productoId, compradorId, estado: "activa" },
-      data: { estado: "pagada" },
+    // Idempotencia: si esta orden ya quedó registrada (recarga de la página)
+    // no se repiten los efectos del pago, pero se responde 200 igual.
+    const ventaYaRegistrada = await clientePrisma.venta.findFirst({
+      where: { paypalOrderId: orderId },
     });
 
-    await clientePrisma.cola.updateMany({
-      where: { productoId, estado: "activa" },
-      data: { estado: "esperando_confirmacion" },
-    });
+    if (!ventaYaRegistrada) {
+      await Producto.updateOne({ _id: productoId }, { activo: false });
 
-    await clientePrisma.usuario.update({
-      where: { id: vendedorId },
-      data: { ventasExitosas: { increment: 1 } },
-    });
+      await clientePrisma.cola.updateMany({
+        where: { productoId, compradorId, estado: "activa" },
+        data: { estado: "pagada" },
+      });
 
-    await clientePrisma.venta.create({
-      data: {
+      await clientePrisma.cola.updateMany({
+        where: { productoId, estado: "activa" },
+        data: { estado: "esperando_confirmacion" },
+      });
+
+      await clientePrisma.usuario.update({
+        where: { id: vendedorId },
+        data: { ventasExitosas: { increment: 1 } },
+      });
+
+      await clientePrisma.venta.create({
+        data: {
+          productoId,
+          vendedorId,
+          compradorId,
+          monto,
+          paypalOrderId: orderId,
+        },
+      });
+    }
+
+    // Espejo en MongoDB: el chat del vendedor, la calificación, los reportes
+    // y el historial de administración leen la colección `Venta`.
+    await Venta.updateOne(
+      { paypalOrderId: orderId },
+      {
         productoId,
-        vendedorId,
+        vendedorId: String(vendedorId),
         compradorId,
         monto,
-        paypalOrderId: orderId,
+        estado: "completada",
       },
-    });
+      { upsert: true },
+    );
 
     res.json({
       message: "Pago completado",
@@ -168,8 +248,13 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
       productoId,
     });
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al capturar el pago" });
+    console.error("[paypal] Error al capturar el pago:", error);
+    const detalle = error instanceof Error ? error.message : "";
+    res.status(500).json({
+      message: detalle
+        ? `No se pudo confirmar el pago con PayPal: ${detalle}`
+        : "Error al capturar el pago",
+    });
   }
 }
 

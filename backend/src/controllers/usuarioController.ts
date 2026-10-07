@@ -5,6 +5,7 @@ import crypto from "crypto";
 import fs from "fs";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
+import { Usuario } from "../models/usuario.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { validarPassword } from "../utils/validarPassword.js";
 import { coincideRfcConCurp } from "../utils/validarRfcCurp.js";
@@ -38,6 +39,27 @@ function limpiarArchivos(archivos: Express.Multer.File[]) {
   });
 }
 
+/**
+ * Copia los cambios de la cuenta a la colección `usuario` de MongoDB, que es
+ * la que leen el panel de administración, GraphQL y el trabajo diario de
+ * horarios. Si MongoDB no está disponible solo se avisa en consola: nunca
+ * rompe la operación que el vendedor estaba haciendo.
+ */
+function reflejarEnMongo(
+  correo: string,
+  cambios: Record<string, unknown>,
+  upsert = false,
+) {
+  return Usuario.updateOne({ correo }, { $set: cambios }, { upsert }).catch(
+    (errorMongo) => {
+      console.error(
+        "[mongo] No se pudo actualizar el espejo del usuario:",
+        errorMongo?.message ?? errorMongo,
+      );
+    },
+  );
+}
+
 export async function registrarUsuario(req: Request, res: Response) {
   const archivos = req.files as
     | { [fieldname: string]: Express.Multer.File[] }
@@ -55,6 +77,7 @@ export async function registrarUsuario(req: Request, res: Response) {
       password,
       aceptaTerminos,
       recibirNotificacionesCriticas,
+      recibirNotificacionesPublicitarias,
       metodoPago,
       datosMetodoPago,
     } = req.body;
@@ -268,11 +291,45 @@ export async function registrarUsuario(req: Request, res: Response) {
         ineCodigoReverso: mrzCompleto,
         aceptaTerminos: true,
         recibirNotificacionesCriticas: true,
+        recibirNotificacionesPublicitarias:
+          recibirNotificacionesPublicitarias === "true",
         horarios,
         horarioConfirmadoEn: new Date(),
         diasSinConfirmarHorario: 0,
       },
     });
+
+    // Espejo en MongoDB para el panel de administración, GraphQL y el
+    // trabajo de horarios (ambas bases conviven durante la migración).
+    await reflejarEnMongo(
+      correo,
+      {
+        usuarioId: usuarioCreado.id,
+        nombreCompleto,
+        direccion,
+        telefono,
+        rfc,
+        password: passwordHasheada,
+        tipo: usuarioCreado.tipo,
+        ventasExitosas: usuarioCreado.ventasExitosas,
+        reportes: usuarioCreado.totalReportes,
+        correoVerificado: usuarioCreado.correoVerificado,
+        ineFrente: usuarioCreado.ineFrente,
+        ineReverso: usuarioCreado.ineReverso,
+        ineCodigoReverso: mrzCompleto,
+        curp,
+        aceptaTerminos: true,
+        recibirNotificacionesCriticas: true,
+        recibirNotificacionesPublicitarias:
+          recibirNotificacionesPublicitarias === "true",
+        metodoPago,
+        datosMetodoPago,
+        horarios,
+        horarioConfirmadoEn: new Date(),
+        diasSinConfirmarHorario: 0,
+      },
+      true,
+    );
 
     const token = jwt.sign(
       { id: usuarioCreado.id, tipo: usuarioCreado.tipo },
@@ -431,14 +488,28 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
     const errorHorario = validarHorarioSemanal(horarios);
     if (errorHorario) return res.status(400).json({ message: errorHorario });
 
+    const cuenta = await clientePrisma.usuario.findUnique({
+      where: { id: req.usuarioId },
+      select: { correo: true },
+    });
+
+    const horarioConfirmadoEn = new Date();
     await clientePrisma.usuario.update({
       where: { id: req.usuarioId },
       data: {
         horarios,
-        horarioConfirmadoEn: new Date(),
+        horarioConfirmadoEn,
         diasSinConfirmarHorario: 0,
       },
     });
+
+    if (cuenta) {
+      await reflejarEnMongo(cuenta.correo, {
+        horarios,
+        horarioConfirmadoEn,
+        diasSinConfirmarHorario: 0,
+      });
+    }
 
     res.json({ message: "Horario confirmado" });
   } catch (error) {

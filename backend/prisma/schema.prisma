@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ⚠️ Este archivo es un espejo informativo del esquema. La fuente de verdad
+// del proyecto es `src/prisma/contract.prisma` (ver `prisma.config.ts`), que
+// es la que se usa para `npm run contract:emit` y para las consultas. Mantén
+// ambos alineados para no confundir campos (p. ej. el correo de PayPal es
+// `paypalEmail`, no `metodoPago`).
 model usuario {
   id                              Int       @id @default(autoincrement())
   nombreCompleto                  String
@@ -31,8 +36,7 @@ model usuario {
   curp                            String?
   ineCodigoReverso                String?
   recibirNotificacionesPublicitarias Boolean @default(false)
-  metodoPago                      String
-  datosMetodoPago                 String
+  paypalEmail                     String
   horarios                        Json
   horarioConfirmadoEn             DateTime?
   diasSinConfirmarHorario         Int       @default(0)
