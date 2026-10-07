@@ -1,3 +1,11 @@
 node_modules/
 dist/
+
+# Variables de entorno: el .env real jamás sale de este equipo
 .env
+.env.*
+!.env.example
+
+# Documentos de identidad (INE): solo viven en disco, no se suben a git
+# ni a la plataforma de despliegue (Railway sube este directorio).
+uploads/ine/
