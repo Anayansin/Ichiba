@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
-dotenv.config();
+// quiet: sin mensajes promocionales de dotenv en los logs (en producción solo
+// debe verse lo del proyecto). Si falta el .env el error lo dirá Mongo/Prisma.
+dotenv.config({ quiet: true });
 
 import express from "express";
 import cors from "cors";
@@ -93,6 +95,16 @@ app.use("/uploads/ine", (_req, res) => {
   res.status(404).json({ message: "No encontrado" });
 });
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// Healthcheck: le indica a la plataforma (Railway) que el servicio ya arrancó.
+// No consulta bases de datos: solo confirma que el proceso responde.
+app.get("/api/salud", (_req, res) => {
+  res.json({
+    estado: "ok",
+    servicio: "ichiba-api",
+    fecha: new Date().toISOString(),
+  });
+});
 
 app.use("/api/productos", productoRoutes);
 app.use("/api/usuarios", usuarioRoutes);

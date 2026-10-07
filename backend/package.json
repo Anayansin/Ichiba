@@ -7,10 +7,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec \"node --harmony-temporal --import tsx\" src/server.ts",
+    "start": "node --harmony-temporal --import tsx src/server.ts",
     "seed": "node --harmony-temporal --import tsx scripts/seed.ts",
     "admin": "node --harmony-temporal --import tsx scripts/crear-admin.ts",
     "correo-test": "node --harmony-temporal --import tsx scripts/probar-correo.ts",
     "contract:emit": "prisma contract emit"
+  },
+  "engines": {
+    "node": "24"
   },
   "nodemonConfig": {
     "watch": [
@@ -40,6 +44,7 @@
     "prisma": "^8.0.0-rc.17",
     "sharp": "^0.35.3",
     "tesseract.js": "^7.0.0",
+    "tsx": "^4.19.0",
     "twilio": "^6.0.2"
   },
   "devDependencies": {
@@ -52,7 +57,6 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
     "nodemon": "^3.1.14",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }
 }
