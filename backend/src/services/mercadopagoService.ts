@@ -164,7 +164,9 @@ export async function crearPreferenciaMercadoPago(datos: DatosPreferencia) {
     statement_descriptor: "ICHIBA",
     expires: false,
     ...(puedeAutoReturn ? { auto_return: "approved" } : {}),
-    ...(baseBack
+    // Solo se notifica por webhook si el backend es público: MercadoPago
+    // rechaza o ignora URLs que no pueda alcanzar (como localhost).
+    ...(baseBack && baseBack.startsWith("https://")
       ? { notification_url: `${baseBack}/api/pagos/webhook-mercadopago` }
       : {}),
   };
