@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { capturarOrdenPago } from "../../services/pagoService";
+import {
+  capturarOrdenPago,
+  confirmarPagoMercadoPago,
+} from "../../services/pagoService";
 import AdvertenciaEncuentroModal from "../../components/AdvertenciaEncuentroModal/AdvertenciaEncuentroModal";
 import "./PagoExitoso.css";
 
@@ -14,22 +17,40 @@ function PagoExitoso() {
   );
   const [mensaje, setMensaje] = useState("");
   const [mostrarAdvertencia, setMostrarAdvertencia] = useState(false);
-  // En desarrollo React ejecuta el efecto dos veces; la captura solo debe
-  // dispararse una vez por regreso de PayPal.
+  // En desarrollo React ejecuta el efecto dos veces; la confirmación solo
+  // debe dispararse una vez por regreso de la pasarela.
   const capturaIniciada = useRef(false);
 
   useEffect(() => {
     if (capturaIniciada.current) return;
     capturaIniciada.current = true;
 
+    // PayPal vuelve con ?token=<orderId>; MercadoPago con
+    // ?fuente=mercadopago&payment_id=<id> (a veces llega como collection_id).
+    const fuente = searchParams.get("fuente");
+    const paymentIdMercadoPago =
+      searchParams.get("payment_id") || searchParams.get("collection_id");
     const orderId = searchParams.get("token");
-    if (!orderId) {
-      setEstado("error");
-      setMensaje("No se encontró la información del pago");
-      return;
+
+    let confirmacion: Promise<unknown>;
+
+    if (fuente === "mercadopago") {
+      if (!paymentIdMercadoPago) {
+        setEstado("error");
+        setMensaje("No se encontró la información del pago");
+        return;
+      }
+      confirmacion = confirmarPagoMercadoPago(paymentIdMercadoPago);
+    } else {
+      if (!orderId) {
+        setEstado("error");
+        setMensaje("No se encontró la información del pago");
+        return;
+      }
+      confirmacion = capturarOrdenPago(orderId);
     }
 
-    capturarOrdenPago(orderId)
+    confirmacion
       .then(() => {
         setEstado("exito");
 

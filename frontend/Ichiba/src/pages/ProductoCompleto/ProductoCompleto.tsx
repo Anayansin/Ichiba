@@ -138,7 +138,7 @@ function ProductoCompleto() {
       const { linkAprobacion } = await crearOrdenPago(producto._id);
       if (!linkAprobacion) {
         setMensajeFila(
-          "PayPal no devolvió el enlace de pago. Intenta de nuevo en unos segundos.",
+          "La pasarela de pago no devolvió el enlace. Intenta de nuevo en unos segundos.",
         );
         return;
       }

@@ -9,3 +9,11 @@ export async function capturarOrdenPago(orderId: string) {
   const response = await api.post(`/pagos/capturar-orden/${orderId}`);
   return response.data;
 }
+
+/** Confirmación de vuelta del checkout de MercadoPago. */
+export async function confirmarPagoMercadoPago(paymentId: string) {
+  const response = await api.post("/pagos/confirmar-mercadopago", {
+    paymentId,
+  });
+  return response.data;
+}

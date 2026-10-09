@@ -9,6 +9,12 @@ import {
   capturarOrdenPaypal,
   obtenerOrdenPaypal,
 } from "../services/paypalService.js";
+import {
+  crearPreferenciaMercadoPago,
+  obtenerPagoMercadoPago,
+  pagoAprobado,
+} from "../services/mercadopagoService.js";
+import { registrarVentaExitosa } from "../services/ventaService.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import {
   iniciarTemporizadorPago,
@@ -26,6 +32,34 @@ async function buscarVendedorDeProducto(vendedorId: unknown) {
   const idNumerico = Number(vendedorId);
   if (!Number.isInteger(idNumerico)) return null;
   return clientePrisma.usuario.findUnique({ where: { id: idNumerico } });
+}
+
+/**
+ * Método de pago elegido por el vendedor al registrarse.
+ *
+ * Vive en MongoDB: en PostgreSQL solo se guarda la cuenta de cobro dentro de
+ * `paypalEmail`, así que hay que mirar ahí para decidir con qué pasarela
+ * cobrar. Si Mongo no responde se cae a PayPal, que es lo que siempre hizo
+ * esta tienda.
+ */
+async function metodoDePagoDelVendedor(
+  correo: string,
+): Promise<"paypal" | "mercadopago"> {
+  try {
+    const espejo = (await Usuario.findOne({ correo })
+      .select("metodoPago")
+      .lean()) as { metodoPago?: string } | null;
+
+    return espejo?.metodoPago === "mercadopago"
+      ? "mercadopago"
+      : "paypal";
+  } catch (error) {
+    console.error(
+      "[mongo] No se pudo leer el método de pago del vendedor:",
+      (error as { message?: string })?.message ?? error,
+    );
+    return "paypal";
+  }
 }
 
 type IdentidadQueCalifica = { tipo: "usuario" | "comprador"; id: string };
@@ -92,6 +126,41 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     if (!vendedor)
       return res.status(404).json({ message: "Vendedor no encontrado" });
 
+    const metodo = await metodoDePagoDelVendedor(vendedor.correo);
+
+    if (metodo === "mercadopago") {
+      // Checkout Pro: MercadoPago devuelve `init_point`, la página donde el
+      // comprador paga. Usamos el mismo campo `linkAprobacion` que PayPal
+      // para que el frontend no tenga que distinguir pasarelas.
+      const preferencia = await crearPreferenciaMercadoPago({
+        productoId,
+        compradorId,
+        titulo: producto.nombre,
+        descripcion: producto.descripcion,
+        precio: producto.precio,
+        imagen: producto.imagenes?.[0] ?? null,
+      });
+
+      const linkAprobacion = preferencia?.init_point as string | undefined;
+
+      if (!preferencia?.id || !linkAprobacion) {
+        console.error(
+          "[mercadopago] Preferencia creada sin enlace de pago:",
+          preferencia,
+        );
+        return res.status(500).json({
+          message:
+            "MercadoPago no devolvió el enlace de pago. Intenta de nuevo.",
+        });
+      }
+
+      return res.json({
+        metodo: "mercadopago",
+        preferenceId: preferencia.id,
+        linkAprobacion,
+      });
+    }
+
     const paypalEmail = (vendedor as { paypalEmail?: string | null })
       .paypalEmail;
     if (!paypalEmail) {
@@ -118,13 +187,13 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       });
     }
 
-    res.json({ orderId: orden.id, linkAprobacion });
+    res.json({ metodo: "paypal", orderId: orden.id, linkAprobacion });
   } catch (error) {
-    console.error("[paypal] Error al crear la orden:", error);
+    console.error("[pago] Error al crear la orden:", error);
     const detalle = error instanceof Error ? error.message : "";
     res.status(500).json({
       message: detalle
-        ? `No se pudo iniciar el pago con PayPal: ${detalle}`
+        ? `No se pudo iniciar el pago: ${detalle}`
         : "Error al crear la orden de pago",
     });
   }
@@ -185,7 +254,7 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
     );
 
     const producto = await buscarProducto(productoId);
-    if (!producto)
+    if (!producto || typeof productoId !== "string")
       return res.status(404).json({ message: "Producto no encontrado" });
 
     const vendedorId = Number(producto.vendedorId);
@@ -193,54 +262,15 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
 
-    // Idempotencia: si esta orden ya quedó registrada (recarga de la página)
-    // no se repiten los efectos del pago, pero se responde 200 igual.
-    const ventaYaRegistrada = await clientePrisma.venta.findFirst({
-      where: { paypalOrderId: orderId },
+    // Idempotente: en una recarga no se repiten los efectos del pago, pero
+    // se responde 200 igual.
+    await registrarVentaExitosa({
+      productoId,
+      compradorId,
+      vendedorId,
+      monto,
+      referenciaExterna: orderId,
     });
-
-    if (!ventaYaRegistrada) {
-      await Producto.updateOne({ _id: productoId }, { activo: false });
-
-      await clientePrisma.cola.updateMany({
-        where: { productoId, compradorId, estado: "activa" },
-        data: { estado: "pagada" },
-      });
-
-      await clientePrisma.cola.updateMany({
-        where: { productoId, estado: "activa" },
-        data: { estado: "esperando_confirmacion" },
-      });
-
-      await clientePrisma.usuario.update({
-        where: { id: vendedorId },
-        data: { ventasExitosas: { increment: 1 } },
-      });
-
-      await clientePrisma.venta.create({
-        data: {
-          productoId,
-          vendedorId,
-          compradorId,
-          monto,
-          paypalOrderId: orderId,
-        },
-      });
-    }
-
-    // Espejo en MongoDB: el chat del vendedor, la calificación, los reportes
-    // y el historial de administración leen la colección `Venta`.
-    await Venta.updateOne(
-      { paypalOrderId: orderId },
-      {
-        productoId,
-        vendedorId: String(vendedorId),
-        compradorId,
-        monto,
-        estado: "completada",
-      },
-      { upsert: true },
-    );
 
     res.json({
       message: "Pago completado",
@@ -255,6 +285,165 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
         ? `No se pudo confirmar el pago con PayPal: ${detalle}`
         : "Error al capturar el pago",
     });
+  }
+}
+
+/**
+ * Confirma un pago de MercadoPago una vez que el comprador vuelve del
+ * checkout con `?fuente=mercadopago&payment_id=...`.
+ *
+ * No hay paso de captura: se consulta el pago a MercadoPago (fuente única de
+ * verdad, lo que hace la operación idempotente) y, si está aprobado, se
+ * registran los mismos efectos que con PayPal.
+ */
+export async function confirmarMercadoPago(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const paymentId = String(
+      req.body?.paymentId ?? req.body?.payment_id ?? "",
+    ).trim();
+
+    if (!paymentId) {
+      return res.status(400).json({
+        message: "No llegó el identificador del pago de MercadoPago",
+      });
+    }
+
+    const pago = await obtenerPagoMercadoPago(paymentId);
+
+    // La referencia que guardamos al crear la preferencia es `mp:<productoId>`.
+    const referenciaExterna = String(pago?.external_reference ?? "");
+    const productoId = referenciaExterna.startsWith("mp:")
+      ? referenciaExterna.slice(3)
+      : "";
+
+    if (!/^[0-9a-fA-F]{24}$/.test(productoId)) {
+      return res.status(400).json({
+        message: "El pago de MercadoPago no trae un producto reconocible",
+      });
+    }
+
+    if (!pagoAprobado(pago)) {
+      const estado = String(pago?.status ?? "");
+      const detalle = String(pago?.status_detail ?? "");
+      return res.status(400).json({
+        message:
+          estado === "pending"
+            ? "El pago está pendiente de acreditación, te avisaremos cuando se confirme"
+            : estado === "rejected"
+              ? `MercadoPago rechazó el pago${detalle ? ` (${detalle})` : ""}`
+              : "El pago aún no se ha aprobado, completa el pago antes de confirmar",
+      });
+    }
+
+    const producto = await buscarProducto(productoId);
+    if (!producto)
+      return res.status(404).json({ message: "Producto no encontrado" });
+
+    const vendedorId = Number(producto.vendedorId);
+    if (!Number.isInteger(vendedorId)) {
+      return res.status(404).json({ message: "Vendedor no encontrado" });
+    }
+
+    // El importe lo fija MercadoPago según la preferencia que creamos en el
+    // servidor; si no coincide con el precio actual es porque el vendedor lo
+    // editó mientras el comprador pagaba. Se registra lo realmente cobrado
+    // (el dinero ya se movió) y se deja constancia.
+    const monto = Number(pago.transaction_amount);
+    if (Math.abs(monto - producto.precio) > 0.01) {
+      console.warn(
+        `[mercadopago] Cobro ${monto} distinto al precio actual ${producto.precio} del producto ${productoId}`,
+      );
+    }
+
+    await registrarVentaExitosa({
+      productoId,
+      compradorId: req.compradorId as string,
+      vendedorId,
+      monto,
+      referenciaExterna: `mp:${paymentId}`,
+    });
+
+    res.json({
+      message: "Pago completado",
+      vendedorId,
+      productoId,
+    });
+  } catch (error) {
+    console.error("[mercadopago] Error al confirmar el pago:", error);
+    const detalle = error instanceof Error ? error.message : "";
+    res.status(500).json({
+      message: detalle
+        ? `No se pudo confirmar el pago con MercadoPago: ${detalle}`
+        : "Error al confirmar el pago",
+    });
+  }
+}
+
+/**
+ * Webhook (IPN) de MercadoPago: avisa de cambios de estado aunque el
+ * comprador cierre el navegador antes de volver del checkout.
+ *
+ * Es público a propósito y responde 200 de inmediato (MercadoPago reintenta
+ * si no recibe 200). La única fuente de verdad sigue siendo la consulta a la
+ * API: aquí nunca se confía en lo que llega por el cuerpo del aviso, solo se
+ * usa para saber qué pago reconsultar, así que un aviso falsificado no puede
+ * registrar ventas.
+ */
+export async function webhookMercadoPago(req: Request, res: Response) {
+  res.sendStatus(200);
+
+  try {
+    const cuerpo = (req.body ?? {}) as {
+      type?: string;
+      data?: { id?: string | number };
+    };
+
+    if (cuerpo.type !== "payment" || !cuerpo.data?.id) return;
+
+    const paymentId = String(cuerpo.data.id);
+    const pago = await obtenerPagoMercadoPago(paymentId);
+
+    if (!pagoAprobado(pago)) return;
+
+    const referenciaExterna = String(pago?.external_reference ?? "");
+    const productoId = referenciaExterna.startsWith("mp:")
+      ? referenciaExterna.slice(3)
+      : "";
+    if (!/^[0-9a-fA-F]{24}$/.test(productoId)) return;
+
+    const metadata = (pago?.metadata ?? {}) as Record<string, unknown>;
+    const compradorId = String(metadata.compradorId ?? "");
+    if (!compradorId) {
+      console.warn(
+        `[mercadopago] Webhook sin compradorId para el pago ${paymentId}`,
+      );
+      return;
+    }
+
+    const producto = await buscarProducto(productoId);
+    if (!producto) return;
+
+    const vendedorId = Number(producto.vendedorId);
+    if (!Number.isInteger(vendedorId)) return;
+
+    const { nueva } = await registrarVentaExitosa({
+      productoId,
+      compradorId,
+      vendedorId,
+      monto: Number(pago.transaction_amount),
+      referenciaExterna: `mp:${paymentId}`,
+    });
+
+    if (nueva) {
+      console.log(
+        `[mercadopago] Venta registrada por webhook: producto ${productoId}`,
+      );
+    }
+  } catch (error) {
+    console.error("[mercadopago] Error en el webhook:", error);
   }
 }
 
