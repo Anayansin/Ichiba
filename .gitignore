@@ -10,3 +10,6 @@ dist/
 
 # Documentos de identidad (INE): solo viven en disco, jamás en git
 backend/uploads/ine/
+
+.vercel
+.env*
