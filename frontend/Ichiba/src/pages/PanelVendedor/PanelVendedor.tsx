@@ -9,10 +9,6 @@ import {
   type PreferenciasNotificacion,
 } from "../../services/usuarioServices";
 import {
-  iniciarVinculacionPayPal,
-  estadoVinculacionPayPal,
-} from "../../services/pagoService";
-import {
   fetchMisProductos,
   cambiarEstadoProducto,
   eliminarProducto,
@@ -43,22 +39,10 @@ function PanelVendedor() {
   const [guardandoPreferencias, setGuardandoPreferencias] = useState(false);
   const [avisoPreferencias, setAvisoPreferencias] = useState("");
 
-  // RQF4/RQNF4: vinculación OAuth 2.0 de la cuenta de PayPal.
-  const [vinculacionPaypal, setVinculacionPaypal] = useState<{
-    vinculado: boolean;
-    correoPayPal: string | null;
-    merchantId: string | null;
-    metodoPago: string;
-  } | null>(null);
-  const [vinculandoPaypal, setVinculandoPaypal] = useState(false);
+  // RQF4: la vinculación con PayPal se inicia desde el registro del vendedor;
+  // aquí solo se muestra el resultado que PayPal devolvió en el callback.
   const [avisoPaypal, setAvisoPaypal] = useState("");
   const [parametros, setParametros] = useSearchParams();
-
-  function cargarVinculacionPaypal() {
-    estadoVinculacionPayPal()
-      .then(setVinculacionPaypal)
-      .catch((err) => console.error("Error al consultar PayPal:", err));
-  }
 
   function cargarDatos() {
     setCargando(true);
@@ -86,7 +70,6 @@ function PanelVendedor() {
   useEffect(() => {
     if (!usuario) return;
     cargarDatos();
-    cargarVinculacionPaypal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario]);
 
@@ -98,17 +81,14 @@ function PanelVendedor() {
     const mensajes: Record<string, string> = {
       vinculado:
         "¡Cuenta de PayPal vinculada! Tus cobros se enviarán a esa cuenta.",
-      denegado: "No se autorizó la vinculación con PayPal.",
-      "state-invalido":
-        "La vinculación expiró. Intenta de nuevo desde el panel.",
-      "sin-identidad":
-        "PayPal no devolvió los datos de tu cuenta. Intenta de nuevo.",
-      "sin-state": "La vinculación no se completó. Intenta de nuevo.",
-      error:
-        "No se pudo completar la vinculación con PayPal. Intenta de nuevo.",
+      denegado:
+        "No autorizaste la vinculación con PayPal: tu cuenta quedó sin vincular.",
+      "state-invalido": "La vinculación con PayPal expiró.",
+      "sin-identidad": "PayPal no devolvió los datos de tu cuenta.",
+      "sin-state": "La vinculación no se completó.",
+      error: "No se pudo completar la vinculación con PayPal.",
     };
     setAvisoPaypal(mensajes[resultado] ?? "Resultado de PayPal desconocido.");
-    if (resultado === "vinculado") cargarVinculacionPaypal();
     // Quitar el parámetro de la URL para que el mensaje no se repita al recargar.
     parametros.delete("paypal");
     setParametros(parametros, { replace: true });
@@ -201,22 +181,6 @@ function PanelVendedor() {
     }
   }
 
-  // RQF4: el navegador del vendedor sale hacia la pasarela oficial de
-  // PayPal; al autorizar, PayPal lo regresa al backend y este al panel.
-  async function vincularPaypal() {
-    setVinculandoPaypal(true);
-    setAvisoPaypal("");
-    try {
-      const { url } = await iniciarVinculacionPayPal();
-      window.location.href = url;
-    } catch (err) {
-      setAvisoPaypal(
-        mensajeDeError(err) || "No se pudo iniciar la vinculación con PayPal",
-      );
-      setVinculandoPaypal(false);
-    }
-  }
-
   function renderProducto(producto: Producto) {
     return (
       <div key={producto._id} className="panel-vendedor__producto-fila">
@@ -302,6 +266,9 @@ function PanelVendedor() {
       <h1>Hola, {perfil.nombreCompleto}</h1>
       <p className="panel-vendedor__correo">{perfil.correo}</p>
       {error && <p className="panel-vendedor__error">{error}</p>}
+      {avisoPaypal && (
+        <p className="panel-vendedor__paypal-aviso">{avisoPaypal}</p>
+      )}
 
       <div className="panel-vendedor__stats">
         <div className="panel-vendedor__stat-card">
@@ -410,51 +377,6 @@ function PanelVendedor() {
           {guardandoPreferencias ? "Guardando..." : "Guardar preferencias"}
         </button>
       </div>
-
-      {vinculacionPaypal?.metodoPago === "paypal" && (
-        <div className="panel-vendedor__paypal">
-          <h2>Cuenta de PayPal</h2>
-          <p className="panel-vendedor__paypal-nota">
-            Vincula tu cuenta oficial de PayPal con Ichiba mediante la página
-            segura de PayPal: los cobros de tus ventas se enviarán a esa cuenta
-            (Merchant ID{" "}
-            <strong>
-              {vinculacionPaypal.vinculado
-                ? vinculacionPaypal.merchantId
-                : "—"}
-            </strong>
-            ).
-          </p>
-
-          {vinculacionPaypal.vinculado ? (
-            <p className="panel-vendedor__paypal-estado">
-              Cuenta vinculada:{" "}
-              <strong>{vinculacionPaypal.correoPayPal}</strong>
-            </p>
-          ) : (
-            <p className="panel-vendedor__paypal-estado panel-vendedor__paypal-estado--pendiente">
-              Aún no vinculas tu cuenta de PayPal.
-            </p>
-          )}
-
-          {avisoPaypal && (
-            <p className="panel-vendedor__paypal-aviso">{avisoPaypal}</p>
-          )}
-
-          <button
-            type="button"
-            className="panel-vendedor__paypal-boton"
-            onClick={vincularPaypal}
-            disabled={vinculandoPaypal}
-          >
-            {vinculandoPaypal
-              ? "Abriendo PayPal..."
-              : vinculacionPaypal.vinculado
-                ? "Vincular otra cuenta"
-                : "Vincular cuenta de PayPal"}
-          </button>
-        </div>
-      )}
 
       <div className="panel-vendedor__productos">
         <h2>Activos</h2>

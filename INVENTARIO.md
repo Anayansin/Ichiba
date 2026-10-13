@@ -127,8 +127,9 @@ para responder preguntas.
 
 ### Flujo de PayPal
 
-1. **Vinculación OAuth 2.0 (RQF4/RQNF4):** el vendedor pide vincular su
-   cuenta desde el panel (`POST /api/pagos/paypal/vincular`) → el backend
+1. **Vinculación OAuth 2.0 (RQF4/RQNF4):** al terminar su registro como
+   vendedor con método de pago PayPal, el navegador sale de inmediato a la
+   pasarela oficial (`POST /api/pagos/paypal/vincular`) → el backend
    genera un `state` aleatorio (10 min de vigencia, un solo uso, en Mongo)
    y devuelve la URL de la pasarela oficial
    (`www.sandbox.paypal.com/webapps/oauth2/authorize` con `response_type=code`,

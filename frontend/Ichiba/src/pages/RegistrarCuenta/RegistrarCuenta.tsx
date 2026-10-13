@@ -3,6 +3,7 @@ import "./RegistrarCuenta.css";
 import Boton from "../../components/Boton/Boton";
 import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
 import { registrarUsuario } from "../../services/usuarioServices";
+import { iniciarVinculacionPayPal } from "../../services/pagoService";
 import {
   validarDimensionesImagen,
   validarFormatoImagen,
@@ -123,6 +124,8 @@ function RegistarCuenta() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
+  /** RQF4: la cuenta ya existe y el navegador va en camino a PayPal. */
+  const [abriendoPaypal, setAbriendoPaypal] = useState(false);
   const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
   const [metodoPago, setMetodoPago] = useState<"paypal" | "mercadopago">("paypal");
   const [datosMetodoPago, setDatosMetodoPago] = useState("");
@@ -301,6 +304,24 @@ function RegistarCuenta() {
       });
 
       login(data.usuario, data.token);
+
+      // RQF4: si se registró con PayPal, el navegador sale de inmediato a la
+      // pasarela oficial (OAuth 2.0) para vincular la cuenta. Al volver del
+      // callback, el panel muestra el resultado y la verificación del correo.
+      if (metodoPago === "paypal") {
+        try {
+          const { url } = await iniciarVinculacionPayPal();
+          setAbriendoPaypal(true);
+          window.location.href = url;
+          return;
+        } catch (errVinculacion) {
+          setError(
+            mensajeDeError(errVinculacion) ||
+              "No se pudo abrir la página de PayPal. Tu cuenta ya quedó creada: verifica tu correo para entrar.",
+          );
+        }
+      }
+
       setMostrarVerificacion(true);
     } catch (err) {
       const mensaje =
@@ -641,10 +662,24 @@ function RegistarCuenta() {
           </label>
         </div>
 
+        {abriendoPaypal && (
+          <p className="registro-nota">
+            Tu cuenta ya fue creada. Abriendo la página segura de PayPal para
+            que autorices la vinculación de tu cuenta...
+          </p>
+        )}
+
         <Boton
-          texto={cargando ? "Registrando..." : "Registrarse"}
+          texto={
+            abriendoPaypal
+              ? "Abriendo PayPal..."
+              : cargando
+                ? "Registrando..."
+                : "Registrarse"
+          }
           onClick={() => {}}
           type="submit"
+          disabled={abriendoPaypal}
         />
       </form>
 
