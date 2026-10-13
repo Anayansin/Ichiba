@@ -8,4 +8,5 @@ dist/
 
 # Documentos de identidad (INE): solo viven en disco, no se suben a git
 # ni a la plataforma de despliegue (Railway sube este directorio).
+.railway/
 uploads/ine/
