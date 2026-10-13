@@ -122,13 +122,13 @@ function RecuperarPassword() {
         {paso === "codigo" && (
           <>
             <div className="form-group">
-              <label>Código de 4 dígitos</label>
+              <label>Código de 6 dígitos</label>
               <input
                 type="text"
                 inputMode="numeric"
-                maxLength={4}
+                maxLength={6}
                 className="recuperar-input recuperar-input-codigo"
-                placeholder="1234"
+                placeholder="123456"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
                 required

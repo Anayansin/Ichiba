@@ -31,7 +31,8 @@ const MENSAJE_RECUPERACION_ENVIADA =
   "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
 
 function generarCodigoRecuperacion(): string {
-  return crypto.randomInt(1000, 9999).toString();
+  // RQNF1.3: el código de verificación tiene 6 dígitos.
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 function limpiarArchivos(archivos: Express.Multer.File[]) {

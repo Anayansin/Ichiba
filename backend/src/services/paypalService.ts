@@ -91,6 +91,7 @@ export async function crearOrdenPaypal(
   monto: number,
   paypalEmailVendedor: string,
   productoId: string,
+  merchantIdVendedor?: string | null,
 ) {
   const { apiBase } = configuracionPaypal();
   const token = await obtenerAccessToken();
@@ -107,7 +108,11 @@ export async function crearOrdenPaypal(
         {
           reference_id: productoId,
           amount: { currency_code: "MXN", value: monto.toFixed(2) },
-          payee: { email_address: paypalEmailVendedor },
+          // RQNF4: si el vendedor vinculó su cuenta (OAuth 2.0), los fondos
+          // se dirigen a su Merchant ID; si no, al correo que escribió.
+          payee: merchantIdVendedor
+            ? { merchant_id: merchantIdVendedor }
+            : { email_address: paypalEmailVendedor },
         },
       ],
       application_context: {
@@ -153,4 +158,107 @@ export async function obtenerOrdenPaypal(orderId: string) {
   });
 
   return leerRespuesta(respuesta, "Consultar orden");
+}
+
+/**
+ * RQF4 — Vinculación de la cuenta del vendedor con OAuth 2.0.
+ *
+ * El vendedor no "escribe" su correo y ya: el sistema lo redirige a la
+ * pasarela oficial de PayPal (paypal.com / sandbox.paypal.com) para que él
+ * mismo autorice el acceso con su cuenta. PayPal regresa al backend un
+ * `code` de un solo uso que se intercambia por el Token de Acceso.
+ */
+
+/** Dirección oficial a la que se redirige al vendedor (nodo seguro de PayPal). */
+function urlAutorizacionPaypal(): string {
+  const { apiBase } = configuracionPaypal();
+  return apiBase.includes("sandbox")
+    ? "https://www.sandbox.paypal.com/webapps/oauth2/authorize"
+    : "https://www.paypal.com/webapps/oauth2/authorize";
+}
+
+/** URL de regreso que PayPal llama tras autorizar (debe estar dada de alta en la app). */
+function redirectUriPaypal(): string {
+  const backend = (process.env.BACKEND_URL ?? "http://localhost:5000").replace(
+    /\/+$/,
+    "",
+  );
+  return `${backend}/api/pagos/paypal/vincular/callback`;
+}
+
+/**
+ * Construye la URL de la pasarela oficial con la que se redirige al vendedor.
+ * `estado` es un valor aleatorio que PayPal devuelve sin modificar (CSRF).
+ */
+export function construirUrlVinculacionPaypal(estado: string): string {
+  const { clientId } = configuracionPaypal();
+
+  const parametros = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    scope: "openid profile",
+    redirect_uri: redirectUriPaypal(),
+    state: estado,
+  });
+
+  return `${urlAutorizacionPaypal()}?${parametros.toString()}`;
+}
+
+/**
+ * Intercambia el `code` que PayPal regresa por el Token de Acceso (y de
+ * refresco) de la cuenta del vendedor. Un `code` solo puede usarse una vez.
+ */
+export async function intercambiarCodigoPorToken(codigo: string) {
+  const { clientId, clientSecret, apiBase } = configuracionPaypal();
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+  const respuesta = await fetch(`${apiBase}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code: codigo,
+    }).toString(),
+  });
+
+  const datos = await leerRespuesta(respuesta, "Vinculación (token)");
+
+  if (!datos?.access_token) {
+    throw new Error(
+      "Vinculación: PayPal no devolvió un token de acceso válido",
+    );
+  }
+
+  return datos as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in?: number;
+    token_type?: string;
+  };
+}
+
+/**
+ * Identidad de la cuenta que autorizó: devuelve el `payer_id`, que es el
+ * Merchant ID con el que PayPal identifica al vendedor para mover los fondos.
+ */
+export async function identidadPaypal(tokenDeUsuario: string) {
+  const { apiBase } = configuracionPaypal();
+
+  const respuesta = await fetch(`${apiBase}/v1/identity/oauth2/userinfo`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${tokenDeUsuario}` },
+  });
+
+  const datos = await leerRespuesta(respuesta, "Vinculación (identidad)");
+
+  return datos as {
+    payer_id?: string;
+    email?: string;
+    emails?: { value: string; primary?: boolean }[];
+    given_name?: string;
+    family_name?: string;
+  };
 }

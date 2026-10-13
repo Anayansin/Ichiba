@@ -303,3 +303,67 @@
   opacity: 0.6;
   cursor: wait;
 }
+
+/* RQF4/RQNF4: tarjeta de vinculación de la cuenta de PayPal */
+.panel-vendedor__paypal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin-top: 1.5rem;
+}
+
+.panel-vendedor__paypal h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.panel-vendedor__paypal-nota {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.panel-vendedor__paypal-estado {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #14683a;
+}
+
+.panel-vendedor__paypal-estado--pendiente {
+  color: #8a6d1f;
+}
+
+.panel-vendedor__paypal-aviso {
+  margin: 0;
+  background: #e9f7ef;
+  color: #14683a;
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.panel-vendedor__paypal-boton {
+  align-self: flex-start;
+  border: none;
+  border-radius: 999px;
+  background: #0070ba;
+  color: #ffffff;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel-vendedor__paypal-boton:hover:not(:disabled) {
+  background: #003087;
+}
+
+.panel-vendedor__paypal-boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

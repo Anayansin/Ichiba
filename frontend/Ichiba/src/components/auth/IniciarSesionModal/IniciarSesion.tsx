@@ -228,10 +228,11 @@ function IniciarSesion({ onClose }: IniciarSesionProps) {
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder="4 dígitos"
+                maxLength={6}
+                placeholder="6 dígitos"
                 className="modal-input modal-input-codigo"
                 value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ""))}
                 required
               />
             </div>

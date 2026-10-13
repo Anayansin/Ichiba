@@ -127,15 +127,30 @@ para responder preguntas.
 
 ### Flujo de PayPal
 
-1. `POST /api/pagos/crear-orden` → `crearOrdenPaypal()` (`POST /v2/checkout/orders`,
-   moneda **MXN**, `payee` = el `paypalEmail` del vendedor, retorno
+1. **Vinculación OAuth 2.0 (RQF4/RQNF4):** el vendedor pide vincular su
+   cuenta desde el panel (`POST /api/pagos/paypal/vincular`) → el backend
+   genera un `state` aleatorio (10 min de vigencia, un solo uso, en Mongo)
+   y devuelve la URL de la pasarela oficial
+   (`www.sandbox.paypal.com/webapps/oauth2/authorize` con `response_type=code`,
+   `scope=openid profile`, `redirect_uri=${BACKEND_URL}/api/pagos/paypal/vincular/callback`).
+   El navegador del vendedor se redirige ahí, PayPal lo autentica y regresa
+   al callback con `code` + `state`. El backend intercambia el `code` por el
+   Token de Acceso (`POST /v1/oauth2/token`), identifica la cuenta
+   (`GET /v1/identity/oauth2/userinfo` → `payer_id` = Merchant ID) y guarda
+   en Mongo `VinculoPayPal`: Merchant ID, correo y el **Token de Acceso
+   CIFRADO con AES-256-GCM** (`cifradoService.ts`, llave
+   `PAYPAL_LLAVE_CIFRADO` de 64 hex en `.env`). El estado del callback se
+   devuelve al panel como `?paypal=vinculado|denegado|state-invalido|...`.
+2. `POST /api/pagos/crear-orden` → `crearOrdenPaypal()` (`POST /v2/checkout/orders`,
+   moneda **MXN**, `payee` = el **Merchant ID** del vendedor si vinculó su
+   cuenta, si no su `paypalEmail`, retorno
    `${FRONTEND_URL}/pago-exitoso`, cancelación a `/producto/:id`).
-2. El usuario aprueba el `linkAprobacion` de PayPal (requiere cuenta compradora sandbox).
-3. `POST /api/pagos/capturar-orden/:orderId` → `POST /v2/checkout/orders/:id/capture`.
+3. El usuario aprueba el `linkAprobacion` de PayPal (requiere cuenta compradora sandbox).
+4. `POST /api/pagos/capturar-orden/:orderId` → `POST /v2/checkout/orders/:id/capture`.
    Es idempotente: si PayPal responde `ORDER_ALREADY_CAPTURED` se consulta la orden
    (`GET /v2/checkout/orders/:id`) en vez de fallar. Capturar sin haber aprobado → **400**
    con mensaje amigable.
-4. `GET /v2/oauth2/token` (Basic con client:secret) se usa para autenticar cada llamada.
+5. `GET /v1/oauth2/token` (Basic con client:secret) se usa para autenticar cada llamada.
 
 ### Flujo de MercadoPago
 
@@ -212,7 +227,7 @@ Gmail/PayPal/StructOCR/Twilio (pendiente de limpiar con `git filter-repo`).
 - Esquema: **`backend/src/prisma/contract.prisma`** (contrato Prisma 8). `backend/prisma/schema.prisma` es solo un espejo documentado.
 - `npm run contract:emit` regenera `contract.json` / `contract.d.ts`.
 - Migraciones generadas: `backend/migrations/{app,snapshots}`.
-- Campo de pago del vendedor: **`paypalEmail`** guarda la cuenta de cobro; el **método** (`paypal` | `mercadopago`) vive en MongoDB (`usuario.metodoPago`) y lo lee `pagoController.ts` al crear la orden.
+- Campo de pago del vendedor: **`paypalEmail`** guarda la cuenta de cobro (fallback) y la **vinculación OAuth** vive en MongoDB (`VinculoPayPal`: Merchant ID + Token de Acceso **cifrado** con AES-256-GCM); el **método** (`paypal` | `mercadopago`) también vive en MongoDB (`usuario.metodoPago`) y lo lee `pagoController.ts` al crear la orden.
 
 ### MongoDB (lecturas de UI, chat, filas y espejos)
 

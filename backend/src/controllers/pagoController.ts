@@ -4,6 +4,7 @@ import { Producto } from "../models/producto.js";
 import { Usuario } from "../models/usuario.js";
 import { Cola } from "../models/Cola.js";
 import { Venta } from "../models/Venta.js";
+import { VinculoPayPal } from "../models/VinculoPayPal.js";
 import {
   crearOrdenPaypal,
   capturarOrdenPaypal,
@@ -170,10 +171,17 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       });
     }
 
+    // RQNF4: si el vendedor vinculó su cuenta por OAuth 2.0, el pago se
+    // dirige a su Merchant ID (token guardado cifrado); si no, al correo.
+    const vinculo = await VinculoPayPal.findOne({ usuarioId: vendedor.id })
+      .select("merchantId")
+      .lean();
+
     const orden = await crearOrdenPaypal(
       producto.precio,
       paypalEmail,
       productoId,
+      vinculo?.merchantId,
     );
 
     const linkAprobacion = orden.links?.find(
