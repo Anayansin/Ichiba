@@ -37,8 +37,20 @@ function minutosDesdeMedianoche(hora: string): number {
   return h * 60 + m;
 }
 
-function minutosDesdeMedianocheDeFecha(fecha: Date): number {
-  return fecha.getHours() * 60 + fecha.getMinutes();
+/**
+ * RQF5: el horario se define en hora de la zona centro (GMT-6). México ya no
+ * aplica horario de verano (desde 2022), así que el desfijo es fijo y estas
+ * funciones convierten cualquier instante al "reloj GMT-6" sin depender de
+ * la zona del servidor (en local es GMT-6, en el hosting es UTC).
+ */
+const OFFSET_ZONA_CENTRO_MINUTOS = 6 * 60;
+
+export function relojZonaCentro(fecha: Date): Date {
+  return new Date(
+    fecha.getTime() -
+      OFFSET_ZONA_CENTRO_MINUTOS * 60000 +
+      fecha.getTimezoneOffset() * 60000,
+  );
 }
 
 function formatoHoraValido(hora: string): boolean {
@@ -151,8 +163,10 @@ export function estaDentroDeSuHorario(
 ): boolean {
   if (!Array.isArray(horarios)) return false;
 
-  const nombreDelDia = NOMBRES_DE_DIA[fechaActual.getDay()];
-  const minutosAhora = minutosDesdeMedianocheDeFecha(fechaActual);
+  // El vendedor define su horario en GMT-6: comparar contra ese reloj.
+  const reloj = relojZonaCentro(fechaActual);
+  const nombreDelDia = NOMBRES_DE_DIA[reloj.getDay()];
+  const minutosAhora = reloj.getHours() * 60 + reloj.getMinutes();
 
   const bloqueDeHoy = horarios.find(
     (bloque) => bloque.dia === nombreDelDia && bloqueUtilizable(bloque),
@@ -172,11 +186,12 @@ export function obtenerTextoDeProximoBloque(
 ): string | null {
   if (!Array.isArray(horarios)) return null;
 
-  const minutosAhora = minutosDesdeMedianocheDeFecha(fechaActual);
+  const reloj = relojZonaCentro(fechaActual);
+  const minutosAhora = reloj.getHours() * 60 + reloj.getMinutes();
 
   for (let diasAdelante = 0; diasAdelante <= 7; diasAdelante += 1) {
-    const fechaBuscada = new Date(fechaActual);
-    fechaBuscada.setDate(fechaActual.getDate() + diasAdelante);
+    const fechaBuscada = new Date(reloj);
+    fechaBuscada.setDate(reloj.getDate() + diasAdelante);
     const nombreDelDia = NOMBRES_DE_DIA[fechaBuscada.getDay()];
 
     const bloque = horarios.find(

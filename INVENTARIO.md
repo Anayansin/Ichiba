@@ -80,7 +80,7 @@ para responder preguntas.
 | `admin.ts` → `requiereAdmin`, `esAdmin.ts` → `esAdmin` | Solo usuarios `tipo: "admin"` |
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
-| `verificado.ts` → `requiereVerificado` | Exige correo verificado para publicar |
+| `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar |
 | `upload.ts` | Multer de productos (≤ 5 MB, ≤ 6 imágenes, tipos permitidos) |
 | `uploadIne.ts` | Multer de la INE (frente y reverso) |
 
@@ -193,7 +193,7 @@ Marketplace de MercadoPago (comentario en `mercadopagoService.ts`).
 | `enviarCorreoVerificacion` | "Tu código de verificación de Ichiba" | `controllers/verificacionController.ts` | `POST /api/verificacion/correo/enviar` (código de 6 dígitos, expira **10 min**) |
 | `enviarCorreoRecuperacion` | "Recupera tu contraseña de Ichiba" | `controllers/usuarioController.ts` | `POST /api/usuarios/recuperar/solicitar` (expira **15 min**) |
 | `enviarCorreoTurnoDePago` | "Ya es tu turno de pagar en Ichiba" | `services/filaService.ts` | Cuando alguien llega a la posición 1 de la fila y empieza su ventana de pago |
-| `enviarCorreoAdvertencia` | "Advertencia: confirma tu horario en Ichiba" | `jobs/revisionHorarios.ts` | Job diario `0 8 * * *` (8:00) a vendedores sin horario confirmado |
+| `enviarCorreoAdvertencia` | "Advertencia: confirma tu horario en Ichiba" | `jobs/revisionHorarios.ts` | Job diario `0 14 * * *` (08:00 GMT-6) a vendedores sin horario confirmado |
 | `enviarCorreoNovedadesCategoria` | "Nuevos productos en {categoría}" | `jobs/notificacionesCategoria.ts` | Job `0 10,17 * * *` (10:00 y 17:00) a los suscritos de cada categoría |
 | `enviarCorreoComentarioPublicitario` | "Nuevo comentario en tu anuncio {nombre}" | `controllers/comentarioController.ts` | Cuando alguien comenta una publicación publicitaria y el vendedor aceptó notificaciones de comentarios (`recibirNotificacionesPublicitarias`) |
 
@@ -250,7 +250,7 @@ npx tsx scripts/inspeccionar-mongo.ts usuario   # lista colecciones y 5 docs
 | Archivo | Horario | Qué hace |
 |---|---|---|
 | `src/jobs/revisionPagos.ts` | `* * * * *` (cada minuto) | Libera los turnos de pago vencidos (`filaService.expirarFilasVencidas`) |
-| `src/jobs/revisionHorarios.ts` | `0 8 * * *` (8:00 diario) | Revisa horarios de vendedores; avisa por correo y, si no confirman, elimina |
+| `src/jobs/revisionHorarios.ts` | `0 14 * * *` (08:00 GMT-6 diario) | Revisa horarios de vendedores en GMT-6; el 1ro de mes cuenta las no confirmaciones, avisa por correo y, con 2 faltas, elimina |
 | `src/jobs/notificacionesCategoria.ts` | `0 10,17 * * *` | Correo de novedades por categoría |
 
 Los tres se arrancan al final de `src/server.ts`.

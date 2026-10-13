@@ -1,0 +1,65 @@
+.modal-horario-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1100;
+}
+
+.modal-horario {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px;
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.modal-horario__titulo {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  color: #1e293b;
+}
+
+.modal-horario__texto {
+  margin: 0 0 18px;
+  color: #475569;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.modal-horario__selector {
+  margin-bottom: 16px;
+}
+
+.modal-horario__error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin: 0 0 14px;
+}
+
+.modal-horario__boton {
+  width: 100%;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-horario__boton:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.modal-horario__boton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

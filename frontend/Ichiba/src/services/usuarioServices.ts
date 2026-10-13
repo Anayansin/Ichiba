@@ -58,6 +58,8 @@ export type PerfilUsuario = {
   recibirNotificacionesCriticas?: boolean;
   recibirNotificacionesPublicitarias?: boolean;
   horarios: BloqueHorario[];
+  /** RQNF5.3: fecha de la última confirmación mensual del horario. */
+  horarioConfirmadoEn?: string | null;
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {

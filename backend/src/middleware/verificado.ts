@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { RequestConUsuario } from "./auth.js";
 import { buscarUsuarioPorId } from "../services/usuarioService.js";
+import { relojZonaCentro } from "../utils/validarHorario.js";
 
 export async function requiereVerificado(
   req: RequestConUsuario,
@@ -21,13 +22,17 @@ export async function requiereVerificado(
       });
     }
 
-    const mesActual = new Date().getMonth();
-    const anioActual = new Date().getFullYear();
+    // RQNF5.3: el "mes en curso" se calcula en zona centro (GMT-6), igual
+    // que el horario del vendedor, sin importar la zona del servidor.
     const fechaConfirmacion = usuario.horarioConfirmadoEn;
+    const hoy = relojZonaCentro(new Date());
+    const confirmacion = fechaConfirmacion
+      ? relojZonaCentro(fechaConfirmacion)
+      : null;
     const horarioConfirmadoEsteMes =
-      fechaConfirmacion &&
-      fechaConfirmacion.getMonth() === mesActual &&
-      fechaConfirmacion.getFullYear() === anioActual;
+      confirmacion &&
+      confirmacion.getMonth() === hoy.getMonth() &&
+      confirmacion.getFullYear() === hoy.getFullYear();
 
     if (!horarioConfirmadoEsteMes) {
       return res.status(403).json({

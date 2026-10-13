@@ -7,10 +7,13 @@ import { Cola } from "../models/Cola.js";
 import { Venta } from "../models/Venta.js";
 import { Mensaje } from "../models/Mensaje.js";
 import { Reporte } from "../models/Reporte.js";
+import { relojZonaCentro } from "../utils/validarHorario.js";
 import { enviarCorreoAdvertencia } from "../services/emailService.js";
 
 export function iniciarJobRevisionHorarios() {
-  cron.schedule("0 8 * * *", async () => {
+  // 14:00 UTC = 08:00 en la zona centro (GMT-6), la hora de referencia del
+  // sistema. El servidor del hosting vive en UTC, por eso se programa así.
+  cron.schedule("0 14 * * *", async () => {
     try {
       await revisarHorariosDeVendedores();
     } catch (error) {
@@ -20,16 +23,21 @@ export function iniciarJobRevisionHorarios() {
 }
 
 async function revisarHorariosDeVendedores() {
-  const hoy = new Date();
+  // RQNF5.3/RQNF5.4: todo el calendario del mes se cuenta en GMT-6.
+  const hoy = relojZonaCentro(new Date());
   const esPrimerDiaDelMes = hoy.getDate() === 1;
 
   const usuarios = await Usuario.find({ tipo: "vendedor" });
 
   for (const usuario of usuarios) {
     const fechaConfirmacion = usuario.horarioConfirmadoEn ?? usuario.createdAt;
+    // Los días se cuentan con el instante real (no con el reloj desplazado).
     const diasDesdeConfirmacion = Math.floor(
-      (hoy.getTime() - fechaConfirmacion.getTime()) / (1000 * 60 * 60 * 24),
+      (Date.now() - fechaConfirmacion.getTime()) / (1000 * 60 * 60 * 24),
     );
+
+    // RQNF5.3: el primer día de cada mes se cuentan las no confirmaciones
+    // (la solicitud al vendedor es el modal bloqueante del panel, no un correo).
 
     // El id del vendedor en el catálogo de productos es el id numérico de
     // PostgreSQL; se guarda como `usuarioId` en la copia de MongoDB.

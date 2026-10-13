@@ -26,6 +26,7 @@ import Admin from "./pages/Admin/Admin";
 import AdminReportes from "./pages/AdminReportes/AdminReportes";
 import RecuperarPassword from "./pages/RecuperarPassword/RecuperarPassword";
 import Estadisticas from "./pages/Estadisticas/Estadisticas";
+import RutaVendedor from "./components/RutaVendedor/RutaVendedor";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
@@ -47,28 +48,18 @@ function App() {
           <Route path="/producto/:id" element={<ProductoCompleto />} />
           <Route path="/promocionales" element={<Promocionales />} />
           <Route path="/promocional/:id" element={<PromocionalDetalle />} />
-          <Route path="/panel-vendedor" element={<PanelVendedor />} />
-          <Route
-            path="/panel-vendedor/editar/:id"
-            element={<EditarProducto />}
-          />
-          <Route
-            path="/panel-vendedor/publicar"
-            element={<RegistrarProducto />}
-          />
-          <Route
-            path="/panel-vendedor/promocionar"
-            element={<RegistrarPromocional />}
-          />
-          <Route path="/panel-vendedor/horario" element={<HorarioVendedor />} />
-          <Route
-            path="/panel-vendedor/reportar-comprador"
-            element={<ReportarComprador />}
-          />
-          <Route
-            path="/panel-vendedor/estadisticas"
-            element={<Estadisticas />}
-          />
+          <Route path="/panel-vendedor" element={<RutaVendedor />}>
+            <Route index element={<PanelVendedor />} />
+            <Route path="editar/:id" element={<EditarProducto />} />
+            <Route path="publicar" element={<RegistrarProducto />} />
+            <Route path="promocionar" element={<RegistrarPromocional />} />
+            <Route path="horario" element={<HorarioVendedor />} />
+            <Route
+              path="reportar-comprador"
+              element={<ReportarComprador />}
+            />
+            <Route path="estadisticas" element={<Estadisticas />} />
+          </Route>
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/reportes" element={<AdminReportes />} />
           <Route path="/recuperar-password" element={<RecuperarPassword />} />
