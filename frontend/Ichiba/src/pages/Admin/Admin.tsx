@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import GestionUsuarios from "./GestionUsuarios";
+import ListaNegra from "./ListaNegra";
 import RevisionReportes from "./RevisionReportes";
 import Trazabilidad from "./Trazabilidad";
 import "./Admin.css";
@@ -10,6 +11,7 @@ const SECCIONES = [
   { id: "inicio", etiqueta: "Inicio" },
   { id: "usuarios", etiqueta: "Gestión de usuarios" },
   { id: "reportes", etiqueta: "Reportes pendientes" },
+  { id: "lista-negra", etiqueta: "Lista negra" },
   { id: "trazabilidad", etiqueta: "Trazabilidad" },
 ];
 
@@ -47,6 +49,7 @@ function Admin() {
       <div className="admin__contenido">
         {seccionActiva === "usuarios" && <GestionUsuarios />}
         {seccionActiva === "reportes" && <RevisionReportes />}
+        {seccionActiva === "lista-negra" && <ListaNegra />}
         {seccionActiva === "trazabilidad" && <Trazabilidad />}
         {seccionActiva === "inicio" && (
           <p className="admin__seccion">

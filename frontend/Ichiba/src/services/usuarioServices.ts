@@ -55,11 +55,25 @@ export type PerfilUsuario = {
   ventasExitosas: number;
   totalReportes: number;
   correoVerificado: boolean;
+  recibirNotificacionesCriticas?: boolean;
+  recibirNotificacionesPublicitarias?: boolean;
   horarios: BloqueHorario[];
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {
   const response = await api.get("/usuarios/perfil");
+  return response.data;
+}
+
+export type PreferenciasNotificacion = {
+  recibirNotificacionesCriticas: boolean;
+  recibirNotificacionesPublicitarias: boolean;
+};
+
+export async function guardarPreferenciasNotificacion(
+  preferencias: PreferenciasNotificacion,
+): Promise<PreferenciasNotificacion & { message: string }> {
+  const response = await api.put("/usuarios/preferencias", preferencias);
   return response.data;
 }
 

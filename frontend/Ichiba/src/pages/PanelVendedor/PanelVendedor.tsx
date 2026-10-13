@@ -4,7 +4,9 @@ import { Link, Navigate } from "react-router-dom";
 import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
 import {
   fetchPerfil,
+  guardarPreferenciasNotificacion,
   type PerfilUsuario,
+  type PreferenciasNotificacion,
 } from "../../services/usuarioServices";
 import {
   fetchMisProductos,
@@ -29,6 +31,13 @@ function PanelVendedor() {
   const [misPromocionales, setMisPromocionales] = useState<Promocional[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+
+  const [preferencias, setPreferencias] = useState<PreferenciasNotificacion>({
+    recibirNotificacionesCriticas: true,
+    recibirNotificacionesPublicitarias: false,
+  });
+  const [guardandoPreferencias, setGuardandoPreferencias] = useState(false);
+  const [avisoPreferencias, setAvisoPreferencias] = useState("");
 
   function cargarDatos() {
     setCargando(true);
@@ -57,6 +66,17 @@ function PanelVendedor() {
     if (!usuario) return;
     cargarDatos();
   }, [usuario]);
+
+  // Rellena las preferencias con lo que ya tiene guardado el vendedor.
+  useEffect(() => {
+    if (!perfil) return;
+    setPreferencias({
+      recibirNotificacionesCriticas:
+        perfil.recibirNotificacionesCriticas ?? true,
+      recibirNotificacionesPublicitarias:
+        perfil.recibirNotificacionesPublicitarias ?? false,
+    });
+  }, [perfil]);
 
   if (!usuario) return <Navigate to="/" replace />;
   if (cargando) return <p className="panel-vendedor__cargando">Cargando tu panel...</p>;
@@ -114,6 +134,23 @@ function PanelVendedor() {
     );
     if (!confirmado) return;
     await ejecutar(() => eliminarPromocional(id));
+  }
+
+  async function guardarPreferencias() {
+    setGuardandoPreferencias(true);
+    setError("");
+    setAvisoPreferencias("");
+
+    try {
+      const respuesta = await guardarPreferenciasNotificacion(preferencias);
+      setAvisoPreferencias(respuesta.message || "Preferencias guardadas");
+    } catch (err) {
+      setError(
+        mensajeDeError(err) || "No se pudieron guardar las preferencias",
+      );
+    } finally {
+      setGuardandoPreferencias(false);
+    }
   }
 
   function renderProducto(producto: Producto) {
@@ -256,6 +293,58 @@ function PanelVendedor() {
         >
           Reportar a un comprador
         </Link>
+      </div>
+
+      <div className="panel-vendedor__preferencias">
+        <h2>Preferencias de notificaciones</h2>
+        <p className="panel-vendedor__preferencias-nota">
+          Elige qué correos quieres recibir de Ichiba. Puedes cambiarlas cuando
+          quieras.
+        </p>
+
+        <label className="panel-vendedor__preferencia">
+          <input
+            type="checkbox"
+            checked={preferencias.recibirNotificacionesCriticas}
+            onChange={(e) =>
+              setPreferencias((anteriores) => ({
+                ...anteriores,
+                recibirNotificacionesCriticas: e.target.checked,
+              }))
+            }
+          />
+          Notificaciones críticas: el estado de mi cuenta, la fila virtual y
+          mis pagos.
+        </label>
+
+        <label className="panel-vendedor__preferencia">
+          <input
+            type="checkbox"
+            checked={preferencias.recibirNotificacionesPublicitarias}
+            onChange={(e) =>
+              setPreferencias((anteriores) => ({
+                ...anteriores,
+                recibirNotificacionesPublicitarias: e.target.checked,
+              }))
+            }
+          />
+          Comentarios de los visitantes en mis publicaciones publicitarias.
+        </label>
+
+        {avisoPreferencias && (
+          <p className="panel-vendedor__preferencias-aviso">
+            {avisoPreferencias}
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="panel-vendedor__preferencias-boton"
+          onClick={guardarPreferencias}
+          disabled={guardandoPreferencias}
+        >
+          {guardandoPreferencias ? "Guardando..." : "Guardar preferencias"}
+        </button>
       </div>
 
       <div className="panel-vendedor__productos">

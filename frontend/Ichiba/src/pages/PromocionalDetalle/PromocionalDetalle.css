@@ -181,6 +181,150 @@
   color: #888;
 }
 
+.promocional-detalle__comentarios {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1.2rem;
+}
+
+.promocional-detalle__comentarios h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.promocional-detalle__comentarios-aviso,
+.promocional-detalle__comentarios-vacio {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+  background: #f7f9fa;
+  border: 1px dashed #e1e8ed;
+  border-radius: 8px;
+  padding: 0.8rem;
+}
+
+.promocional-detalle__comentarios-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.promocional-detalle__comentarios-lista li {
+  background: #f7f9fa;
+  border: 1px solid #e1e8ed;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+
+.promocional-detalle__comentario-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.promocional-detalle__comentario-cabecera span {
+  color: #888;
+}
+
+.promocional-detalle__comentarios-lista p {
+  margin: 0.3rem 0 0;
+  font-size: 0.9rem;
+  color: #333;
+  white-space: pre-wrap;
+}
+
+.promocional-detalle__comentarios-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid #e1e8ed;
+  padding-top: 0.9rem;
+}
+
+.promocional-detalle__comentarios-form label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+  margin-top: 0.4rem;
+}
+
+.promocional-detalle__comentario-nombre,
+.promocional-detalle__comentario-texto {
+  border: 2px solid #cdcdcd;
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.promocional-detalle__comentario-texto {
+  resize: vertical;
+}
+
+.promocional-detalle__comentario-nombre:focus,
+.promocional-detalle__comentario-texto:focus {
+  border-color: #d90429;
+}
+
+.promocional-detalle__comentario-contador {
+  align-self: flex-end;
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.promocional-detalle__comentario-boton {
+  align-self: flex-start;
+  border: none;
+  border-radius: 999px;
+  background: #d90429;
+  color: #ffffff;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.promocional-detalle__comentario-boton:hover:not(:disabled) {
+  background: #b3001b;
+}
+
+.promocional-detalle__comentario-boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.promocional-detalle__comentario-error {
+  margin: 0;
+  background: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.promocional-detalle__comentario-aviso {
+  margin: 0;
+  background: #e9f7ef;
+  color: #14683a;
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 768px) {
   .promocional-detalle {
     flex-direction: column;

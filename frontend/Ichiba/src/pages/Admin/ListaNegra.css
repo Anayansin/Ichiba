@@ -1,0 +1,227 @@
+.lista-negra {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.lista-negra__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lista-negra__cabecera h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.lista-negra__cabecera span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.lista-negra__nota {
+  margin: 0;
+  color: #555;
+  font-size: 0.85rem;
+  background: #f7f9fa;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.lista-negra__alta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.lista-negra__campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.7rem;
+}
+
+.lista-negra__campos label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #444;
+  text-transform: uppercase;
+}
+
+.lista-negra__campos input {
+  border: 1px solid #cdcdcd;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+  color: #222;
+  text-transform: none;
+}
+
+.lista-negra__campos input:focus {
+  outline: none;
+  border-color: #d90429;
+}
+
+.lista-negra__agregar {
+  align-self: flex-start;
+  border: none;
+  border-radius: 999px;
+  background: #d90429;
+  color: #ffffff;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lista-negra__agregar:hover:not(:disabled) {
+  background: #b3001b;
+}
+
+.lista-negra__agregar:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.lista-negra__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lista-negra__tabla th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #666;
+  background: #f7f9fa;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.lista-negra__tabla td {
+  padding: 0.75rem 0.9rem;
+  font-size: 0.88rem;
+  color: #333;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.lista-negra__tabla tr:last-child td {
+  border-bottom: none;
+}
+
+.lista-negra__origen {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.lista-negra__origen--manual {
+  background: #fff4e5;
+  color: #8a5300;
+}
+
+.lista-negra__origen--sistema {
+  background: #fdecec;
+  color: #b3001b;
+}
+
+.lista-negra__quitar {
+  border: none;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #fdecec;
+  color: #b3001b;
+}
+
+.lista-negra__quitar:hover:not(:disabled) {
+  background: #fbdcdc;
+}
+
+.lista-negra__quitar:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.lista-negra__paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lista-negra__paginacion span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.lista-negra__paginacion button {
+  background: #ffffff;
+  border: 1px solid #cdcdcd;
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+}
+
+.lista-negra__paginacion button:hover:not(:disabled) {
+  border-color: #d90429;
+  color: #d90429;
+}
+
+.lista-negra__paginacion button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lista-negra__error {
+  margin: 0;
+  background: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.lista-negra__aviso {
+  margin: 0;
+  background: #e9f7ef;
+  color: #14683a;
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.lista-negra__vacio {
+  color: #666;
+  font-size: 0.95rem;
+  background: #ffffff;
+  border: 1px dashed #e1e8ed;
+  border-radius: 12px;
+  padding: 1.2rem;
+}

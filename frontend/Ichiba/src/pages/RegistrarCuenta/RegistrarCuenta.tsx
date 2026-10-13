@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import "./RegistrarCuenta.css";
 import Boton from "../../components/Boton/Boton";
 import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
@@ -6,6 +6,7 @@ import { registrarUsuario } from "../../services/usuarioServices";
 import {
   validarDimensionesImagen,
   validarFormatoImagen,
+  validarPesoImagen,
 } from "../../utils/validarImagen";
 import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError } from "../../utils/errores";
@@ -14,10 +15,12 @@ import SelectorHorario, {
   type BloqueHorario,
 } from "../../components/SelectorHorario/SelectorHorario";
 
+const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const requisitosPassword = [
   {
-    texto: "Entre 10 y 15 caracteres",
-    test: (p: string) => p.length >= 10 && p.length <= 15,
+    texto: "Al menos 10 caracteres",
+    test: (p: string) => p.length >= 10,
   },
   {
     texto: "Al menos una letra mayúscula",
@@ -32,7 +35,72 @@ const requisitosPassword = [
     texto: "Al menos un carácter especial (!@#$%&*-_)",
     test: (p: string) => /[!@#$%&*\-_]/.test(p),
   },
+  {
+    texto: "Solo letras, números y los símbolos !@#$%&*-_",
+    test: (p: string) => /^[A-Za-z0-9!@#$%&*\-_]+$/.test(p),
+  },
 ];
+
+/** Campos del formulario, en el orden en que se revisan. */
+type Campo =
+  | "nombreCompleto"
+  | "direccion"
+  | "telefono"
+  | "correo"
+  | "rfc"
+  | "ineFrente"
+  | "ineReverso"
+  | "password"
+  | "datosMetodoPago"
+  | "horario"
+  | "aceptaTerminos"
+  | "recibirNotificaciones";
+
+const ORDEN_CAMPOS: Campo[] = [
+  "nombreCompleto",
+  "direccion",
+  "telefono",
+  "correo",
+  "rfc",
+  "ineFrente",
+  "ineReverso",
+  "password",
+  "datosMetodoPago",
+  "horario",
+  "aceptaTerminos",
+  "recibirNotificaciones",
+];
+
+function minutosDesdeMedianoche(hora: string): number {
+  const [h, m] = hora.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Mismas reglas del backend: bloques coherentes y al menos 1 hora por semana. */
+function errorDeHorario(horarios: BloqueHorario[]): string {
+  let minutosTotales = 0;
+
+  for (const bloque of horarios) {
+    if (!bloque.activo) continue;
+
+    const inicio = minutosDesdeMedianoche(bloque.horaInicio);
+    const fin = minutosDesdeMedianoche(bloque.horaFin);
+
+    if (Number.isNaN(inicio) || Number.isNaN(fin)) {
+      return `Revisa las horas del ${bloque.dia}`;
+    }
+    if (fin <= inicio) {
+      return `La hora de fin debe ser después de la hora de inicio en ${bloque.dia}`;
+    }
+    minutosTotales += fin - inicio;
+  }
+
+  if (minutosTotales < 60) {
+    return "Debes tener al menos 1 hora de disponibilidad a la semana";
+  }
+
+  return "";
+}
 
 function RegistarCuenta() {
   const { login } = useAuth();
@@ -74,6 +142,18 @@ function RegistarCuenta() {
   }));
   const [horarios, setHorarios] = useState<BloqueHorario[]>(DIAS_INICIALES);
 
+  /** Indica si el usuario ya tocó un campo, para mostrar sus errores en rojo. */
+  const [tocados, setTocados] = useState<Partial<Record<Campo, boolean>>>({});
+  /** Se activa al enviar: a partir de ahí se muestran todos los errores. */
+  const [enviado, setEnviado] = useState(false);
+
+  /** Referencias a los elementos de cada campo para poder llevar el foco. */
+  const refsDeCampo = useRef<Partial<Record<Campo, HTMLElement | null>>>({});
+
+  function marcarTocado(campo: Campo) {
+    setTocados((anteriores) => ({ ...anteriores, [campo]: true }));
+  }
+
   function handleTelefonoChange(valor: string) {
     const soloNumeros = valor.replace(/\D/g, "").slice(0, 10);
     setTelefono(soloNumeros);
@@ -90,10 +170,18 @@ function RegistarCuenta() {
     const setErrorArchivo =
       lado === "frente" ? setErrorIneFrente : setErrorIneReverso;
 
+    marcarTocado(lado === "frente" ? "ineFrente" : "ineReverso");
     setErrorArchivo("");
 
     if (!validarFormatoImagen(archivo)) {
       setErrorArchivo("Solo se permiten imágenes .png, .jpg o .jpeg");
+      setArchivo(null);
+      e.target.value = "";
+      return;
+    }
+
+    if (!validarPesoImagen(archivo)) {
+      setErrorArchivo("La imagen no puede pesar más de 8 MB");
       setArchivo(null);
       e.target.value = "";
       return;
@@ -111,27 +199,84 @@ function RegistarCuenta() {
   }
 
   const passwordValida = requisitosPassword.every((req) => req.test(password));
-  const telefonoValido = telefono.length === 10;
 
-  const formularioCompleto =
-    nombreCompleto.trim() !== "" &&
-    direccion.trim() !== "" &&
-    telefonoValido &&
-    correo.trim() !== "" &&
-    rfc.trim() !== "" &&
-    passwordValida &&
-    aceptaTerminos &&
-    recibirNotificaciones &&
-    ineFrente !== null &&
-    ineReverso !== null &&
-    datosMetodoPago.trim() !== "";
+  /** Errores en español de cada campo, solo los que están fallando. */
+  const errores: Partial<Record<Campo, string>> = {};
+  if (!nombreCompleto.trim()) {
+    errores.nombreCompleto = "Escribe tu nombre completo, tal como aparece en tu INE";
+  }
+  if (!direccion.trim()) {
+    errores.direccion = "Escribe tu domicilio";
+  }
+  if (telefono.length !== 10) {
+    errores.telefono = "El teléfono debe tener exactamente 10 dígitos";
+  }
+  if (!correo.trim()) {
+    errores.correo = "Escribe tu correo electrónico";
+  } else if (!FORMATO_CORREO.test(correo.trim())) {
+    errores.correo = "El correo electrónico no tiene un formato válido";
+  }
+  if (!rfc.trim()) {
+    errores.rfc = "Escribe tu RFC";
+  }
+  if (!ineFrente) {
+    errores.ineFrente = errorIneFrente || "Sube el frente de tu INE";
+  }
+  if (!ineReverso) {
+    errores.ineReverso = errorIneReverso || "Sube el reverso de tu INE";
+  }
+  if (!passwordValida) {
+    errores.password = "La contraseña no cumple todavía con todos los requisitos de abajo";
+  }
+  if (!datosMetodoPago.trim()) {
+    errores.datosMetodoPago = "Escribe el correo donde recibirás tus pagos";
+  } else if (!FORMATO_CORREO.test(datosMetodoPago.trim())) {
+    errores.datosMetodoPago = "El correo de pago no tiene un formato válido";
+  }
+  const errorHorario = errorDeHorario(horarios);
+  if (errorHorario) {
+    errores.horario = errorHorario;
+  }
+  if (!aceptaTerminos) {
+    errores.aceptaTerminos = "Debes aceptar los términos y condiciones de Ichiba";
+  }
+  if (!recibirNotificaciones) {
+    errores.recibirNotificaciones =
+      "Debes aceptar recibir notificaciones críticas sobre tu cuenta, la fila virtual y tus pagos";
+  }
+
+  /** Mensaje a mostrar: solo si el campo ya fue tocado o se intentó enviar. */
+  function mensajeDeCampo(campo: Campo): string {
+    if (!enviado && !tocados[campo]) return "";
+    return errores[campo] ?? "";
+  }
+
+  function claseDeCampo(campo: Campo, base: string): string {
+    return `${base}${mensajeDeCampo(campo) ? " registro-input--invalido" : ""}`;
+  }
+
+  function enfocarCampo(campo: Campo) {
+    const elemento = refsDeCampo.current[campo];
+    if (!elemento) return;
+    elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+    elemento.focus({ preventScroll: true });
+  }
+
+  function guardarRef(campo: Campo) {
+    return (elemento: HTMLElement | null) => {
+      refsDeCampo.current[campo] = elemento;
+    };
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setEnviado(true);
 
-    if (!formularioCompleto || !ineFrente || !ineReverso) {
-      setError("Completa todos los campos y requisitos antes de continuar");
+    const primerCampoConError = ORDEN_CAMPOS.find((campo) => errores[campo]);
+    if (primerCampoConError || !ineFrente || !ineReverso) {
+      setError("Revisa los campos marcados en rojo antes de continuar");
+      if (primerCampoConError) enfocarCampo(primerCampoConError);
       return;
     }
 
@@ -168,118 +313,188 @@ function RegistarCuenta() {
 
   return (
     <div className="registro-container">
-      <form className="registro-card" onSubmit={handleSubmit}>
+      <form className="registro-card" onSubmit={handleSubmit} noValidate>
         <h2>Crear una cuenta</h2>
+        <p className="registro-nota">
+          Los campos con <span className="registro-obligatorio">*</span> son
+          obligatorios.
+        </p>
 
         {error && <p className="registro-error">{error}</p>}
 
         <div className="form-group">
-          <label>Nombre completo</label>
+          <label htmlFor="campo-nombre">
+            Nombre completo <span className="registro-obligatorio">*</span>
+          </label>
           <input
+            id="campo-nombre"
             type="text"
-            className="registro-input"
+            className={claseDeCampo("nombreCompleto", "registro-input")}
             placeholder="Tu nombre, tal como aparece en tu INE"
             value={nombreCompleto}
             onChange={(e) => setNombreCompleto(e.target.value)}
-            required
+            onBlur={() => marcarTocado("nombreCompleto")}
+            ref={guardarRef("nombreCompleto") as (el: HTMLInputElement | null) => void}
           />
-        </div>
-
-        <div className="form-group">
-          <label>Dirección</label>
-          <input
-            type="text"
-            className="registro-input"
-            placeholder="Tu dirección"
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Número de teléfono (10 dígitos)</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="registro-input"
-            placeholder="3312345678"
-            value={telefono}
-            onChange={(e) => handleTelefonoChange(e.target.value)}
-            required
-          />
-          {telefono.length > 0 && !telefonoValido && (
+          {mensajeDeCampo("nombreCompleto") && (
             <span className="registro-campo-error">
-              Debe tener exactamente 10 dígitos
+              {mensajeDeCampo("nombreCompleto")}
             </span>
           )}
         </div>
 
         <div className="form-group">
-          <label>Correo Electrónico</label>
+          <label htmlFor="campo-direccion">
+            Dirección <span className="registro-obligatorio">*</span>
+          </label>
           <input
-            type="email"
-            className="registro-input"
+            id="campo-direccion"
+            type="text"
+            className={claseDeCampo("direccion", "registro-input")}
+            placeholder="Tu domicilio"
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
+            onBlur={() => marcarTocado("direccion")}
+            ref={guardarRef("direccion") as (el: HTMLInputElement | null) => void}
+          />
+          {mensajeDeCampo("direccion") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("direccion")}
+            </span>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="campo-telefono">
+            Número de teléfono (10 dígitos){" "}
+            <span className="registro-obligatorio">*</span>
+          </label>
+          <input
+            id="campo-telefono"
+            type="text"
+            inputMode="numeric"
+            className={claseDeCampo("telefono", "registro-input")}
+            placeholder="3312345678"
+            value={telefono}
+            onChange={(e) => handleTelefonoChange(e.target.value)}
+            onBlur={() => marcarTocado("telefono")}
+            ref={guardarRef("telefono") as (el: HTMLInputElement | null) => void}
+          />
+          {mensajeDeCampo("telefono") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("telefono")}
+            </span>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="campo-correo">
+            Correo Electrónico <span className="registro-obligatorio">*</span>
+          </label>
+          <input
+            id="campo-correo"
+            type="text"
+            inputMode="email"
+            className={claseDeCampo("correo", "registro-input")}
             placeholder="correo@ejemplo.com"
             value={correo}
             onChange={(e) => setCorreo(e.target.value)}
-            required
+            onBlur={() => marcarTocado("correo")}
+            ref={guardarRef("correo") as (el: HTMLInputElement | null) => void}
           />
+          {mensajeDeCampo("correo") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("correo")}
+            </span>
+          )}
         </div>
 
         <div className="form-group">
-          <label>RFC</label>
+          <label htmlFor="campo-rfc">
+            RFC <span className="registro-obligatorio">*</span>
+          </label>
           <input
+            id="campo-rfc"
             type="text"
-            className="registro-input"
+            className={claseDeCampo("rfc", "registro-input")}
             placeholder="Tu RFC"
             value={rfc}
-            onChange={(e) => setRfc(e.target.value)}
-            required
+            onChange={(e) => setRfc(e.target.value.toUpperCase())}
+            onBlur={() => marcarTocado("rfc")}
+            ref={guardarRef("rfc") as (el: HTMLInputElement | null) => void}
           />
+          {mensajeDeCampo("rfc") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("rfc")}
+            </span>
+          )}
         </div>
 
         <div className="form-group">
-          <label>Identificación Oficial por ambos lados (INE)</label>
+          <label>
+            Identificación Oficial por ambos lados (INE){" "}
+            <span className="registro-obligatorio">*</span>
+          </label>
           <div className="file-inputs">
-            <div>
+            <div ref={guardarRef("ineFrente") as (el: HTMLDivElement | null) => void}>
               <span className="file-label">Frente:</span>
               <input
                 type="file"
                 accept="image/png, image/jpeg"
                 onChange={(e) => handleArchivoIne(e, "frente")}
               />
-              {errorIneFrente && (
-                <span className="registro-campo-error">{errorIneFrente}</span>
-              )}
+              {ineFrente ? (
+                <span className="registro-campo-ok">Imagen seleccionada</span>
+              ) : mensajeDeCampo("ineFrente") ? (
+                <span className="registro-campo-error">
+                  {mensajeDeCampo("ineFrente")}
+                </span>
+              ) : null}
             </div>
-            <div>
+            <div ref={guardarRef("ineReverso") as (el: HTMLDivElement | null) => void}>
               <span className="file-label">Reverso:</span>
               <input
                 type="file"
                 accept="image/png, image/jpeg"
                 onChange={(e) => handleArchivoIne(e, "reverso")}
               />
-              {errorIneReverso && (
-                <span className="registro-campo-error">{errorIneReverso}</span>
-              )}
+              {ineReverso ? (
+                <span className="registro-campo-ok">Imagen seleccionada</span>
+              ) : mensajeDeCampo("ineReverso") ? (
+                <span className="registro-campo-error">
+                  {mensajeDeCampo("ineReverso")}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
 
         <div className="form-group">
-          <label>Contraseña</label>
+          <label htmlFor="campo-password">
+            Contraseña <span className="registro-obligatorio">*</span>
+          </label>
           <input
+            id="campo-password"
             type="password"
-            className="registro-input"
+            className={claseDeCampo("password", "registro-input")}
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
+            onBlur={() => marcarTocado("password")}
+            ref={guardarRef("password") as (el: HTMLInputElement | null) => void}
           />
+          {mensajeDeCampo("password") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("password")}
+            </span>
+          )}
         </div>
 
-        <div className="requisitos-box">
+        <div
+          className={`requisitos-box ${
+            password.length > 0 ? "requisitos-box--activo" : ""
+          }`}
+        >
           <p className="requisitos-titulo">Tu contraseña debe cumplir:</p>
           <ul>
             {requisitosPassword.map((req) => (
@@ -293,12 +508,14 @@ function RegistarCuenta() {
           </ul>
         </div>
         <div className="form-group">
-          <label>Método de pago</label>
+          <label htmlFor="campo-metodo-pago">
+            Método de pago <span className="registro-obligatorio">*</span>
+          </label>
           <select
+            id="campo-metodo-pago"
             className="registro-input"
             value={metodoPago}
             onChange={(e) => setMetodoPago(e.target.value as "paypal" | "mercadopago")}
-            required
           >
             <option value="paypal">PayPal</option>
             <option value="mercadopago">Mercado Pago</option>
@@ -307,63 +524,122 @@ function RegistarCuenta() {
 
         {metodoPago === "paypal" && (
           <div className="form-group">
-            <label>Correo de PayPal (aquí recibirás tus pagos)</label>
+            <label htmlFor="campo-datos-pago">
+              Correo de PayPal (aquí recibirás tus pagos){" "}
+              <span className="registro-obligatorio">*</span>
+            </label>
             <input
-              type="email"
-              className="registro-input"
+              id="campo-datos-pago"
+              type="text"
+              inputMode="email"
+              className={claseDeCampo("datosMetodoPago", "registro-input")}
               placeholder="tu-correo@paypal.com"
               value={datosMetodoPago}
               onChange={(e) => setDatosMetodoPago(e.target.value)}
-              required
+              onBlur={() => marcarTocado("datosMetodoPago")}
+              ref={guardarRef("datosMetodoPago") as (el: HTMLInputElement | null) => void}
             />
+            {mensajeDeCampo("datosMetodoPago") && (
+              <span className="registro-campo-error">
+                {mensajeDeCampo("datosMetodoPago")}
+              </span>
+            )}
           </div>
         )}
 
         {metodoPago === "mercadopago" && (
           <div className="form-group">
-            <label>Correo de Mercado Pago (aquí recibirás tus pagos)</label>
+            <label htmlFor="campo-datos-pago">
+              Correo de Mercado Pago (aquí recibirás tus pagos){" "}
+              <span className="registro-obligatorio">*</span>
+            </label>
             <input
-              type="email"
-              className="registro-input"
+              id="campo-datos-pago"
+              type="text"
+              inputMode="email"
+              className={claseDeCampo("datosMetodoPago", "registro-input")}
               placeholder="tu-correo@mercadopago.com"
               value={datosMetodoPago}
               onChange={(e) => setDatosMetodoPago(e.target.value)}
-              required
+              onBlur={() => marcarTocado("datosMetodoPago")}
+              ref={guardarRef("datosMetodoPago") as (el: HTMLInputElement | null) => void}
             />
+            {mensajeDeCampo("datosMetodoPago") && (
+              <span className="registro-campo-error">
+                {mensajeDeCampo("datosMetodoPago")}
+              </span>
+            )}
           </div>
         )}
         <div className="form-group">
-          <label>Horario de disponibilidad (mínimo 1 hora a la semana)</label>
-          <SelectorHorario horarios={horarios} onChange={setHorarios} />
+          <label>
+            Horario de disponibilidad (mínimo 1 hora a la semana){" "}
+            <span className="registro-obligatorio">*</span>
+          </label>
+          <div
+            className="selector-horario-envoltorio"
+            ref={guardarRef("horario") as (el: HTMLDivElement | null) => void}
+          >
+            <SelectorHorario horarios={horarios} onChange={setHorarios} />
+          </div>
+          {mensajeDeCampo("horario") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("horario")}
+            </span>
+          )}
         </div>
 
-        <label className="registro-checkbox">
-          <input
-            type="checkbox"
-            checked={aceptaTerminos}
-            onChange={(e) => setAceptaTerminos(e.target.checked)}
-          />
-          Acepto los términos y condiciones de Ichiba
-        </label>
+        <div className="form-group">
+          <label className="registro-checkbox">
+            <input
+              type="checkbox"
+              checked={aceptaTerminos}
+              onChange={(e) => {
+                setAceptaTerminos(e.target.checked);
+                marcarTocado("aceptaTerminos");
+              }}
+            />
+            Acepto los términos y condiciones de Ichiba{" "}
+            <span className="registro-obligatorio">*</span>
+          </label>
+          {mensajeDeCampo("aceptaTerminos") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("aceptaTerminos")}
+            </span>
+          )}
+        </div>
 
-        <label className="registro-checkbox">
-          <input
-            type="checkbox"
-            checked={recibirNotificaciones}
-            onChange={(e) => setRecibirNotificaciones(e.target.checked)}
-          />
-          Acepto recibir notificaciones críticas sobre mi cuenta, la fila
-          virtual y mis pagos
-        </label>
-        <label className="registro-checkbox">
-          <input
-            type="checkbox"
-            checked={recibirPublicitarias}
-            onChange={(e) => setRecibirPublicitarias(e.target.checked)}
-          />
-          Quiero recibir notificaciones sobre comentarios en publicaciones
-          publicitarias (opcional)
-        </label>
+        <div className="form-group">
+          <label className="registro-checkbox">
+            <input
+              type="checkbox"
+              checked={recibirNotificaciones}
+              onChange={(e) => {
+                setRecibirNotificaciones(e.target.checked);
+                marcarTocado("recibirNotificaciones");
+              }}
+            />
+            Acepto recibir notificaciones críticas sobre mi cuenta, la fila
+            virtual y mis pagos <span className="registro-obligatorio">*</span>
+          </label>
+          {mensajeDeCampo("recibirNotificaciones") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("recibirNotificaciones")}
+            </span>
+          )}
+        </div>
+
+        <div className="form-group">
+          <label className="registro-checkbox">
+            <input
+              type="checkbox"
+              checked={recibirPublicitarias}
+              onChange={(e) => setRecibirPublicitarias(e.target.checked)}
+            />
+            Quiero recibir notificaciones sobre comentarios en publicaciones
+            publicitarias (opcional)
+          </label>
+        </div>
 
         <Boton
           texto={cargando ? "Registrando..." : "Registrarse"}

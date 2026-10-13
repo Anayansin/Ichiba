@@ -56,3 +56,30 @@ export async function eliminarPromocional(id: string) {
   const response = await api.delete(`/promocionales/${id}`);
   return response.data;
 }
+
+export type Comentario = {
+  _id: string;
+  promocionalId: string;
+  texto: string;
+  autorNombre: string;
+  createdAt: string;
+};
+
+export async function fetchComentarios(
+  promocionalId: string,
+): Promise<Comentario[]> {
+  const response = await api.get(`/promocionales/${promocionalId}/comentarios`);
+  return response.data;
+}
+
+export async function crearComentario(
+  promocionalId: string,
+  texto: string,
+  autorNombre: string,
+): Promise<Comentario> {
+  const response = await api.post(
+    `/promocionales/${promocionalId}/comentarios`,
+    { texto, autorNombre },
+  );
+  return response.data;
+}

@@ -7,6 +7,9 @@ import {
   resolverReporte,
   obtenerHistorialTransacciones,
   obtenerMensajesDeVenta,
+  obtenerListaNegra,
+  agregarEntradaListaNegra,
+  quitarEntradaListaNegra,
 } from "../controllers/adminController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { esAdmin } from "../middleware/esAdmin.js";
@@ -50,6 +53,22 @@ router.get(
   verificarToken,
   esAdmin,
   obtenerMensajesDeVenta,
+);
+
+router.get("/lista-negra", verificarToken, esAdmin, obtenerListaNegra);
+
+router.post(
+  "/lista-negra",
+  verificarToken,
+  esAdmin,
+  agregarEntradaListaNegra,
+);
+
+router.delete(
+  "/lista-negra/:id",
+  verificarToken,
+  esAdmin,
+  quitarEntradaListaNegra,
 );
 
 export default router;

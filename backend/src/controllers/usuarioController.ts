@@ -14,6 +14,7 @@ import {
   validarNitidezINE,
 } from "../services/ineService.js";
 import { extraerDatosINE, coincideNombreConDatosINE } from "../services/structOcrService.js";
+import { buscarEnListaNegra } from "../services/listaNegraService.js";
 import {
   validarHorarioSemanal,
   estaDentroDeSuHorario,
@@ -129,6 +130,18 @@ export async function registrarUsuario(req: Request, res: Response) {
       return res
         .status(400)
         .json({ message: "Todos los campos son obligatorios" });
+    }
+
+    // RQNF1.2: el teléfono debe tener exactamente 10 dígitos numéricos.
+    if (!/^\d{10}$/.test(telefono)) {
+      if (ineFrente || ineReverso) {
+        limpiarArchivos(
+          [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
+        );
+      }
+      return res.status(400).json({
+        message: "El teléfono debe tener exactamente 10 dígitos numéricos",
+      });
     }
 
     if (
@@ -261,6 +274,21 @@ export async function registrarUsuario(req: Request, res: Response) {
       return res.status(400).json({
         message:
           "No pudimos validar el formato de tu identificación, sube una foto más clara del reverso",
+      });
+    }
+
+    // RQNF1.9: si el RFC, la CURP o el código de la INE ya están en la
+    // lista negra, el registro se deniega.
+    const entradaListaNegra = await buscarEnListaNegra({
+      rfc,
+      curp,
+      ineCodigoReverso: mrzCompleto,
+    });
+
+    if (entradaListaNegra) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(403).json({
+        message: "El registro no pudo completarse",
       });
     }
 
@@ -515,6 +543,74 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al confirmar horario" });
+  }
+}
+
+/**
+ * Actualiza las preferencias de notificaciones del vendedor desde su panel:
+ * acepta solo booleanos y guarda en PostgreSQL y en el espejo de MongoDB.
+ */
+export async function actualizarPreferencias(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const { recibirNotificacionesCriticas, recibirNotificacionesPublicitarias } =
+      req.body;
+
+    const cambios: {
+      recibirNotificacionesCriticas?: boolean;
+      recibirNotificacionesPublicitarias?: boolean;
+    } = {};
+
+    if (recibirNotificacionesCriticas !== undefined) {
+      if (typeof recibirNotificacionesCriticas !== "boolean") {
+        return res.status(400).json({
+          message: "La preferencia de notificaciones críticas no es válida",
+        });
+      }
+      cambios.recibirNotificacionesCriticas = recibirNotificacionesCriticas;
+    }
+
+    if (recibirNotificacionesPublicitarias !== undefined) {
+      if (typeof recibirNotificacionesPublicitarias !== "boolean") {
+        return res.status(400).json({
+          message: "La preferencia de notificaciones publicitarias no es válida",
+        });
+      }
+      cambios.recibirNotificacionesPublicitarias =
+        recibirNotificacionesPublicitarias;
+    }
+
+    if (Object.keys(cambios).length === 0) {
+      return res.status(400).json({
+        message: "Indica qué preferencia de notificaciones quieres guardar",
+      });
+    }
+
+    const usuario = await clientePrisma.usuario.findUnique({
+      where: { id: req.usuarioId },
+      select: { correo: true },
+    });
+
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    await clientePrisma.usuario.update({
+      where: { id: req.usuarioId },
+      data: cambios,
+    });
+
+    await reflejarEnMongo(usuario.correo, cambios);
+
+    res.json({
+      message: "Preferencias guardadas",
+      ...cambios,
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al guardar las preferencias" });
   }
 }
 

@@ -3,11 +3,17 @@ import { useState, useEffect } from "react";
 import Carrusel from "../../components/Carrusel/Carrusel";
 import {
   fetchPromocionalPorId,
+  fetchComentarios,
+  crearComentario,
   type Promocional,
+  type Comentario,
 } from "../../services/promocionalService";
 import { textoPromocional } from "../../configuracion/categorias";
 import { useAuth } from "../../context/AuthContext";
+import { mensajeDeError } from "../../utils/errores";
 import "./PromocionalDetalle.css";
+
+const MAX_CARACTERES = 500;
 
 function PromocionalDetalle() {
   const { id } = useParams();
@@ -17,12 +23,26 @@ function PromocionalDetalle() {
   const [promocional, setPromocional] = useState<Promocional | null>(null);
   const [cargando, setCargando] = useState(true);
 
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const [textoComentario, setTextoComentario] = useState("");
+  const [nombreAutor, setNombreAutor] = useState("");
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
+  const [errorComentario, setErrorComentario] = useState("");
+  const [avisoComentario, setAvisoComentario] = useState("");
+
   useEffect(() => {
     if (!id) return;
     fetchPromocionalPorId(id)
       .then((data) => setPromocional(data))
       .catch((error) => console.error("Error al cargar promocional:", error))
       .finally(() => setCargando(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    fetchComentarios(id)
+      .then((data) => setComentarios(data))
+      .catch((error) => console.error("Error al cargar comentarios:", error));
   }, [id]);
 
   if (cargando) return <p>Cargando promocional...</p>;
@@ -37,6 +57,44 @@ function PromocionalDetalle() {
         Este promocional ya no está disponible
       </p>
     );
+  }
+
+  async function manejarComentario(e: React.FormEvent) {
+    e.preventDefault();
+    if (!promocional) return;
+
+    setErrorComentario("");
+    setAvisoComentario("");
+
+    const texto = textoComentario.trim();
+    if (!texto) {
+      setErrorComentario("Escribe tu comentario antes de enviarlo");
+      return;
+    }
+    if (texto.length > MAX_CARACTERES) {
+      setErrorComentario(
+        `Tu comentario no puede superar los ${MAX_CARACTERES} caracteres`,
+      );
+      return;
+    }
+
+    setEnviandoComentario(true);
+    try {
+      const comentario = await crearComentario(
+        promocional._id,
+        texto,
+        nombreAutor.trim(),
+      );
+      setComentarios((anteriores) => [...anteriores, comentario]);
+      setTextoComentario("");
+      setAvisoComentario("Comentario publicado");
+    } catch (err) {
+      setErrorComentario(
+        mensajeDeError(err) || "No se pudo publicar tu comentario",
+      );
+    } finally {
+      setEnviandoComentario(false);
+    }
   }
 
   return (
@@ -97,6 +155,89 @@ function PromocionalDetalle() {
         <div className="promocional-detalle__descripcion">
           <h3>Descripción</h3>
           <p>{promocional.descripcion}</p>
+        </div>
+
+        <div className="promocional-detalle__comentarios">
+          <h3>Comentarios ({comentarios.length})</h3>
+
+          {promocional.zonaComentariosHabilitada === false ? (
+            <p className="promocional-detalle__comentarios-aviso">
+              Los comentarios están deshabilitados en esta publicación.
+            </p>
+          ) : (
+            <>
+              {comentarios.length === 0 ? (
+                <p className="promocional-detalle__comentarios-vacio">
+                  Sé el primero en comentar esta publicación.
+                </p>
+              ) : (
+                <ul className="promocional-detalle__comentarios-lista">
+                  {comentarios.map((comentario) => (
+                    <li key={comentario._id}>
+                      <div className="promocional-detalle__comentario-cabecera">
+                        <strong>{comentario.autorNombre}</strong>
+                        <span>
+                          {new Date(comentario.createdAt).toLocaleDateString(
+                            "es-MX",
+                          )}
+                        </span>
+                      </div>
+                      <p>{comentario.texto}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <form
+                className="promocional-detalle__comentarios-form"
+                onSubmit={manejarComentario}
+              >
+                {errorComentario && (
+                  <p className="promocional-detalle__comentario-error">
+                    {errorComentario}
+                  </p>
+                )}
+                {avisoComentario && (
+                  <p className="promocional-detalle__comentario-aviso">
+                    {avisoComentario}
+                  </p>
+                )}
+
+                <label htmlFor="comentario-nombre">Tu nombre (opcional)</label>
+                <input
+                  id="comentario-nombre"
+                  type="text"
+                  className="promocional-detalle__comentario-nombre"
+                  placeholder="Visitante"
+                  value={nombreAutor}
+                  onChange={(e) => setNombreAutor(e.target.value)}
+                  maxLength={50}
+                />
+
+                <label htmlFor="comentario-texto">Tu comentario</label>
+                <textarea
+                  id="comentario-texto"
+                  className="promocional-detalle__comentario-texto"
+                  placeholder="Escribe aquí tu comentario"
+                  value={textoComentario}
+                  onChange={(e) => setTextoComentario(e.target.value)}
+                  maxLength={MAX_CARACTERES}
+                  rows={3}
+                />
+                <span className="promocional-detalle__comentario-contador">
+                  {textoComentario.length}/{MAX_CARACTERES}
+                </span>
+
+                <button
+                  type="submit"
+                  className="promocional-detalle__comentario-boton"
+                  disabled={enviandoComentario}
+                >
+                  {enviandoComentario ? "Enviando..." : "Publicar comentario"}
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         <Link

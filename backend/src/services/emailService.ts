@@ -157,6 +157,56 @@ export async function enviarCorreoNovedadesCategoria(
   return true;
 }
 
+/**
+ * Avisa al dueño de una publicación publicitaria que alguien dejó un
+ * comentario (RQF3). Si el vendedor no aceptó notificaciones publicitarias
+ * en su registro, este correo no se envía: quien lo decide es el controlador.
+ */
+export async function enviarCorreoComentarioPublicitario(
+  correo: string,
+  nombrePromocional: string,
+  autor: string,
+  comentario: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Comentario de ${autor} en "${nombrePromocional}" para ${correo}: ${comentario}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: `Nuevo comentario en tu anuncio "${nombrePromocional}"`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p><strong>${escaparHtml(autor)}</strong> comentó en tu publicación
+        <strong>${escaparHtml(nombrePromocional)}</strong>:</p>
+        <blockquote style="background:#f8f9fa; border-left:4px solid #d90429; padding:10px 14px; margin:10px 0;">
+          ${escaparHtml(comentario)}
+        </blockquote>
+        <p style="color: #888; font-size: 12px;">
+          Recibes este correo porque aceptaste recibir notificaciones sobre
+          comentarios en tus publicaciones publicitarias. Puedes desactivarlas
+          desde tu panel de vendedor en "Preferencias de notificaciones".
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
 export async function enviarCorreoTurnoDePago(
   correo: string,
   nombreProducto: string,

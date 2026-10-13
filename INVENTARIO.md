@@ -120,6 +120,7 @@ para responder preguntas.
 | API | URL | Credential / variable | Cliente propio | Se usa en |
 |---|---|---|---|---|
 | **PayPal Checkout v2** (sandbox) | `https://api-m.sandbox.paypal.com` (cambiable con `PAYPAL_API_BASE`) | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | `backend/src/services/paypalService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
+| **MercadoPago Checkout Pro** | `https://api.mercadopago.com` (cambiable con `MERCADOPAGO_API_BASE`) | `MERCADOPAGO_ACCESS_TOKEN` | `backend/src/services/mercadopagoService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
 | **StructOCR** (lectura de INE) | `POST https://api.structocr.com/v1/national-id` con header `x-api-key` | `STRUCTOCR_API_KEY` | `backend/src/services/structOcrService.ts` | Registro de vendedor en `usuarioController.ts` (cuesta 4 créditos por uso) |
 | **Gmail SMTP** (vía nodemailer `service: "gmail"`) | smtp.gmail.com:465/587 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` (contraseña de aplicación) | `backend/src/services/emailService.ts` | Ver todos los correos en la sección 6 |
 | PayPal (panel) | developer.paypal.com → Sandbox → Accounts | — | — | Crear la cuenta compradora de prueba para aprobar pagos |
@@ -136,6 +137,34 @@ para responder preguntas.
    con mensaje amigable.
 4. `GET /v2/oauth2/token` (Basic con client:secret) se usa para autenticar cada llamada.
 
+### Flujo de MercadoPago
+
+1. `POST /api/pagos/crear-orden` → el backend mira en MongoDB el `metodoPago`
+   del vendedor. Si es `mercadopago` llama a `crearPreferenciaMercadoPago()`
+   (`POST /checkout/preferences`, ítem único en **MXN**, `external_reference`
+   = `mp:<productoId>`, `back_urls.success` = `${FRONTEND_URL}/pago-exitoso?fuente=mercadopago`)
+   y devuelve el `init_point` de MercadoPago en el mismo campo `linkAprobacion`
+   que usa PayPal, así el frontend no distingue pasarelas.
+2. El comprador paga en la página alojada de MercadoPago (tarjeta, OXXO, SPEI,
+   saldo). **No hay paso de captura**: el cobro queda aprobado al momento.
+3. De vuelta, `POST /api/pagos/confirmar-mercadopago` con `paymentId` →
+   `obtenerPagoMercadoPago()` (`GET /v1/payments/:id`) es la única fuente de
+   verdad: si `status === "approved"` registra la venta; `pending`/`rejected`
+   responden **400** con mensaje amigable.
+4. `POST /api/pagos/webhook-mercadopago` (IPN): público, responde 200 de
+   inmediato y **reconsulta a la API** (nunca confía en el cuerpo), así el
+   pago sigue confirmando aunque el comprador cierre el navegador. Solo se
+   registra `notification_url` si `BACKEND_URL` es **https** (MercadoPago no
+   alcanza localhost) y solo se envía `auto_return` si `FRONTEND_URL` es https.
+5. Ambas pasarelas comparten `registrarVentaExitosa()` con clave de
+   idempotencia `referenciaExterna` (`mp:<payment_id>` vs el id de orden de
+   PayPal).
+
+**Diferencia con PayPal:** en PayPal el dinero va a la cuenta del vendedor
+(`payee` = `paypalEmail`); en Checkout Pro el dinero entra a la cuenta dueña
+de `MERCADOPAGO_ACCESS_TOKEN`. Pagarle a cada vendedor exigiría el programa
+Marketplace de MercadoPago (comentario en `mercadopagoService.ts`).
+
 ---
 
 ## 6. CORREOS — todo lo que manda mail
@@ -151,6 +180,7 @@ para responder preguntas.
 | `enviarCorreoTurnoDePago` | "Ya es tu turno de pagar en Ichiba" | `services/filaService.ts` | Cuando alguien llega a la posición 1 de la fila y empieza su ventana de pago |
 | `enviarCorreoAdvertencia` | "Advertencia: confirma tu horario en Ichiba" | `jobs/revisionHorarios.ts` | Job diario `0 8 * * *` (8:00) a vendedores sin horario confirmado |
 | `enviarCorreoNovedadesCategoria` | "Nuevos productos en {categoría}" | `jobs/notificacionesCategoria.ts` | Job `0 10,17 * * *` (10:00 y 17:00) a los suscritos de cada categoría |
+| `enviarCorreoComentarioPublicitario` | "Nuevo comentario en tu anuncio {nombre}" | `controllers/comentarioController.ts` | Cuando alguien comenta una publicación publicitaria y el vendedor aceptó notificaciones de comentarios (`recibirNotificacionesPublicitarias`) |
 
 **Modo local (fallback):** si `backend/.env` no tiene `GMAIL_USER` ni
 `GMAIL_APP_PASSWORD`, nada falla: la función imprime en la consola del backend
@@ -182,12 +212,12 @@ Gmail/PayPal/StructOCR/Twilio (pendiente de limpiar con `git filter-repo`).
 - Esquema: **`backend/src/prisma/contract.prisma`** (contrato Prisma 8). `backend/prisma/schema.prisma` es solo un espejo documentado.
 - `npm run contract:emit` regenera `contract.json` / `contract.d.ts`.
 - Migraciones generadas: `backend/migrations/{app,snapshots}`.
-- Campo de pago del vendedor: **`paypalEmail`** (no `metodoPago`).
+- Campo de pago del vendedor: **`paypalEmail`** guarda la cuenta de cobro; el **método** (`paypal` | `mercadopago`) vive en MongoDB (`usuario.metodoPago`) y lo lee `pagoController.ts` al crear la orden.
 
 ### MongoDB (lecturas de UI, chat, filas y espejos)
 
 - Conexión: `backend/src/configuracion/db.ts` (`MONGO_URI`, base `ichiba`).
-- Modelos en `backend/src/models/`: `usuario`, `producto`, `Promocional`, `Cola`, `Venta`, `Mensaje`, `Reporte`, `Sancion`, `Suscripcion`, `SuscripcionCategoria`.
+- Modelos en `backend/src/models/`: `usuario`, `producto`, `Promocional`, `Comentario`, `Cola`, `Venta`, `Mensaje`, `Reporte`, `Sancion`, `Suscripcion`, `SuscripcionCategoria`, `ListaNegra`.
 - **Espejos:** al registrarse se escribe el usuario también en Mongo (`usuarioController.ts`) y la venta se escribe en las dos. Admin, GraphQL y chats leen Mongo.
 - Copias de controladores previos a la migración: `src/controllers/*.mongo.backup.ts` (referencia, no se importan).
 
@@ -219,14 +249,14 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 | Prefijo | Archivo de rutas | Endpoints |
 |---|---|---|
 | `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` |
-| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `GET /:id/publico` · `PUT /confirmar-horario` |
+| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
 | `/api/verificacion` | `verificacionRoutes.ts` | `POST /correo/enviar` · `POST /correo/verificar` |
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /:ventaId/calificar` |
 | `/api/colas` | `colaRoutes.ts` | `POST /entrar` · `GET /mias` · `GET /producto/:productoId/estado` · `PATCH /:id/salir` · `PATCH /:id/responder-confirmacion` |
 | `/api/mensajes` | `mensajeRoutes.ts` | `GET /comprador/mis-ventas` · `GET|POST /comprador/:ventaId` · `GET /vendedor/mis-ventas` · `GET|POST /vendedor/:ventaId` |
-| `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` |
+| `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `GET /:id/comentarios` · `POST /:id/comentarios` (con `x-comprador-id`) · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` |
 | `/api/reportes` | `reporteRoutes.ts` | `POST /` · `POST /comprador` · `GET /` (admin) · `PATCH /:id/confirmar` (admin) |
-| `/api/admin` | `adminRoutes.ts` | `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` |
+| `/api/admin` | `adminRoutes.ts` | `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` |
 | `/api/notificaciones` | `notificacionRoutes.ts` | `POST /suscribir` |
 | `/api/suscripciones` | `suscripcionRoutes.ts` | `POST /` |
 | `/uploads` | estático | Fotos de productos/promocionales. **`/uploads/ine` devuelve 404 siempre** (bloqueo en `server.ts`) |
@@ -277,6 +307,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 |---|---|
 | `npm run dev` | Servidor con recarga (nodemon + tsx + `--harmony-temporal`) |
 | `npm run seed` | 30 productos + 35 promocionales de prueba y el vendedor demo (idempotente, marca `semilla: true`) |
+| `npm run seed:mp` | Otros 30 productos que se cobran con MercadoPago y el vendedor `vendedor.mp@ichiba.test` (marca `semilla: "mercadopago"`, no lo borra `npm run seed`) |
 | `npm run admin -- correo@dominio [clave] [--promover]` | Crea/promueve administradores (`scripts/crear-admin.ts`) |
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run contract:emit` | Regenera el contrato Prisma |
@@ -310,10 +341,11 @@ powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1  # bas
 | Rol | Correo | Contraseña |
 |---|---|---|
 | Admin | `admin@ichiba.test` | `IchibaAdmin123!` |
-| Vendedor demo | `vendedor.demo@ichiba.test` | `IchibaDemo123!` |
+| Vendedor demo | `vendedor.demo@ichiba.test` | `IchibaDemo123!` (cobra con PayPal) |
+| Vendedor MercadoPago | `vendedor.mp@ichiba.test` | `IchibaMP123!` (cobra con MercadoPago, crea `npm run seed:mp`) |
 | Comprador de prueba (INE de muestra) | `margarita.prueba@correo.test` | `NuevaClave123!` |
 
-Credenciales de APIs (PayPal sandbox, StructOCR, Gmail, JWT): ver `backend/.env`
+Credenciales de APIs (PayPal sandbox, MercadoPago, StructOCR, Gmail, JWT): ver `backend/.env`
 y `backend/.env.example` (este último explica cada variable).
 
 ---

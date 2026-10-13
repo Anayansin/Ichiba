@@ -100,3 +100,56 @@ export async function fetchMensajesDeVenta(
   const response = await api.get(`/admin/ventas/${ventaId}/mensajes`);
   return response.data;
 }
+
+export type EntradaListaNegra = {
+  id: string;
+  rfc: string | null;
+  curp: string | null;
+  ineCodigoReverso: string | null;
+  correo: string | null;
+  nombreCompleto: string;
+  motivo: string;
+  origen: string;
+  fecha: string | null;
+};
+
+export type RespuestaListaNegra = {
+  entradas: EntradaListaNegra[];
+  pagina: number;
+  porPagina: number;
+  total: number;
+  totalPaginas: number;
+};
+
+export async function fetchListaNegra(
+  pagina: number,
+  porPagina: number,
+): Promise<RespuestaListaNegra> {
+  const response = await api.get("/admin/lista-negra", {
+    params: { pagina, porPagina },
+  });
+  return response.data;
+}
+
+export type NuevaEntradaListaNegra = {
+  rfc?: string;
+  curp?: string;
+  ineCodigoReverso?: string;
+  correo?: string;
+  nombreCompleto?: string;
+  motivo: string;
+};
+
+export async function agregarEntradaListaNegra(
+  datos: NuevaEntradaListaNegra,
+): Promise<EntradaListaNegra> {
+  const response = await api.post("/admin/lista-negra", datos);
+  return response.data;
+}
+
+export async function quitarEntradaListaNegra(
+  id: string,
+): Promise<{ message: string }> {
+  const response = await api.delete(`/admin/lista-negra/${id}`);
+  return response.data;
+}

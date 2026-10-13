@@ -5,6 +5,7 @@ import {
   obtenerPerfil,
   obtenerPerfilPublico,
   confirmarHorario,
+  actualizarPreferencias,
   solicitarRecuperacion,
   verificarCodigoRecuperacion,
   restablecerPassword,
@@ -27,6 +28,7 @@ router.post("/recuperar/solicitar", solicitarRecuperacion);
 router.post("/recuperar/verificar", verificarCodigoRecuperacion);
 router.post("/recuperar/restablecer", restablecerPassword);
 router.get("/perfil", verificarToken, obtenerPerfil);
+router.put("/preferencias", verificarToken, actualizarPreferencias);
 router.get("/:id/publico", obtenerPerfilPublico);
 router.put("/confirmar-horario", verificarToken, confirmarHorario);
 

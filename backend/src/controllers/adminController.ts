@@ -6,6 +6,11 @@ import { Mensaje } from "../models/Mensaje.js";
 import { Reporte } from "../models/Reporte.js";
 import { Venta } from "../models/Venta.js";
 import { Usuario } from "../models/usuario.js";
+import { ListaNegra } from "../models/ListaNegra.js";
+import {
+  agregarAListaNegra,
+  resumirEntrada,
+} from "../services/listaNegraService.js";
 import { aplicarFaltaConfirmada } from "./reporteController.js";
 
 const USUARIOS_POR_PAGINA = 10;
@@ -416,5 +421,115 @@ export async function obtenerMensajesDeVenta(req: Request, res: Response) {
     res
       .status(500)
       .json({ message: "Error al obtener los mensajes de la venta" });
+  }
+}
+
+export const ENTRADAS_POR_PAGINA = 20;
+
+export async function obtenerListaNegra(req: Request, res: Response) {
+  try {
+    const pagina = Math.max(Number(req.query.pagina) || 1, 1);
+    const porPagina = Math.max(
+      Number(req.query.porPagina) || ENTRADAS_POR_PAGINA,
+      1,
+    );
+
+    const [entradas, total] = await Promise.all([
+      ListaNegra.find()
+        .sort({ createdAt: -1 })
+        .skip((pagina - 1) * porPagina)
+        .limit(porPagina)
+        .lean(),
+      ListaNegra.countDocuments(),
+    ]);
+
+    res.json({
+      entradas: entradas.map(resumirEntrada),
+      pagina,
+      porPagina,
+      total,
+      totalPaginas: Math.max(Math.ceil(total / porPagina), 1),
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al obtener la lista negra" });
+  }
+}
+
+export async function agregarEntradaListaNegra(req: Request, res: Response) {
+  try {
+    const { rfc, curp, ineCodigoReverso, correo, nombreCompleto, motivo } =
+      req.body;
+
+    if (!motivo || typeof motivo !== "string" || !motivo.trim()) {
+      return res
+        .status(400)
+        .json({ message: "Indica el motivo por el que se agrega a la lista negra" });
+    }
+
+    const hayIdentificacion = Boolean(
+      (rfc && rfc.trim()) || (curp && curp.trim()),
+    );
+    if (!hayIdentificacion) {
+      return res.status(400).json({
+        message: "Indica al menos el RFC o la CURP de la persona",
+      });
+    }
+
+    const entrada = await agregarAListaNegra({
+      rfc,
+      curp,
+      ineCodigoReverso,
+      correo,
+      nombreCompleto,
+      motivo,
+      origen: "manual",
+    });
+
+    res.status(201).json(entrada);
+  } catch (error: unknown) {
+    const duplicado =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: number }).code === 11000;
+
+    if (duplicado) {
+      return res.status(409).json({
+        message: "Ese RFC o CURP ya está en la lista negra",
+      });
+    }
+
+    console.error("Error real:", error);
+    res
+      .status(500)
+      .json({ message: "No se pudo agregar el registro a la lista negra" });
+  }
+}
+
+export async function quitarEntradaListaNegra(req: Request, res: Response) {
+  try {
+    const id = req.params.id;
+
+    if (!id || !mongoose.isValidObjectId(id)) {
+      return res
+        .status(400)
+        .json({ message: "Indica el registro que quieres quitar" });
+    }
+
+    const borrada = await ListaNegra.findByIdAndDelete(id);
+
+    if (!borrada) {
+      return res
+        .status(404)
+        .json({ message: "Registro de lista negra no encontrado" });
+    }
+
+    res.json({ message: "Registro eliminado de la lista negra" });
+  } catch (error) {
+    console.error("Error real:", error);
+    res
+      .status(500)
+      .json({ message: "No se pudo eliminar el registro de la lista negra" });
   }
 }

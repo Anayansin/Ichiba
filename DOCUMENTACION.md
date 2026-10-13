@@ -6,7 +6,7 @@ Este documento describe la arquitectura del proyecto, las bases de datos que uti
 
 ## 1. Arquitectura general
 
-Ichiba es un marketplace en el que los vendedores publican productos con imágenes, horarios de entrega y promociones, y los compradores ingresan a una **fila virtual** por producto: quien queda en la posición uno dispone de un tiempo límite para pagar con PayPal antes de que el turno pase al siguiente. Comprador y vendedor conversan en un chat por venta, pueden reportarse entre sí, y un panel de administración permite revisar reportes, suspender cuentas y auditar la actividad de la plataforma.
+Ichiba es un marketplace en el que los vendedores publican productos con imágenes, horarios de entrega y promociones, y los compradores ingresan a una **fila virtual** por producto: quien queda en la posición uno dispone de un tiempo límite para pagar con PayPal o Mercado Pago (según lo que haya configurado el vendedor) antes de que el turno pase al siguiente. Comprador y vendedor conversan en un chat por venta, pueden reportarse entre sí, y un panel de administración permite revisar reportes, suspender cuentas y auditar la actividad de la plataforma.
 
 El sistema sigue un patrón cliente-servidor: los frontends consumen una API REST montada en `http://localhost:5000/api` y un endpoint GraphQL montado en `http://localhost:5000/graphql`. La autenticación se hace con tokens JWT enviados en la cabecera `Authorization`, y los compradores que no tienen cuenta se identifican con un identificador anónimo generado en el navegador y enviado en la cabecera `x-comprador-id`.
 
@@ -24,7 +24,7 @@ Estructura interna de `backend/src`:
 | `controllers/` | Lógica de cada endpoint. |
 | `models/` | Esquemas de Mongoose (colecciones de MongoDB). |
 | `middleware/` | Autenticación y permisos: `auth` (token), `comprador` (identificador anónimo), `verificado`, `admin`, `esAdmin`, `sancion`, `upload` e `uploadIne` (carga de imágenes con Multer). |
-| `services/` | Lógica reutilizable: `paypalService`, `filaService`, `emailService`, `sancionService`, `structOcrService`, `ineService`, `imagenProductoService`, `usuarioService`. |
+| `services/` | Lógica reutilizable: `paypalService`, `mercadopagoService`, `filaService`, `emailService`, `sancionService`, `structOcrService`, `ineService`, `imagenProductoService`, `usuarioService`, `listaNegraService`. |
 | `jobs/` | Tareas programadas: `revisionPagos` (cada minuto), `revisionHorarios` (diario a las 8:00) y `notificacionesCategoria` (10:00 y 17:00). |
 | `graphql/` | Esquema (`esquema.ts`), resolutores (`resolvers.ts`) y contexto (`contexto.ts`) para Apollo Server. |
 | `configuracion/` | Conexión a MongoDB (`db.ts`), cliente de PostgreSQL (`prisma.ts`), categorías, palabras prohibidas y categorías de reporte. |
@@ -64,7 +64,7 @@ Además de las carpetas anteriores, la raíz contiene `.gitignore`, el archivo `
 
 ### Diagrama de flujo
 
-En texto plano, el recorrido de una petición es: navegador → frontend (React en el puerto 5173 o Astro en el 4321) → API Express en el puerto 5000 (REST en `/api` o GraphQL en `/graphql`) → PostgreSQL mediante Prisma o MongoDB mediante Mongoose, según la entidad consultada; cuando el flujo lo requiere, el backend llama además a servicios externos: la API de PayPal para los pagos, StructOCR para leer la INE en el registro y Gmail para enviar correos.
+En texto plano, el recorrido de una petición es: navegador → frontend (React en el puerto 5173 o Astro en el 4321) → API Express en el puerto 5000 (REST en `/api` o GraphQL en `/graphql`) → PostgreSQL mediante Prisma o MongoDB mediante Mongoose, según la entidad consultada; cuando el flujo lo requiere, el backend llama además a servicios externos: las APIs de PayPal y Mercado Pago para los pagos, StructOCR para leer la INE en el registro y Gmail para enviar correos.
 
 ---
 
@@ -79,7 +79,7 @@ Se accede con Prisma ORM siguiendo el flujo de *contrato*: el modelo se define e
 Los modelos y para qué sirven:
 
 - **`usuario`**: cuentas completas (nombre, correo, contraseña, INE, RFC/CURP, horarios, preferencias de notificación) y su reputación (`ventasExitosas`, `totalReportes`, `faltasLeves`).
-- **`venta`**: pagos capturados de PayPal (monto, `paypalOrderId`, estado) vinculados al vendedor.
+- **`venta`**: pagos capturados (monto, `paypalOrderId` — que guarda el id de orden de PayPal o la referencia `mp:<payment_id>` de Mercado Pago —, estado) vinculados al vendedor.
 - **`cola`**: posiciones de la fila virtual por producto (`posicion`, `estado`, `pagoExpiraEn`, correo del comprador).
 - **`reporte`**: reportes entre usuarios con su categoría, tipo de falta, detalle y estado (`pendiente`, `confirmado`, `rechazado`).
 
@@ -95,6 +95,8 @@ Se accede con Mongoose. La conexión se hace en `backend/src/configuracion/db.ts
 - **`Sancion`**: sanciones y bloqueos de usuarios (faltas leves y graves, bloqueos temporales o permanentes).
 - **`Suscripcion`** y **`SuscripcionCategoria`**: preferencias de notificación por correo (novedades críticas y categorías de interés).
 - **`Promocional`**: ofertas destacadas de los vendedores.
+- **`Comentario`**: comentarios que los visitantes dejan en una publicación publicitaria (nombre opcional del autor, texto e identificador anónimo del comprador); al crearlos se avisa por correo al vendedor si aceptó esas notificaciones.
+- **`ListaNegra`**: RFC, CURP y código de INE de cuentas canceladas; el registro la consulta para denegar altas duplicadas (RQNF1.9) y el panel de administración la administra.
 - **`usuario`**: cuentas que consulta el panel de administración de usuarios y el trabajo diario de horarios.
 
 ### Dónde vive cada dato
@@ -122,7 +124,7 @@ Se accede con Mongoose. La conexión se hace en `backend/src/configuracion/db.ts
 - Node.js 20 o superior con npm.
 - PostgreSQL 15 o superior (versión mínima que admite Prisma en este proyecto).
 - MongoDB 6 o superior, local o en la nube (por ejemplo MongoDB Atlas).
-- Cuentas externas opcionales: una aplicación en PayPal Developer (para cobrar), una cuenta de Gmail con contraseña de aplicación (para enviar correos) y una llave de StructOCR (para leer la INE durante el registro).
+- Cuentas externas opcionales: una aplicación en PayPal Developer (para cobrar con PayPal), una cuenta de Mercado Pago con Access Token (para cobrar con Mercado Pago), una cuenta de Gmail con contraseña de aplicación (para enviar correos) y una llave de StructOCR (para leer la INE durante el registro).
 
 ### Variables de entorno
 
@@ -134,10 +136,13 @@ El backend se configura en `backend/.env`. El archivo `backend/.env.example` inc
 | `MONGO_URI` | Sí | Cadena de conexión a MongoDB; la lee `src/configuracion/db.ts`. El servidor no arranca sin ella. Ejemplo: `mongodb://localhost:27017/ichiba`. |
 | `JWT_SECRET` | Sí | Firma de los tokens de sesión; la usan `middleware/auth.ts`, `usuarioController`, `pagoController` y `reporteController`. |
 | `PORT` | No | Puerto del servidor. Si falta, se usa el 5000. |
-| `FRONTEND_URL` | Para pagos | URL del frontend que PayPal usa en las direcciones de regreso y cancelación de la compra. |
+| `FRONTEND_URL` | Para pagos | URL del frontend que PayPal y MercadoPago usan en las direcciones de regreso y cancelación de la compra. |
 | `PAYPAL_CLIENT_ID` | Para pagos | Credenciales de la aplicación de PayPal. |
 | `PAYPAL_CLIENT_SECRET` | Para pagos | Credenciales de la aplicación de PayPal. |
 | `PAYPAL_API_BASE` | Para pagos | Base de la API de PayPal (modo pruebas o producción). |
+| `MERCADOPAGO_ACCESS_TOKEN` | Para pagos con MercadoPago | Access Token de la cuenta de MercadoPago (mercadopago.com/developers → Credenciales). Sin él, el pago de un vendedor con `metodoPago: mercadopago` falla con un mensaje claro. |
+| `MERCADOPAGO_API_BASE` | No | Base de la API de MercadoPago; por defecto `https://api.mercadopago.com`. |
+| `BACKEND_URL` | No | URL pública (https) del backend. Si existe y es https, MercadoPago la usa como `notification_url` (webhook); con `http://localhost` el webhook no se registra y solo confirma el pago quien vuelve del checkout. |
 | `GMAIL_USER` | No | Correo desde el que se envían los mensajes. |
 | `GMAIL_APP_PASSWORD` | No | Contraseña de aplicación de Gmail. Si faltan ambas, el backend no falla: imprime los códigos en la consola con el prefijo `[correo local]`. |
 | `STRUCTOCR_API_KEY` | Para registro | Llave de la API de StructOCR que lee el frente y el reverso de la INE. Sin ella, el registro no puede validar la identificación. |
@@ -177,6 +182,8 @@ npm run seed
 
 El script `scripts/seed.ts` valida cada dato con las mismas reglas del controlador (longitudes, precios y palabras no permitidas), reutiliza las imágenes que ya existen en `uploads/` y es idempotente: todo lo que inserta queda marcado con `semilla: true`, se borra antes de volver a insertar y nunca toca datos reales. Si PostgreSQL está disponible los artículos se ligan a un usuario existente; si no, usan un vendedor de respaldo.
 
+Además, `npm run seed:mp` (`scripts/seed-mercadopago.ts`) crea otros 30 productos del catálogo ligados a una cuenta dedicada, `vendedor.mp@ichiba.test`, cuyo método de pago es MercadoPago, para poder probar el flujo de Checkout Pro sin tocar la semilla original (que sigue siendo PayPal). Sus productos llevan `semilla: "mercadopago"`, así que `npm run seed` no los borra.
+
 **Paso 2. Frontend React**
 
 ```bash
@@ -205,7 +212,7 @@ Astro sirve las páginas en `http://localhost:4321`. Para publicar, usa `npm run
 
 ### Verificación rápida
 
-La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoose` y el mensaje de servidor corriendo; `http://localhost:5000/api/productos` debe responder con el catálogo; y en `http://localhost:5173` debe cargarse la portada con el botón de inicio de sesión. Si el backend falla al arrancar, revisa primero `DATABASE_URL` y `MONGO_URI`; si las funciones de correo no llegan, revisa `GMAIL_USER` y `GMAIL_APP_PASSWORD`; si el pago no inicia, revisa las tres variables de PayPal junto con `FRONTEND_URL`; y si el registro rechaza la identificación, revisa `STRUCTOCR_API_KEY`.
+La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoose` y el mensaje de servidor corriendo; `http://localhost:5000/api/productos` debe responder con el catálogo; y en `http://localhost:5173` debe cargarse la portada con el botón de inicio de sesión. Si el backend falla al arrancar, revisa primero `DATABASE_URL` y `MONGO_URI`; si las funciones de correo no llegan, revisa `GMAIL_USER` y `GMAIL_APP_PASSWORD`; si el pago no inicia, revisa las variables de PayPal, `MERCADOPAGO_ACCESS_TOKEN` y `FRONTEND_URL`; y si el registro rechaza la identificación, revisa `STRUCTOCR_API_KEY`.
 
 ---
 
@@ -213,9 +220,9 @@ La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoo
 
 ### Registro y autenticación
 
-Permite crear una cuenta verificando la identificación oficial, iniciar sesión, recuperar la contraseña y mantener la sesión. El registro exige subir el frente y el reverso de la INE, que se validan por dimensiones, nitidez y lectura automática de los datos, y el nombre capturado debe coincidir con el de la identificación.
+Permite crear una cuenta verificando la identificación oficial, iniciar sesión, recuperar la contraseña y mantener la sesión. El registro exige subir el frente y el reverso de la INE, que se validan por formato (png/jpg/jpeg), peso (máximo 8 MB), dimensiones (mínimo 420x540 px), nitidez y lectura automática de los datos con StructOCR; el nombre capturado debe coincidir con el de la identificación, el teléfono debe tener 10 dígitos, la contraseña debe cumplir sus reglas de fortaleza (solo letras, números y los símbolos `! @ # $ % & * - _`), y el RFC debe coincidir con la CURP leída de la INE. Si el RFC, la CURP o el código de la INE están en la lista negra, el alta se deniega.
 
-En el backend corresponden `backend/src/routes/usuarioRoutes.ts` (alta, login, recuperación, perfil público y confirmación de horario) con `backend/src/controllers/usuarioController.ts`, que escribe en PostgreSQL; `backend/src/routes/verificacionRoutes.ts` y `backend/src/controllers/verificacionController.ts` para el código de verificación del correo; `backend/src/middleware/auth.ts` (verificación del token), `backend/src/middleware/verificado.ts` (solo usuarios verificados), `backend/src/middleware/uploadIne.ts` (carga de la INE); `backend/src/services/structOcrService.ts` y `backend/src/services/ineService.ts` (lectura y validación de la identificación), `backend/src/services/emailService.ts` (envío de códigos), `backend/src/utils/validarPassword.ts` y `backend/src/utils/validarRfcCurp.ts`.
+En el backend corresponden `backend/src/routes/usuarioRoutes.ts` (alta, login, recuperación, perfil público, preferencias de notificación y confirmación de horario) con `backend/src/controllers/usuarioController.ts`, que escribe en PostgreSQL; `backend/src/routes/verificacionRoutes.ts` y `backend/src/controllers/verificacionController.ts` para el código de verificación del correo; `backend/src/middleware/auth.ts` (verificación del token), `backend/src/middleware/verificado.ts` (solo usuarios verificados), `backend/src/middleware/uploadIne.ts` (carga de la INE); `backend/src/services/structOcrService.ts` y `backend/src/services/ineService.ts` (lectura y validación de la identificación), `backend/src/services/emailService.ts` (envío de códigos), `backend/src/utils/validarPassword.ts` y `backend/src/utils/validarRfcCurp.ts`.
 
 En el frontend: `frontend/Ichiba/src/pages/RegistrarCuenta`, `frontend/Ichiba/src/pages/RecuperarPassword`, `frontend/Ichiba/src/components/auth/IniciarSesionModal`, `frontend/Ichiba/src/components/VerificacionModal`, el contexto de sesión en `frontend/Ichiba/src/context/AuthProvider.tsx` y los servicios `frontend/Ichiba/src/services/authService.ts`, `usuarioServices.ts` y `verificacionService.ts`.
 
@@ -223,15 +230,15 @@ En el frontend: `frontend/Ichiba/src/pages/RegistrarCuenta`, `frontend/Ichiba/sr
 
 Agrupa la publicación, búsqueda y detalle de productos, así como las promociones destacadas de cada vendedor. Incluye subida de imágenes con restricciones de tamaño y peso, categorías, condiciones de uso, métodos de entrega, horarios y estadísticas de la categoría más popular.
 
-En el backend: `backend/src/routes/productoRoutes.ts` y `backend/src/controllers/productoController.ts` sobre el modelo `backend/src/models/producto.ts` (MongoDB); `backend/src/middleware/upload.ts` (carga de imágenes de hasta 5 MB) y `backend/src/services/imagenProductoService.ts` (procesamiento con Sharp); `backend/src/routes/promocionalRoutes.ts`, `backend/src/controllers/promocionalController.ts` y `backend/src/models/Promocional.ts`; las listas de categorías están en `backend/src/configuracion/categorias.ts`.
+En el backend: `backend/src/routes/productoRoutes.ts` y `backend/src/controllers/productoController.ts` sobre el modelo `backend/src/models/producto.ts` (MongoDB); `backend/src/middleware/upload.ts` (carga de imágenes de hasta 5 MB) y `backend/src/services/imagenProductoService.ts` (procesamiento con Sharp); `backend/src/routes/promocionalRoutes.ts`, `backend/src/controllers/promocionalController.ts` y `backend/src/models/Promocional.ts`; los comentarios de las publicaciones publicitarias viven en `backend/src/controllers/comentarioController.ts` sobre `backend/src/models/Comentario.ts` (lectura y alta con `x-comprador-id`, respetando la casilla *Zona de comentarios* y enviando el aviso por correo al vendedor cuando aceptó notificaciones de comentarios); las listas de categorías están en `backend/src/configuracion/categorias.ts`.
 
-En el frontend: `frontend/Ichiba/src/pages/Inicio` (buscador y listado), `ProductoCompleto`, `PanelVendedor`, `RegistrarProducto`, `EditarProducto`, `PerfilDelVendedor`, `Promocionales`, `RegistrarPromocional` y `PromocionalDetalle`; los componentes `CartaProducto`, `Carrusel` y `CartaPromocional`; los servicios `productoService.ts` y `promocionalService.ts`; y las categorías en `frontend/Ichiba/src/configuracion/categorias.ts`.
+En el frontend: `frontend/Ichiba/src/pages/Inicio` (buscador y listado), `ProductoCompleto`, `PanelVendedor` (incluye la tarjeta *Preferencias de notificaciones*), `RegistrarProducto`, `EditarProducto`, `PerfilDelVendedor`, `Promocionales`, `RegistrarPromocional` y `PromocionalDetalle` (con su zona de comentarios); los componentes `CartaProducto`, `Carrusel` y `CartaPromocional`; los servicios `productoService.ts` y `promocionalService.ts`; y las categorías en `frontend/Ichiba/src/configuracion/categorias.ts`.
 
 ### Fila virtual y pagos
 
-Es el corazón del marketplace: cada comprador entra a la fila de un producto, la posición uno recibe un tiempo límite para pagar con PayPal, y si el pago no llega a tiempo el turno se libera para la siguiente persona. Los compradores anónimos se identifican con `x-comprador-id` y las cuentas sancionadas no pueden entrar.
+Es el corazón del marketplace: cada comprador entra a la fila de un producto, la posición uno recibe un tiempo límite para pagar con PayPal o Mercado Pago (elige el vendedor), y si el pago no llega a tiempo el turno se libera para la siguiente persona. Los compradores anónimos se identifican con `x-comprador-id` y las cuentas sancionadas no pueden entrar.
 
-En el backend: `backend/src/middleware/comprador.ts` (identificador anónimo), `backend/src/routes/colaRoutes.ts` con `backend/src/controllers/colaController.ts` (entrar, consultar y salir de la fila, sobre PostgreSQL) y `backend/src/services/filaService.ts` (expiración de turnos); `backend/src/routes/pagoRoutes.ts` con `backend/src/controllers/pagoController.ts` y `backend/src/services/paypalService.ts` (creación y captura de la orden de pago, registro de la venta y calificación entre las partes); `backend/src/middleware/sancion.ts` (bloqueo de sancionados); y los trabajos `backend/src/jobs/revisionPagos.ts` (cada minuto libera los turnos vencidos) y `backend/src/jobs/revisionHorarios.ts` (a diario revisa que los vendedores mantengan su horario confirmado, avisa por correo y aplica consecuencias).
+En el backend: `backend/src/middleware/comprador.ts` (identificador anónimo), `backend/src/routes/colaRoutes.ts` con `backend/src/controllers/colaController.ts` (entrar, consultar y salir de la fila, sobre PostgreSQL) y `backend/src/services/filaService.ts` (expiración de turnos); `backend/src/routes/pagoRoutes.ts` con `backend/src/controllers/pagoController.ts`, `backend/src/services/paypalService.ts` (creación y captura de la orden de pago, registro de la venta y calificación entre las partes) y `backend/src/services/mercadopagoService.ts` (preferencia de Checkout Pro, consulta del pago y webhook); `backend/src/middleware/sancion.ts` (bloqueo de sancionados); y los trabajos `backend/src/jobs/revisionPagos.ts` (cada minuto libera los turnos vencidos) y `backend/src/jobs/revisionHorarios.ts` (a diario revisa que los vendedores mantengan su horario confirmado, avisa por correo y aplica consecuencias).
 
 En el frontend: `frontend/Ichiba/src/components/ColaBubble` (burbuja flotante con la fila activa), `FilaActivaComprador`, `AdvertenciaEncuentroModal` (aviso de seguridad antes de quedarse en la posición uno) y `SelectorHorario`; las páginas `PagoExitoso` y `HorarioVendedor`; el contexto `ColasProvider`; los servicios `colaService.ts` y `pagoService.ts`; y `frontend/Ichiba/src/utils/compradorId.ts`.
 
@@ -245,11 +252,11 @@ En el frontend: `frontend/Ichiba/src/pages/Chats` (lista de conversaciones, hist
 
 ### Administración
 
-Concentra el control de la plataforma por parte de cuentas con tipo `admin`: gestión de usuarios con suspensión y reactivación, revisión de reportes con confirmación o rechazo (la confirmación acumula faltas leves y cada múltiplo de tres se convierte en falta grave), auditoría del historial combinado de filas, ventas y reportes, y lectura del chat de cualquier venta sin restricción de participación.
+Concentra el control de la plataforma por parte de cuentas con tipo `admin`: gestión de usuarios con suspensión y reactivación, revisión de reportes con confirmación o rechazo (la confirmación acumula faltas leves y cada múltiplo de tres se convierte en falta grave), auditoría del historial combinado de filas, ventas y reportes, lectura del chat de cualquier venta sin restricción de participación y administración de la lista negra de registros (altas y bajas manuales que impiden volver a crear cuentas con ese RFC, CURP o INE).
 
-En el backend: `backend/src/middleware/esAdmin.ts` (verifica el tipo de administrador contra PostgreSQL) y `backend/src/middleware/admin.ts` (usado por las rutas de reportes); `backend/src/routes/adminRoutes.ts`, montado en `/api/admin`, con `backend/src/controllers/adminController.ts`; el campo `suspendido` vive en `backend/src/models/usuario.ts`.
+En el backend: `backend/src/middleware/esAdmin.ts` (verifica el tipo de administrador contra PostgreSQL) y `backend/src/middleware/admin.ts` (usado por las rutas de reportes); `backend/src/routes/adminRoutes.ts`, montado en `/api/admin`, con `backend/src/controllers/adminController.ts` y `backend/src/services/listaNegraService.ts` sobre el modelo `backend/src/models/ListaNegra.ts`; el campo `suspendido` vive en `backend/src/models/usuario.ts`.
 
-En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx`, pantalla protegida con menú interno, y sus secciones `GestionUsuarios.tsx`, `RevisionReportes.tsx` y `Trazabilidad.tsx` con `ModalConversacion.tsx`; también `frontend/Ichiba/src/pages/AdminReportes` (historial de reportes) y el servicio `frontend/Ichiba/src/services/adminService.ts`.
+En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx`, pantalla protegida con menú interno, y sus secciones `GestionUsuarios.tsx`, `RevisionReportes.tsx`, `ListaNegra.tsx` y `Trazabilidad.tsx` con `ModalConversacion.tsx`; también `frontend/Ichiba/src/pages/AdminReportes` (historial de reportes) y el servicio `frontend/Ichiba/src/services/adminService.ts`.
 
 ### Otros módulos
 

@@ -103,10 +103,43 @@
   font-weight: 500;
 }
 
+.registro-nota {
+  margin: 0;
+  color: #666;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.registro-obligatorio {
+  color: #d90429;
+  font-weight: 700;
+}
+
+.registro-input--invalido {
+  border-color: #d90429 !important;
+  background-color: #fffafa;
+}
+
 .registro-campo-error {
   color: #d90429;
   font-size: 0.8rem;
   font-weight: 500;
+}
+
+.registro-campo-ok {
+  color: #2e7d32;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.selector-horario-envoltorio {
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 0.2rem;
+}
+
+.selector-horario-envoltorio:focus-within {
+  border-color: #d90429;
 }
 
 .registro-checkbox {
@@ -122,6 +155,12 @@
 .requisitos-box li {
   color: #999;
   transition: color 0.2s;
+}
+
+/* Una vez que el usuario escribe, lo que falta se muestra en rojo. */
+.requisitos-box--activo li:not(.requisito-cumplido) {
+  color: #d90429;
+  font-weight: 600;
 }
 
 .requisito-cumplido {
