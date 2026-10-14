@@ -252,7 +252,9 @@ async function reflejarEnMongo(id: number, creado: boolean) {
     telefono: "5500000001",
     correo: CORREO_VENDEDOR_MP,
     rfc: "XXXX000101MPO",
-    password: "sin-login-en-mongo",
+    // RQNF6: la autenticación consulta MongoDB, así que el espejo debe
+    // llevar el hash bcryptjs real de la contraseña del vendedor MP.
+    password: await bcrypt.hash(PASSWORD_VENDEDOR_MP, 10),
     tipo: "vendedor",
     ineFrente: "/uploads/ine/demo-frente.jpg",
     ineReverso: "/uploads/ine/demo-reverso.jpg",

@@ -390,10 +390,11 @@ export async function iniciarSesion(req: Request, res: Response) {
   try {
     const { correo, password } = req.body;
 
-    const usuario = await clientePrisma.usuario.findFirst({
-      where: { correo },
-    });
-    if (!usuario) {
+    // RQNF6: la autenticación consulta los registros de MongoDB y la
+    // contraseña se compara contra su hash bcryptjs, nunca en texto plano.
+    const usuario = await Usuario.findOne({ correo });
+
+    if (!usuario || typeof usuario.password !== "string") {
       return res
         .status(401)
         .json({ message: "Correo o contraseña incorrectos" });
@@ -406,8 +407,16 @@ export async function iniciarSesion(req: Request, res: Response) {
         .json({ message: "Correo o contraseña incorrectos" });
     }
 
+    // El token conserva el id numérico de PostgreSQL, que es el que usan el
+    // middleware y el resto de los módulos de la plataforma.
+    const idCuenta = Number(usuario.usuarioId);
+    if (!Number.isInteger(idCuenta) || idCuenta <= 0) {
+      console.error(`[login] El usuario ${correo} no tiene id en PostgreSQL`);
+      return res.status(500).json({ message: "Error al iniciar sesión" });
+    }
+
     const token = jwt.sign(
-      { id: usuario.id, tipo: usuario.tipo },
+      { id: idCuenta, tipo: usuario.tipo },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
@@ -415,7 +424,7 @@ export async function iniciarSesion(req: Request, res: Response) {
     res.json({
       token,
       usuario: {
-        id: usuario.id,
+        id: idCuenta,
         nombreCompleto: usuario.nombreCompleto,
         correo: usuario.correo,
         tipo: usuario.tipo,
@@ -740,14 +749,21 @@ export async function restablecerPassword(req: Request, res: Response) {
       return res.status(400).json({ message: "Código incorrecto" });
     }
 
+    const passwordHasheada = await bcrypt.hash(password, 10);
+
     await clientePrisma.usuario.update({
       where: { id: usuario.id },
       data: {
-        password: await bcrypt.hash(password, 10),
+        password: passwordHasheada,
         codigoRecuperacion: null,
         codigoRecuperacionExpira: null,
       },
     });
+
+    // RQNF6: la autenticación consulta MongoDB, así que la nueva contraseña
+    // (hash bcryptjs) debe quedar también en el espejo, o el usuario no
+    // podría iniciar sesión con ella.
+    await reflejarEnMongo(correo, { password: passwordHasheada });
 
     res.json({ message: "Contraseña actualizada correctamente" });
   } catch (error) {

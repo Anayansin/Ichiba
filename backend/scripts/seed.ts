@@ -220,7 +220,9 @@ async function reflejarVendedorDemoEnMongo(
     telefono: "5500000000",
     correo,
     rfc: "XXXX000101MCO",
-    password: "sin-login-en-mongo",
+    // RQNF6: la autenticación consulta MongoDB, así que el espejo debe
+    // llevar el hash bcryptjs real de la contraseña del vendedor demo.
+    password: await bcrypt.hash(PASSWORD_VENDEDOR_SEMILLA, 10),
     tipo: "vendedor",
     ineFrente: "/uploads/ine/demo-frente.jpg",
     ineReverso: "/uploads/ine/demo-reverso.jpg",

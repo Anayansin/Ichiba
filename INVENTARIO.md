@@ -265,7 +265,7 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 | Prefijo | Archivo de rutas | Endpoints |
 |---|---|---|
 | `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` (verificado) · `PATCH /:id/estado` (verificado) · `DELETE /:id` (verificado) |
-| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
+| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` (autentica en MongoDB con bcryptjs) · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
 | `/api/verificacion` | `verificacionRoutes.ts` | `POST /correo/enviar` · `POST /correo/verificar` |
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /:ventaId/calificar` |
 | `/api/colas` | `colaRoutes.ts` | `POST /entrar` · `GET /mias` · `GET /producto/:productoId/estado` · `PATCH /:id/salir` · `PATCH /:id/responder-confirmacion` |
