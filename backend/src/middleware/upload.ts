@@ -48,12 +48,60 @@ export const upload = multer({
 });
 
 /**
+ * RQNF7.2: las fotos de los productos del catálogo aceptan únicamente los
+ * formatos .png, .jpeg y .jpg (sin webp).
+ */
+function filtroFotosProducto(
+  req: any,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback,
+) {
+  const tiposPermitidos = /jpeg|jpg|png/;
+  const extensionValida = tiposPermitidos.test(
+    path.extname(file.originalname).toLowerCase(),
+  );
+  const tipoValido = tiposPermitidos.test(file.mimetype);
+
+  if (extensionValida && tipoValido) {
+    cb(null, true);
+  } else {
+    cb(new Error("Solo se permiten imágenes (.jpg, .jpeg o .png)"));
+  }
+}
+
+const uploadProducto = multer({
+  storage,
+  fileFilter: filtroFotosProducto,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/**
  * Sube un solo archivo y devuelve los errores de Multer como JSON (400)
  * en vez del manejo de errores por defecto de Express.
  */
 export function subirImagenUnica(campo: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     upload.single(campo)(req, res, (error) => {
+      if (error) {
+        const mensaje =
+          error instanceof multer.MulterError
+            ? "La imagen no cumple con los requisitos (máximo 5 MB)"
+            : error.message || "No se pudo procesar la imagen";
+        return res.status(400).json({ message: mensaje });
+      }
+      next();
+    });
+  };
+}
+
+/**
+ * Sube las fotos de un producto (RQNF7.2: solo .png, .jpeg y .jpg) y
+ * devuelve los errores de Multer (formato no permitido, tamaño, cantidad)
+ * como JSON con 400 en vez del manejo de errores por defecto de Express.
+ */
+export function subirFotosProducto(campo: string, maximo: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    uploadProducto.array(campo, maximo)(req, res, (error) => {
       if (error) {
         const mensaje =
           error instanceof multer.MulterError

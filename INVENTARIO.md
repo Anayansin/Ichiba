@@ -58,7 +58,7 @@ para responder preguntas.
 | `prisma` 8 (RC) + `@prisma/client` 7 + `@prisma/orm-postgres` | Cliente de PostgreSQL (Prisma 8 con *contrato*) | `prisma.config.ts`, `src/configuracion/prisma.ts`, `src/prisma/db.ts` |
 | `bcryptjs` | Hash de contraseñas | `src/controllers/usuarioController.ts`, `scripts/*` |
 | `jsonwebtoken` | Tokens JWT de sesión | `src/middleware/auth.ts` |
-| `multer` 2 | Subida de imágenes | `src/middleware/upload.ts` (productos) y `src/middleware/uploadIne.ts` (INE, dos campos) |
+| `multer` 2 | Subida de imágenes | `src/middleware/upload.ts` (fotos de producto con filtro propio de solo png/jpeg/jpg, RQNF7.2; y el filtro general con webp que usan chat y promocionales) y `src/middleware/uploadIne.ts` (INE, dos campos) |
 | `sharp` | Procesamiento de imágenes: dimensiones/nitidez y redimensionado | `src/services/imagenProductoService.ts`, `src/services/ineService.ts` |
 | `tesseract.js` | OCR local del reverso de la INE (lee la MRZ, solo dígitos y `<`) | `src/services/ineService.ts`. Usa `eng.traineddata`/`spa.traineddata` de la raíz de `backend/` |
 | `nodemailer` 9 | Envío de correos por Gmail SMTP | `src/services/emailService.ts` |
@@ -81,7 +81,7 @@ para responder preguntas.
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
 | `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar y para editar el catálogo (crear, editar, archivar/activar y eliminar productos, RQNF6) |
-| `upload.ts` | Multer de productos (≤ 5 MB, ≤ 6 imágenes, tipos permitidos) |
+| `upload.ts` | Multer de productos con `subirFotosProducto` (≤ 5 MB, ≤ 6 imágenes, **solo .png/.jpeg/.jpg** por RQNF7.2, errores en JSON 400) y `upload`/`subirImagenUnica` general (acepta webp; lo usan chat y promocionales) |
 | `uploadIne.ts` | Multer de la INE (frente y reverso) |
 
 ---
@@ -328,6 +328,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run contract:emit` | Regenera el contrato Prisma |
 | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` | Ver contenido de Mongo |
+| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7: formats/dimensiones/validaciones de publicación y moderación con Cloud Vision vía mock (16 pruebas; levanta dos backends locales, con y sin llave) |
 
 ### npm (desde `frontend/Ichiba/`)
 

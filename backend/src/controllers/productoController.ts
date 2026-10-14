@@ -13,7 +13,9 @@ import {
   METODOS_ENTREGA,
   TIEMPO_PAGO_MINIMO,
   TIEMPO_PAGO_MAXIMO,
+  TIEMPO_PAGO_DEFECTO,
 } from "../models/producto.js";
+import { moderarFotosProducto } from "../services/visionService.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -26,6 +28,17 @@ const ESTADOS_FILA_EN_CURSO: ("activa" | "esperando_confirmacion")[] = [
   "activa",
   "esperando_confirmacion",
 ];
+
+/**
+ * RQNF7.4: 30 minutos mínimo, 3 horas máximo y una hora por defecto cuando
+ * el vendedor no envía el campo.
+ */
+function tiempoLimitePagoDe(valor: unknown): number {
+  if (valor === undefined || valor === null || valor === "") {
+    return TIEMPO_PAGO_DEFECTO;
+  }
+  return Number(valor);
+}
 
 function validarEntrega(req: Request): string | null {
   const { condicion, condicionUso, metodoEntrega, horarioEntregaInicio, horarioEntregaFin, precio, nombre, descripcion } = req.body;
@@ -47,7 +60,7 @@ function validarEntrega(req: Request): string | null {
     return errorHorarioEntrega;
   }
 
-  const tiempoLimitePago = Number(req.body.tiempoLimitePago);
+  const tiempoLimitePago = tiempoLimitePagoDe(req.body.tiempoLimitePago);
   if (
     !Number.isFinite(tiempoLimitePago) ||
     tiempoLimitePago < TIEMPO_PAGO_MINIMO ||
@@ -82,6 +95,7 @@ export async function actualizarProducto(
   req: RequestConUsuario,
   res: Response,
 ) {
+  let guardado = false;
   try {
     const producto = await Producto.findById(req.params.id);
     if (!producto)
@@ -112,7 +126,16 @@ export async function actualizarProducto(
       });
     }
 
-    const archivosNuevos = req.files as Express.Multer.File[];
+    const archivosNuevos = (req.files as Express.Multer.File[]) || [];
+
+    // Si alguna validación falla, las imágenes nuevas que Multer ya guardó
+    // en disco se borran para no dejar archivos huérfanos.
+    const borrarNuevas = () => {
+      archivosNuevos.forEach((archivoSubido) => {
+        fs.unlink(archivoSubido.path, () => {});
+      });
+    };
+
     let imagenesExistentes: string[] = [];
     if (req.body.imagenesExistentes) {
       try {
@@ -122,18 +145,17 @@ export async function actualizarProducto(
           (imagen): imagen is string => typeof imagen === "string",
         );
       } catch {
+        borrarNuevas();
         return res.status(400).json({
           message: "La lista de imágenes existentes no es válida",
         });
       }
     }
 
-    for (const archivo of archivosNuevos || []) {
+    for (const archivo of archivosNuevos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        (archivosNuevos || []).forEach((archivoSubido) => {
-          fs.unlink(archivoSubido.path, () => {});
-        });
+        borrarNuevas();
         return res.status(400).json({
           message:
             "Las imágenes del producto deben medir entre 420x540 y 2560x2560 píxeles",
@@ -143,6 +165,7 @@ export async function actualizarProducto(
 
     const categoria = categoriaProductoValida(req.body.categoria);
     if (!categoria) {
+      borrarNuevas();
       return res.status(400).json({ message: "Selecciona una categoría válida" });
     }
 
@@ -150,12 +173,13 @@ export async function actualizarProducto(
       (img) => !imagenesExistentes.includes(img),
     );
 
-    const imagenesNuevas = (archivosNuevos || []).map(
+    const imagenesNuevas = archivosNuevos.map(
       (archivo) => `/uploads/${archivo.filename}`,
     );
     const imagenesFinal = [...imagenesExistentes, ...imagenesNuevas];
 
     if (imagenesFinal.length === 0) {
+      borrarNuevas();
       return res
         .status(400)
         .json({ message: "El producto debe tener al menos una imagen" });
@@ -163,6 +187,7 @@ export async function actualizarProducto(
 
     const errorEntrega = validarEntrega(req);
     if (errorEntrega) {
+      borrarNuevas();
       return res.status(400).json({ message: errorEntrega });
     }
 
@@ -172,9 +197,20 @@ export async function actualizarProducto(
       datosDeEnvio: req.body.datosDeEnvio,
     });
     if (campoProhibido) {
+      borrarNuevas();
       return res
         .status(400)
         .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    // RQNF7.3: Cloud Vision analiza las fotos nuevas y bloquea artículos
+    // excluidos; corre al final, tras todas las validaciones de campo.
+    const errorModeracion = await moderarFotosProducto(
+      archivosNuevos.map((archivo) => archivo.path),
+    );
+    if (errorModeracion) {
+      borrarNuevas();
+      return res.status(400).json({ message: errorModeracion });
     }
 
     // Solo hasta aquí, que todas las validaciones pasaron, se borran del disco
@@ -193,13 +229,19 @@ export async function actualizarProducto(
     producto.metodoEntrega = req.body.metodoEntrega;
     producto.horarioEntregaInicio = req.body.horarioEntregaInicio;
     producto.horarioEntregaFin = req.body.horarioEntregaFin;
-    producto.tiempoLimitePago = Number(req.body.tiempoLimitePago);
+    producto.tiempoLimitePago = tiempoLimitePagoDe(req.body.tiempoLimitePago);
     producto.imagenes = imagenesFinal;
 
     const actualizado = await producto.save();
+    guardado = true;
     res.json(actualizado);
   } catch (error) {
     console.error("Error real:", error);
+    if (!guardado) {
+      ((req.files as Express.Multer.File[]) || []).forEach((archivo) => {
+        fs.unlink(archivo.path, () => {});
+      });
+    }
     res.status(400).json({ message: "Error al actualizar producto" });
   }
 }
@@ -228,6 +270,7 @@ export async function getMisProductos(req: RequestConUsuario, res: Response) {
 }
 
 export async function crearProducto(req: RequestConUsuario, res: Response) {
+  let guardado = false;
   try {
     const usuario = await buscarUsuarioPorId(req.usuarioId);
     if (!usuario) {
@@ -242,12 +285,18 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
         .json({ message: "Debes subir al menos una imagen" });
     }
 
+    // Si alguna validación falla, las imágenes que Multer ya guardó en disco
+    // se borran para no dejar archivos huérfanos.
+    const borrarSubidas = () => {
+      archivos.forEach((archivoSubido) => {
+        fs.unlink(archivoSubido.path, () => {});
+      });
+    };
+
     for (const archivo of archivos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        archivos.forEach((archivoSubido) => {
-          fs.unlink(archivoSubido.path, () => {});
-        });
+        borrarSubidas();
         return res.status(400).json({
           message:
             "Las imágenes del producto deben medir entre 420x540 y 2560x2560 píxeles",
@@ -259,6 +308,7 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
 
     const errorEntrega = validarEntrega(req);
     if (errorEntrega) {
+      borrarSubidas();
       return res.status(400).json({ message: errorEntrega });
     }
 
@@ -268,6 +318,7 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
       datosDeEnvio: req.body.datosDeEnvio,
     });
     if (campoProhibido) {
+      borrarSubidas();
       return res
         .status(400)
         .json({ message: mensajePalabrasProhibidas(campoProhibido) });
@@ -275,7 +326,19 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
 
     const categoria = categoriaProductoValida(req.body.categoria);
     if (!categoria) {
+      borrarSubidas();
       return res.status(400).json({ message: "Selecciona una categoría válida" });
+    }
+
+    // RQNF7.3: Cloud Vision analiza cada fotografía y bloquea artículos
+    // excluidos del catálogo; corre al final, tras todas las validaciones
+    // de campo, y si no puede analizar no se publica.
+    const errorModeracion = await moderarFotosProducto(
+      archivos.map((archivo) => archivo.path),
+    );
+    if (errorModeracion) {
+      borrarSubidas();
+      return res.status(400).json({ message: errorModeracion });
     }
 
     const nuevoProducto = new Producto({
@@ -288,16 +351,22 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
       metodoEntrega: req.body.metodoEntrega,
       horarioEntregaInicio: req.body.horarioEntregaInicio,
       horarioEntregaFin: req.body.horarioEntregaFin,
-      tiempoLimitePago: Number(req.body.tiempoLimitePago),
+      tiempoLimitePago: tiempoLimitePagoDe(req.body.tiempoLimitePago),
       imagenes,
       vendedorId: req.usuarioId,
       vendedor: usuario.nombreCompleto,
     });
 
     const saved = await nuevoProducto.save();
+    guardado = true;
     res.status(201).json(saved);
   } catch (error) {
     console.error("Error real:", error);
+    if (!guardado) {
+      (req.files as Express.Multer.File[] | undefined)?.forEach((archivo) => {
+        fs.unlink(archivo.path, () => {});
+      });
+    }
     res.status(400).json({ message: "Error al crear producto" });
   }
 }

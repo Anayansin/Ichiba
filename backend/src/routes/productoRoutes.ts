@@ -12,7 +12,7 @@ import {
 import { verificarToken } from "../middleware/auth.js";
 import { requiereVerificado } from "../middleware/verificado.js";
 import { requiereUsuarioSinSancion } from "../middleware/sancion.js";
-import { upload } from "../middleware/upload.js";
+import { subirFotosProducto } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.post(
   verificarToken,
   requiereVerificado,
   requiereUsuarioSinSancion,
-  upload.array("imagenes", 6),
+  subirFotosProducto("imagenes", 6),
   crearProducto,
 );
 router.put(
@@ -33,7 +33,7 @@ router.put(
   verificarToken,
   requiereVerificado,
   requiereUsuarioSinSancion,
-  upload.array("imagenes", 6),
+  subirFotosProducto("imagenes", 6),
   actualizarProducto,
 );
 router.patch(
