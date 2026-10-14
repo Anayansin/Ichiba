@@ -73,7 +73,16 @@ export async function enviarCorreoRecuperacion(
   return true;
 }
 
-export async function enviarCorreoAdvertencia(correo: string, mensaje: string) {
+export async function enviarCorreoAdvertencia(
+  correo: string,
+  mensaje: string,
+  opciones?: {
+    /** Asunto alternativo (por defecto, el de confirmación de horario). */
+    asunto?: string;
+    /** Pie alternativo (por defecto, invita a confirmar el horario). */
+    pie?: string;
+  },
+) {
   if (faltaConfigurarCorreo()) {
     console.log(`[correo local] Aviso para ${correo}: ${mensaje}`);
     return;
@@ -90,13 +99,16 @@ export async function enviarCorreoAdvertencia(correo: string, mensaje: string) {
   await transporter.sendMail({
     from: `"Ichiba" <${process.env.GMAIL_USER}>`,
     to: correo,
-    subject: "Advertencia: confirma tu horario en Ichiba",
+    subject: opciones?.asunto ?? "Advertencia: confirma tu horario en Ichiba",
     html: `
       <div style="font-family: sans-serif; padding: 20px;">
         <h2 style="color: #d90429;">Ichiba</h2>
         <p>${mensaje}</p>
         <p style="color: #888; font-size: 12px;">
-          Ingresa a tu panel de vendedor y confirma o actualiza tu horario para evitar la eliminación de tu cuenta.
+          ${
+            opciones?.pie ??
+            "Ingresa a tu panel de vendedor y confirma o actualiza tu horario para evitar la eliminación de tu cuenta."
+          }
         </p>
       </div>
     `,

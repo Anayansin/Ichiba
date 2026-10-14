@@ -25,6 +25,8 @@ type Modelo = {
   create: (args: { data: Condicion }) => Promise<DatosFila>;
   update: (args: ArgumentosModificar) => Promise<DatosFila | null>;
   updateMany: (args: ArgumentosModificar) => Promise<{ count: number }>;
+  /** RQNF6.6: borra las filas que cumplan el `where` (vacío = no borra nada). */
+  deleteMany: (args: { where: Condicion }) => Promise<{ count: number }>;
   count: (args?: { where?: Condicion }) => Promise<number>;
 };
 
@@ -311,6 +313,28 @@ function crearModelo(modelo: any): Modelo {
       }
 
       const filas = await aplicarPorFila(args);
+      return { count: filas.length };
+    },
+
+    async deleteMany(args) {
+      await asegurarConexion();
+
+      // Un `where` vacío no borra nada: evitar borrados accidentales totales.
+      if (Object.keys(args.where ?? {}).length === 0) return { count: 0 };
+
+      const { condicionSimple, requiereRevision } = dividirCondicion(args.where);
+
+      if (!requiereRevision) {
+        const borradas = await modelo.where(condicionSimple).deleteAll();
+        return { count: Array.isArray(borradas) ? borradas.length : 0 };
+      }
+
+      // Condiciones complejas (`in`, `null`, …): borrar fila por fila, que
+      // siempre tiene `id` en las tablas del contrato.
+      const filas = await consultar(modelo, { where: args.where });
+      for (const fila of filas) {
+        await modelo.where({ id: fila.id }).deleteAll();
+      }
       return { count: filas.length };
     },
 

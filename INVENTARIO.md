@@ -194,7 +194,7 @@ Marketplace de MercadoPago (comentario en `mercadopagoService.ts`).
 | `enviarCorreoVerificacion` | "Tu código de verificación de Ichiba" | `controllers/verificacionController.ts` | `POST /api/verificacion/correo/enviar` (código de 6 dígitos, expira **10 min**) |
 | `enviarCorreoRecuperacion` | "Recupera tu contraseña de Ichiba" | `controllers/usuarioController.ts` | `POST /api/usuarios/recuperar/solicitar` (expira **15 min**) |
 | `enviarCorreoTurnoDePago` | "Ya es tu turno de pagar en Ichiba" | `services/filaService.ts` | Cuando alguien llega a la posición 1 de la fila y empieza su ventana de pago |
-| `enviarCorreoAdvertencia` | "Advertencia: confirma tu horario en Ichiba" | `jobs/revisionHorarios.ts` | Job diario `0 14 * * *` (08:00 GMT-6) a vendedores sin horario confirmado |
+| `enviarCorreoAdvertencia` | "Advertencia: confirma tu horario en Ichiba" (también "Aviso: tu cuenta se eliminará el próximo 1ro de mes", RQNF6.3, y "Aviso de eliminación de cuenta en Ichiba", RQNF6.4) | `jobs/revisionHorarios.ts` | Job diario `0 14 * * *` (08:00 GMT-6): recordatorio a los 2 días sin confirmar, aviso 15 días antes de la eliminación y, con 2 faltas seguidas, aviso de eliminación + borrado total de la cuenta |
 | `enviarCorreoNovedadesCategoria` | "Nuevos productos en {categoría}" | `jobs/notificacionesCategoria.ts` | Job `0 10,17 * * *` (10:00 y 17:00) a los suscritos de cada categoría |
 | `enviarCorreoComentarioPublicitario` | "Nuevo comentario en tu anuncio {nombre}" | `controllers/comentarioController.ts` | Cuando alguien comenta una publicación publicitaria y el vendedor aceptó notificaciones de comentarios (`recibirNotificacionesPublicitarias`) |
 
@@ -251,7 +251,7 @@ npx tsx scripts/inspeccionar-mongo.ts usuario   # lista colecciones y 5 docs
 | Archivo | Horario | Qué hace |
 |---|---|---|
 | `src/jobs/revisionPagos.ts` | `* * * * *` (cada minuto) | Libera los turnos de pago vencidos (`filaService.expirarFilasVencidas`) |
-| `src/jobs/revisionHorarios.ts` | `0 14 * * *` (08:00 GMT-6 diario) | Revisa horarios de vendedores en GMT-6; el 1ro de mes cuenta las no confirmaciones, avisa por correo y, con 2 faltas, elimina |
+| `src/jobs/revisionHorarios.ts` | `0 14 * * *` (08:00 GMT-6 diario) | Revisa horarios de vendedores en GMT-6; el 1ro de mes cuenta las no confirmaciones, avisa 15 días antes de la eliminación y, con 2 faltas seguidas, envía el aviso de eliminación y borra la cuenta con todos sus registros (PostgreSQL, MongoDB y archivos, sin posibilidad de recuperación) |
 | `src/jobs/notificacionesCategoria.ts` | `0 10,17 * * *` | Correo de novedades por categoría |
 
 Los tres se arrancan al final de `src/server.ts`.
