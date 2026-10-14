@@ -294,6 +294,12 @@ Errores de Multer se responden como JSON 400 con mensajes amigables
 
 - `filtroPalabrasProhibidas` (`src/utils/filtroPalabras.ts`) se aplica a todo
   request con campos manuales; catálogos en `src/configuracion/palabrasProhibidas.ts`.
+- RQNF8: cuando un campo de texto de una publicación (producto o promocional)
+  coincide con una palabra no permitida, el backend responde 400 con
+  `{ message, campo }`; el formulario muestra la alerta en rojo **debajo del
+  campo señalado**, lo enfoca y permite corregir y reenviar, sometiéndose otra
+  vez a toda la validación (los tres formularios de publicación usan
+  `campoDeError` de `frontend/Ichiba/src/utils/errores.ts`).
 - Validaciones propias: `utils/validarPassword.ts`, `utils/validarRfcCurp.ts`,
   `utils/validarHorario.ts`, `utils/generarCodigo.ts` (códigos de correo),
   `utils/filtroPalabras.ts`.
@@ -328,7 +334,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run contract:emit` | Regenera el contrato Prisma |
 | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` | Ver contenido de Mongo |
-| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7: formats/dimensiones/validaciones de publicación y moderación con Cloud Vision vía mock (16 pruebas; levanta dos backends locales, con y sin llave) |
+| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7 y RQNF8: formatos/dimensiones/validaciones de publicación, moderación con Cloud Vision vía mock y alertas de palabras no permitidas con corrección y reenvío (23 pruebas; levanta dos backends locales, con y sin llave) |
 
 ### npm (desde `frontend/Ichiba/`)
 

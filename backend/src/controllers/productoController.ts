@@ -198,9 +198,10 @@ export async function actualizarProducto(
     });
     if (campoProhibido) {
       borrarNuevas();
-      return res
-        .status(400)
-        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+      return res.status(400).json({
+        message: mensajePalabrasProhibidas(campoProhibido),
+        campo: campoProhibido,
+      });
     }
 
     // RQNF7.3: Cloud Vision analiza las fotos nuevas y bloquea artículos
@@ -319,9 +320,10 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
     });
     if (campoProhibido) {
       borrarSubidas();
-      return res
-        .status(400)
-        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+      return res.status(400).json({
+        message: mensajePalabrasProhibidas(campoProhibido),
+        campo: campoProhibido,
+      });
     }
 
     const categoria = categoriaProductoValida(req.body.categoria);

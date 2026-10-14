@@ -54,6 +54,7 @@ function validarPromocional(req: Request): string | null {
 }
 
 export async function crearPromocional(req: RequestConUsuario, res: Response) {
+  let yaGuardado = false;
   try {
     const usuario = await buscarUsuarioPorId(req.usuarioId);
     if (!usuario) {
@@ -68,12 +69,18 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
         .json({ message: "Debes subir al menos una imagen" });
     }
 
+    // Si alguna validación falla, las imágenes que Multer ya guardó en disco
+    // se borran para no dejar archivos huérfanos.
+    const borrarSubidas = () => {
+      archivos.forEach((archivoSubido) => {
+        fs.unlink(archivoSubido.path, () => {});
+      });
+    };
+
     for (const archivo of archivos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        archivos.forEach((archivoSubido) => {
-          fs.unlink(archivoSubido.path, () => {});
-        });
+        borrarSubidas();
         return res.status(400).json({
           message:
             "Las imágenes del promocional deben medir entre 420x540 y 2560x2560 píxeles",
@@ -85,6 +92,7 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
 
     const errorPromocional = validarPromocional(req);
     if (errorPromocional) {
+      borrarSubidas();
       return res.status(400).json({ message: errorPromocional });
     }
 
@@ -94,9 +102,11 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
       coberturaEnvio: req.body.coberturaEnvio,
     });
     if (campoProhibido) {
-      return res
-        .status(400)
-        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+      borrarSubidas();
+      return res.status(400).json({
+        message: mensajePalabrasProhibidas(campoProhibido),
+        campo: campoProhibido,
+      });
     }
 
     const nuevoPromocional = new Promocional({
@@ -117,9 +127,15 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
     });
 
     const guardado = await nuevoPromocional.save();
+    yaGuardado = true;
     res.status(201).json(guardado);
   } catch (error) {
     console.error("Error real:", error);
+    if (!yaGuardado) {
+      (req.files as Express.Multer.File[] | undefined)?.forEach((archivo) => {
+        fs.unlink(archivo.path, () => {});
+      });
+    }
     res.status(400).json({ message: "Error al crear promocional" });
   }
 }
@@ -202,6 +218,7 @@ export async function actualizarPromocional(
   req: RequestConUsuario,
   res: Response,
 ) {
+  let yaGuardado = false;
   try {
     const promocional = await Promocional.findById(req.params.id);
     if (!promocional)
@@ -213,17 +230,36 @@ export async function actualizarPromocional(
         .json({ message: "No tienes permiso para editar este promocional" });
     }
 
-    const archivosNuevos = req.files as Express.Multer.File[];
-    const imagenesExistentes: string[] = req.body.imagenesExistentes
-      ? JSON.parse(req.body.imagenesExistentes)
-      : [];
+    const archivosNuevos = (req.files as Express.Multer.File[]) || [];
 
-    for (const archivo of archivosNuevos || []) {
+    // Si alguna validación falla, las imágenes nuevas que Multer ya guardó
+    // en disco se borran para no dejar archivos huérfanos.
+    const borrarNuevas = () => {
+      archivosNuevos.forEach((archivoSubido) => {
+        fs.unlink(archivoSubido.path, () => {});
+      });
+    };
+
+    let imagenesExistentes: string[] = [];
+    if (req.body.imagenesExistentes) {
+      try {
+        const parsed = JSON.parse(req.body.imagenesExistentes);
+        if (!Array.isArray(parsed)) throw new Error("no es una lista");
+        imagenesExistentes = parsed.filter(
+          (imagen): imagen is string => typeof imagen === "string",
+        );
+      } catch {
+        borrarNuevas();
+        return res.status(400).json({
+          message: "La lista de imágenes existentes no es válida",
+        });
+      }
+    }
+
+    for (const archivo of archivosNuevos) {
       const dimensionesValidas = await validarDimensionesProducto(archivo.path);
       if (!dimensionesValidas) {
-        (archivosNuevos || []).forEach((archivoSubido) => {
-          fs.unlink(archivoSubido.path, () => {});
-        });
+        borrarNuevas();
         return res.status(400).json({
           message:
             "Las imágenes del promocional deben medir entre 420x540 y 2560x2560 píxeles",
@@ -234,17 +270,14 @@ export async function actualizarPromocional(
     const imagenesEliminadas = promocional.imagenes.filter(
       (img) => !imagenesExistentes.includes(img),
     );
-    imagenesEliminadas.forEach((rutaRelativa) => {
-      const rutaCompleta = path.join(process.cwd(), rutaRelativa);
-      fs.unlink(rutaCompleta, () => {});
-    });
 
-    const imagenesNuevas = (archivosNuevos || []).map(
+    const imagenesNuevas = archivosNuevos.map(
       (archivo) => `/uploads/${archivo.filename}`,
     );
     const imagenesFinal = [...imagenesExistentes, ...imagenesNuevas];
 
     if (imagenesFinal.length === 0) {
+      borrarNuevas();
       return res
         .status(400)
         .json({ message: "El promocional debe tener al menos una imagen" });
@@ -252,6 +285,7 @@ export async function actualizarPromocional(
 
     const errorPromocional = validarPromocional(req);
     if (errorPromocional) {
+      borrarNuevas();
       return res.status(400).json({ message: errorPromocional });
     }
 
@@ -261,10 +295,19 @@ export async function actualizarPromocional(
       coberturaEnvio: req.body.coberturaEnvio,
     });
     if (campoProhibido) {
-      return res
-        .status(400)
-        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+      borrarNuevas();
+      return res.status(400).json({
+        message: mensajePalabrasProhibidas(campoProhibido),
+        campo: campoProhibido,
+      });
     }
+
+    // Solo hasta aquí, que todas las validaciones pasaron, se borran del
+    // disco las imágenes que el vendedor quitó del promocional.
+    imagenesEliminadas.forEach((rutaRelativa) => {
+      const rutaCompleta = path.join(process.cwd(), rutaRelativa);
+      fs.unlink(rutaCompleta, () => {});
+    });
 
     promocional.nombre = req.body.nombre;
     promocional.categoria = req.body.categoria;
@@ -283,9 +326,15 @@ export async function actualizarPromocional(
     promocional.imagenes = imagenesFinal;
 
     const actualizado = await promocional.save();
+    yaGuardado = true;
     res.json(actualizado);
   } catch (error) {
     console.error("Error real:", error);
+    if (!yaGuardado) {
+      ((req.files as Express.Multer.File[]) || []).forEach((archivo) => {
+        fs.unlink(archivo.path, () => {});
+      });
+    }
     res.status(400).json({ message: "Error al actualizar promocional" });
   }
 }

@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import { crearProducto } from "../../services/productoService";
 import { useAuth } from "../../context/AuthContext";
-import { mensajeDeError } from "../../utils/errores";
+import { mensajeDeError, campoDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
   CONDICIONES_USO,
@@ -35,6 +35,8 @@ function RegistrarProducto() {
   const [archivos, setArchivos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState("");
+  // RQNF8: campo de texto que el backend señaló con palabras no permitidas.
+  const [campoError, setCampoError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const longitudNombre = nombre.length;
@@ -74,6 +76,7 @@ function RegistrarProducto() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setCampoError(null);
 
     if (archivos.length === 0) {
       setError("Agrega al menos una imagen del producto");
@@ -135,9 +138,14 @@ function RegistrarProducto() {
       const nuevo = await crearProducto(formData);
       navigate(`/producto/${nuevo._id}`);
     } catch (err) {
-      const mensaje =
-        mensajeDeError(err) || "Error al publicar el producto";
+      const campo = campoDeError(err);
+      const mensaje = mensajeDeError(err) || "Error al publicar el producto";
       setError(mensaje);
+      setCampoError(campo);
+      // RQNF8.2: el usuario corrige el contenido señalado y vuelve a enviar.
+      if (campo) {
+        document.getElementById(`campo-${campo}`)?.focus();
+      }
     } finally {
       setCargando(false);
     }
@@ -148,12 +156,15 @@ function RegistrarProducto() {
       <form className="registrar-producto-card" onSubmit={handleSubmit}>
         <h2>Publicar nuevo producto</h2>
 
-        {error && <p className="registrar-producto-error">{error}</p>}
+        {error && campoError !== "nombre" && campoError !== "descripcion" && (
+          <p className="registrar-producto-error">{error}</p>
+        )}
 
         <div className="form-group">
           <label>Nombre del producto</label>
           <input
             type="text"
+            id="campo-nombre"
             className="registrar-producto-input"
             placeholder="Ej. Playera bordada a mano"
             value={nombre}
@@ -163,6 +174,9 @@ function RegistrarProducto() {
           <small className="registrar-producto-nota">
             {longitudNombre}/35 caracteres
           </small>
+          {error && campoError === "nombre" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">
@@ -204,6 +218,7 @@ function RegistrarProducto() {
         <div className="form-group">
           <label>Descripción</label>
           <textarea
+            id="campo-descripcion"
             className="registrar-producto-input registrar-producto-textarea"
             placeholder="Describe el producto, materiales, tallas, etc."
             value={descripcion}
@@ -213,6 +228,9 @@ function RegistrarProducto() {
           <small className="registrar-producto-nota">
             {longitudDescripcion}/100 caracteres
           </small>
+          {error && campoError === "descripcion" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">

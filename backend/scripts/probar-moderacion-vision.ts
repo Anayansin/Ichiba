@@ -175,6 +175,7 @@ async function borrarProducto(id: string) {
 }
 
 const productosCreados: { id: string; imagenes: string[] }[] = [];
+const promocionalesCreados: { id: string; imagenes: string[] }[] = [];
 
 async function crear(
   nombre: string,
@@ -391,8 +392,173 @@ try {
     rSinLlave.status === 400 && msgSinLlave.includes("moderación de imágenes no está disponible"),
     `status ${rSinLlave.status}: ${msgSinLlave}`,
   );
+
+  // -------------------------------------------------------------------------
+  // RQNF8 / RQNF8.1 / RQNF8.2: alerta de palabras no permitidas, campo
+  // señalado, corrección y reenvío con revalidación completa.
+  // -------------------------------------------------------------------------
+  etiquetasMock = ["Chair"];
+
+  // 17) Crear con palabra prohibida en el nombre → 400 + campo señalado
+  r = await crear(
+    "palabras en el nombre",
+    { nombre: "Lámpara de mierda bonita" },
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  verificar(
+    "RQNF8.1 alerta al crear con palabra prohibida (campo nombre)",
+    r.status === 400 &&
+      r.body.includes("palabras no permitidas") &&
+      r.body.includes('"campo":"nombre"'),
+    `status ${r.status}: ${r.body}`,
+  );
+
+  // 18) RQNF8.2: corregir el contenido y reenviar → pasa y se crea
+  r = await crear(
+    "nombre corregido reenviado",
+    {},
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  verificar(
+    "RQNF8.2 corrección y reenvío crea el producto",
+    r.status === 201,
+    `status ${r.status}: ${r.body}`,
+  );
+  const productoCorregido = r.id;
+
+  // 19) RQNF8.2 también revalida todo: reenvío con la palabra corregida pero
+  // con un precio inválido → sigue fallando por otra regla de RQNF7
+  r = await crear(
+    "reenvío con precio inválido",
+    { precio: "5" },
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  verificar(
+    "RQNF8.2 el reenvío se somete de nuevo a toda la validación",
+    r.status === 400 && r.body.includes("$10 y $5,000"),
+    `status ${r.status}: ${r.body}`,
+  );
+
+  // 20) Editar con palabra prohibida en la descripción → 400 + campo + intacto
+  if (!productoCorregido) {
+    verificar("RQNF8.1 alerta al editar con palabra prohibida", false, "no se creó el producto para editar");
+  } else {
+    const consultaBase = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+    );
+    const base = (await consultaBase.json()) as { imagenes: string[]; descripcion: string };
+
+    const fdMala = cuerpoProducto({
+      descripcion: "Descripción con una mierda dentro para probar",
+      imagenesExistentes: JSON.stringify(base.imagenes),
+    });
+    const rMala = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+      { method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: fdMala },
+    );
+    const msgMala = await rMala.text();
+    const consultaTras = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+    );
+    const tras = (await consultaTras.json()) as { descripcion: string };
+    verificar(
+      "RQNF8.1 alerta al editar con palabra prohibida (campo descripcion)",
+      rMala.status === 400 &&
+        msgMala.includes("palabras no permitidas") &&
+        msgMala.includes('"campo":"descripcion"') &&
+        tras.descripcion === base.descripcion,
+      `status ${rMala.status}: ${msgMala}`,
+    );
+
+    // 21) Corregir la descripción y reenviar → sí se guarda
+    const fdBuena = cuerpoProducto({
+      imagenesExistentes: JSON.stringify(base.imagenes),
+    });
+    const rBuena = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+      { method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: fdBuena },
+    );
+    verificar(
+      "RQNF8.2 corrección en la edición sí guarda",
+      rBuena.status === 200,
+      `status ${rBuena.status}: ${await mensajeDe(rBuena)}`,
+    );
+  }
+
+  // 22) Promocional: palabra prohibida en el nombre → 400 + campo señalado
+  const subirPromo = (cambios: Record<string, string> = {}) => {
+    const base: Record<string, string> = {
+      nombre: "Terreno de mierda con vista",
+      precio: "7000",
+      categoria: "terrenos-y-lotes",
+      descripcion: "Terreno amplio con vista al valle, listo para construir.",
+      condicionUso: "nuevo",
+      coberturaEnvio: "Todo el país",
+      chatHabilitado: "true",
+      zonaComentariosHabilitada: "true",
+      ...cambios,
+    };
+    const fd = new FormData();
+    for (const [campo, valor] of Object.entries(base)) fd.append(campo, valor);
+    fd.append("imagenes", new Blob([fs.readFileSync(rutaJpg)], { type: "image/jpeg" }), "foto.jpg");
+    return fetch(`http://127.0.0.1:${PUERTO_CON_LLAVE}/api/promocionales`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+  };
+
+  const rPromoMala = await subirPromo();
+  const msgPromoMala = await rPromoMala.text();
+  verificar(
+    "RQNF8.1 alerta en promocional (campo nombre)",
+    rPromoMala.status === 400 &&
+      msgPromoMala.includes("palabras no permitidas") &&
+      msgPromoMala.includes('"campo":"nombre"'),
+    `status ${rPromoMala.status}: ${msgPromoMala}`,
+  );
+
+  // 23) Promocional corregido y reenviado → se crea (y se limpia al final)
+  const rPromoBuena = await subirPromo({ nombre: "Terreno con vista al valle" });
+  const textoPromoBuena = await rPromoBuena.text();
+  if (rPromoBuena.ok) {
+    try {
+      const promoCreada = JSON.parse(textoPromoBuena) as { _id: string; imagenes: string[] };
+      promocionalesCreados.push({ id: promoCreada._id, imagenes: promoCreada.imagenes });
+    } catch {
+      /* ignorar */
+    }
+  }
+  verificar(
+    "RQNF8.2 corrección y reenvío crea el promocional",
+    rPromoBuena.status === 201,
+    `status ${rPromoBuena.status}: ${textoPromoBuena}`,
+  );
 } finally {
-  // Limpieza: borrar productos creados (y sus archivos) y apagar todo
+  // Limpieza: borrar productos y promocionales creados (y sus archivos) y
+  // apagar todo
+  for (const promo of promocionalesCreados) {
+    try {
+      const consulta = await fetch(
+        `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/promocionales/${promo.id}`,
+      ).catch(() => null);
+      let imagenes = promo.imagenes;
+      if (consulta?.ok) {
+        const actual = (await consulta.json()) as { imagenes?: string[] };
+        if (Array.isArray(actual.imagenes)) imagenes = actual.imagenes;
+      }
+      await fetch(
+        `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/promocionales/${promo.id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+      );
+      for (const imagen of imagenes) {
+        const ruta = path.join(RAIZ, imagen.replace(/^\//, ""));
+        if (fs.existsSync(ruta)) fs.unlinkSync(ruta);
+      }
+    } catch {
+      /* ignorar */
+    }
+  }
   for (const producto of productosCreados) {
     try {
       // Recupera las imágenes finales (la edición pudo agregar una más).

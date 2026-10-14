@@ -8,7 +8,7 @@ import {
 } from "../../services/productoService";
 import { useAuth } from "../../context/AuthContext";
 import { URL_BACKEND } from "../../services/api";
-import { mensajeDeError } from "../../utils/errores";
+import { mensajeDeError, campoDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
   CONDICIONES_USO,
@@ -59,6 +59,8 @@ function EditarProducto() {
   const [previewsNuevas, setPreviewsNuevas] = useState<string[]>([]);
 
   const [error, setError] = useState("");
+  // RQNF8: campo de texto que el backend señaló con palabras no permitidas.
+  const [campoError, setCampoError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
@@ -122,6 +124,7 @@ function EditarProducto() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setCampoError(null);
 
     if (totalImagenes === 0) {
       setError("El producto debe tener al menos una imagen");
@@ -162,9 +165,13 @@ function EditarProducto() {
       await actualizarProducto(id as string, formData);
       navigate(`/producto/${id}`);
     } catch (err) {
-      setError(
-        mensajeDeError(err) || "Error al actualizar el producto",
-      );
+      const campo = campoDeError(err);
+      setError(mensajeDeError(err) || "Error al actualizar el producto");
+      setCampoError(campo);
+      // RQNF8.2: el usuario corrige el contenido señalado y vuelve a enviar.
+      if (campo) {
+        document.getElementById(`campo-${campo}`)?.focus();
+      }
     } finally {
       setCargando(false);
     }
@@ -175,17 +182,23 @@ function EditarProducto() {
       <form className="editar-producto-card" onSubmit={handleSubmit}>
         <h2>Editar producto</h2>
 
-        {error && <p className="editar-producto-error">{error}</p>}
+        {error && campoError !== "nombre" && campoError !== "descripcion" && (
+          <p className="editar-producto-error">{error}</p>
+        )}
 
         <div className="form-group">
           <label>Nombre del producto</label>
           <input
             type="text"
+            id="campo-nombre"
             className="editar-producto-input"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
           />
+          {error && campoError === "nombre" && (
+            <p className="editar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">
@@ -219,11 +232,15 @@ function EditarProducto() {
         <div className="form-group">
           <label>Descripción</label>
           <textarea
+            id="campo-descripcion"
             className="editar-producto-input editar-producto-textarea"
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             required
           />
+          {error && campoError === "descripcion" && (
+            <p className="editar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">

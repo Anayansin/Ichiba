@@ -3,7 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import { crearPromocional } from "../../services/promocionalService";
 import { useAuth } from "../../context/AuthContext";
-import { mensajeDeError } from "../../utils/errores";
+import { mensajeDeError, campoDeError } from "../../utils/errores";
 import { CONDICIONES_USO } from "../../utils/opcionesProducto";
 import { TIPOS_PROMOCIONAL } from "../../configuracion/categorias";
 import "../RegistrarProducto/RegistrarProducto.css";
@@ -28,6 +28,8 @@ function RegistrarPromocional() {
   const [archivos, setArchivos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState("");
+  // RQNF8: campo de texto que el backend señaló con palabras no permitidas.
+  const [campoError, setCampoError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   const longitudNombre = nombre.length;
@@ -68,6 +70,7 @@ function RegistrarPromocional() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setCampoError(null);
 
     if (archivos.length === 0) {
       setError("Agrega al menos una imagen del promocional");
@@ -117,9 +120,15 @@ function RegistrarPromocional() {
       const nuevo = await crearPromocional(formData);
       navigate(`/promocional/${nuevo._id}`);
     } catch (err) {
+      const campo = campoDeError(err);
       const mensaje =
         mensajeDeError(err) || "Error al publicar el promocional";
       setError(mensaje);
+      setCampoError(campo);
+      // RQNF8.2: el usuario corrige el contenido señalado y vuelve a enviar.
+      if (campo) {
+        document.getElementById(`campo-${campo}`)?.focus();
+      }
     } finally {
       setCargando(false);
     }
@@ -136,12 +145,18 @@ function RegistrarPromocional() {
           vendedor.
         </p>
 
-        {error && <p className="registrar-producto-error">{error}</p>}
+        {error &&
+          campoError !== "nombre" &&
+          campoError !== "descripcion" &&
+          campoError !== "coberturaEnvio" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
 
         <div className="form-group">
           <label>Nombre del promocional</label>
           <input
             type="text"
+            id="campo-nombre"
             className="registrar-producto-input"
             placeholder="Ej. Casa en venta con jardín"
             value={nombre}
@@ -151,6 +166,9 @@ function RegistrarPromocional() {
           <small className="registrar-producto-nota">
             {longitudNombre}/35 caracteres
           </small>
+          {error && campoError === "nombre" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">
@@ -189,6 +207,7 @@ function RegistrarPromocional() {
         <div className="form-group">
           <label>Descripción</label>
           <textarea
+            id="campo-descripcion"
             className="registrar-producto-input registrar-producto-textarea"
             placeholder="Describe el artículo o servicio, detalles de ubicación, estado, etc."
             value={descripcion}
@@ -198,6 +217,9 @@ function RegistrarPromocional() {
           <small className="registrar-producto-nota">
             {longitudDescripcion}/100 caracteres
           </small>
+          {error && campoError === "descripcion" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">
@@ -219,6 +241,7 @@ function RegistrarPromocional() {
           <label>Cobertura de envío</label>
           <input
             type="text"
+            id="campo-coberturaEnvio"
             className="registrar-producto-input"
             placeholder="Ej. Todo el país, solo CDMX y Estado de México"
             value={coberturaEnvio}
@@ -228,6 +251,9 @@ function RegistrarPromocional() {
           <small className="registrar-producto-nota">
             Escribe libremente hasta dónde llegas con el envío.
           </small>
+          {error && campoError === "coberturaEnvio" && (
+            <p className="registrar-producto-error">{error}</p>
+          )}
         </div>
 
         <div className="form-group">
