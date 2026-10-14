@@ -80,7 +80,7 @@ para responder preguntas.
 | `admin.ts` → `requiereAdmin`, `esAdmin.ts` → `esAdmin` | Solo usuarios `tipo: "admin"` |
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
-| `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar |
+| `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar y para editar el catálogo (crear, editar, archivar/activar y eliminar productos, RQNF6) |
 | `upload.ts` | Multer de productos (≤ 5 MB, ≤ 6 imágenes, tipos permitidos) |
 | `uploadIne.ts` | Multer de la INE (frente y reverso) |
 
@@ -264,7 +264,7 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 
 | Prefijo | Archivo de rutas | Endpoints |
 |---|---|---|
-| `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` |
+| `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` (verificado) · `PATCH /:id/estado` (verificado) · `DELETE /:id` (verificado) |
 | `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
 | `/api/verificacion` | `verificacionRoutes.ts` | `POST /correo/enviar` · `POST /correo/verificar` |
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /:ventaId/calificar` |

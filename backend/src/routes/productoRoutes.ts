@@ -31,11 +31,17 @@ router.post(
 router.put(
   "/:id",
   verificarToken,
+  requiereVerificado,
   requiereUsuarioSinSancion,
   upload.array("imagenes", 6),
   actualizarProducto,
 );
-router.patch("/:id/estado", verificarToken, cambiarEstadoProducto);
-router.delete("/:id", verificarToken, eliminarProducto);
+router.patch(
+  "/:id/estado",
+  verificarToken,
+  requiereVerificado,
+  cambiarEstadoProducto,
+);
+router.delete("/:id", verificarToken, requiereVerificado, eliminarProducto);
 
 export default router;
