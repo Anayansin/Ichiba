@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
+import { textoCategoria } from "../../configuracion/categorias";
 import {
   fetchProductos,
   fetchCategoriaPopular,
@@ -51,7 +52,7 @@ function Nosotros({ onOpenLogin }: NosotrosProps) {
         <div className="estadisticas__contenedor">
           <div className="estadistica">
             <span className="estadistica__numero">
-              {categoriaPopular ?? "—"}
+              {categoriaPopular ? textoCategoria(categoriaPopular) : "—"}
             </span>
             <span className="estadistica__label">Categoría más popular</span>
           </div>

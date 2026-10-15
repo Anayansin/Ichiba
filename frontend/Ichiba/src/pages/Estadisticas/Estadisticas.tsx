@@ -20,6 +20,7 @@ import {
   type VentaConProducto,
 } from "../../services/mensajeService";
 import { mensajeDeError } from "../../utils/errores";
+import { textoCategoria } from "../../configuracion/categorias";
 import "./Estadisticas.css";
 
 type CategoriaPopular = {
@@ -170,7 +171,9 @@ function Estadisticas() {
           <div className="mis-estadisticas__barras">
             {categorias.map(([categoria, cantidad]) => (
               <div key={categoria} className="mis-estadisticas__barra-fila">
-                <span className="mis-estadisticas__barra-nombre">{categoria}</span>
+                <span className="mis-estadisticas__barra-nombre">
+                  {textoCategoria(categoria)}
+                </span>
                 <div className="mis-estadisticas__barra">
                   <div
                     className="mis-estadisticas__barra-relleno"
@@ -190,7 +193,7 @@ function Estadisticas() {
         <h2>Categoría con más interés en Ichiba</h2>
         {categoriaPopular?.categoria ? (
           <p className="mis-estadisticas__popular">
-            <strong>{categoriaPopular.categoria}</strong> con{" "}
+            <strong>{textoCategoria(categoriaPopular.categoria)}</strong> con{" "}
             {categoriaPopular.totalInteres} productos vistos
           </p>
         ) : (

@@ -9,6 +9,30 @@ export const CATEGORIAS_PRODUCTO = [
 ];
 
 /**
+ * RQF8: las seis categorías predefinidas con el texto que ve el vendedor.
+ * Los valores internos no cambian (las bases de datos, filtados y enlaces
+ * `/inicio?categoria=artesanias` los usan tal cual).
+ */
+export const CATEGORIAS_PRODUCTO_CON_TEXTO: { valor: string; texto: string }[] =
+  [
+    { valor: "Artesanias", texto: "Artesanías" },
+    { valor: "Ropa", texto: "Ropa (segunda mano)" },
+    { valor: "Hogar", texto: "Hogar" },
+    { valor: "Electrodomesticos", texto: "Electrodomésticos" },
+    { valor: "Coleccionables", texto: "Coleccionables" },
+    { valor: "Otros", texto: "Otros" },
+  ];
+
+/** Nombre para mostrar de una categoría de producto (si no existe, el valor). */
+export function textoCategoria(valor?: string): string {
+  return (
+    CATEGORIAS_PRODUCTO_CON_TEXTO.find((cat) => cat.valor === valor)?.texto ??
+    valor ??
+    ""
+  );
+}
+
+/**
  * Tipos de promocionales: se anuncian en la plataforma pero la compra se
  * coordina fuera de ICHIBA (autos, casas, terrenos, joyas, etc.).
  */

@@ -17,6 +17,7 @@ import {
 import { useColas } from "../../context/ColasContext";
 import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError } from "../../utils/errores";
+import { textoCategoria } from "../../configuracion/categorias";
 import {
   textoCondicion,
   textoMetodoEntrega,
@@ -205,7 +206,7 @@ function ProductoCompleto() {
 
       <div className="producto-completo__info">
         <span className="producto-completo__categoria">
-          {producto.categoria}
+          {textoCategoria(producto.categoria)}
         </span>
         <h1 className="producto-completo__nombre">{producto.nombre}</h1>
         <p className="producto-completo__precio">${producto.precio}</p>

@@ -11,7 +11,10 @@ import {
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
-import { CATEGORIAS_PRODUCTO } from "../../configuracion/categorias";
+import {
+  CATEGORIAS_PRODUCTO,
+  textoCategoria,
+} from "../../configuracion/categorias";
 import "./RegistrarProducto.css";
 
 const categorias = CATEGORIAS_PRODUCTO;
@@ -24,7 +27,9 @@ function RegistrarProducto() {
 
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
-  const [categoria, setCategoria] = useState(categorias[0]);
+  // RQF8/RQNF8.1: la categoría arranca vacía; el vendedor debe seleccionar
+  // una de las seis categorías predefinidas antes de publicar.
+  const [categoria, setCategoria] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
   const [condicionUso, setCondicionUso] = useState(CONDICIONES_USO[0].valor);
@@ -80,6 +85,12 @@ function RegistrarProducto() {
 
     if (archivos.length === 0) {
       setError("Agrega al menos una imagen del producto");
+      return;
+    }
+
+    if (!categoria) {
+      setError("Selecciona una categoría para tu producto");
+      document.getElementById("campo-categoria")?.focus();
       return;
     }
 
@@ -203,13 +214,17 @@ function RegistrarProducto() {
         <div className="form-group">
           <label>Categoría</label>
           <select
+            id="campo-categoria"
             className="registrar-producto-input"
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
           >
+            <option value="" disabled>
+              Selecciona una categoría
+            </option>
             {categorias.map((cat) => (
               <option key={cat} value={cat}>
-                {cat}
+                {textoCategoria(cat)}
               </option>
             ))}
           </select>

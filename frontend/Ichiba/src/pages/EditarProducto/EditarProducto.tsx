@@ -16,6 +16,7 @@ import {
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
+import { textoCategoria } from "../../configuracion/categorias";
 import "./EditarProducto.css";
 
 const categorias = [
@@ -131,6 +132,13 @@ function EditarProducto() {
       return;
     }
 
+    // RQNF8.1: siempre debe existir una categoría de las seis predefinidas.
+    if (!categoria) {
+      setError("Selecciona una categoría para tu producto");
+      document.getElementById("campo-categoria")?.focus();
+      return;
+    }
+
     if (horarioInicio < "05:00" || horarioFin > "23:59") {
       setError(
         "El horario de coordinación de entrega debe estar entre las 05:00 y las 23:59",
@@ -217,13 +225,17 @@ function EditarProducto() {
         <div className="form-group">
           <label>Categoría</label>
           <select
+            id="campo-categoria"
             className="editar-producto-input"
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
           >
+            <option value="" disabled>
+              Selecciona una categoría
+            </option>
             {categorias.map((cat) => (
               <option key={cat} value={cat}>
-                {cat}
+                {textoCategoria(cat)}
               </option>
             ))}
           </select>

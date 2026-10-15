@@ -534,6 +534,93 @@ try {
     rPromoBuena.status === 201,
     `status ${rPromoBuena.status}: ${textoPromoBuena}`,
   );
+
+  // -------------------------------------------------------------------------
+  // RQF8 / RQNF8.1 / RQNF8.2: la categoría es obligatoria, se valida contra
+  // las seis predefinidas y se guarda tal cual la eligió el vendedor.
+  // -------------------------------------------------------------------------
+
+  // 24) Publicar sin categoría → 400
+  r = await crear(
+    "sin categoria",
+    { categoria: "__omitir__" },
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  verificar(
+    "RQNF8.1 publicar sin categoría se bloquea",
+    r.status === 400 && r.body.includes("Selecciona una categoría válida"),
+    `status ${r.status}: ${r.body}`,
+  );
+
+  // 25) Categoría fuera de la lista predefinida → 400
+  r = await crear(
+    "categoria fuera del catalogo",
+    { categoria: "NoExiste" },
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  verificar(
+    "RQNF8.1 categoría fuera de las predefinidas se bloquea",
+    r.status === 400 && r.body.includes("Selecciona una categoría válida"),
+    `status ${r.status}: ${r.body}`,
+  );
+
+  // 26) Editar sin categoría → también responde 400
+  if (!productoCorregido) {
+    verificar(
+      "RQNF8.1 editar sin categoría se bloquea",
+      false,
+      "no hay producto para editar",
+    );
+  } else {
+    const consultaCat = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+    );
+    const baseCat = (await consultaCat.json()) as { imagenes: string[] };
+    const fdSinCategoria = cuerpoProducto({
+      categoria: "__omitir__",
+      imagenesExistentes: JSON.stringify(baseCat.imagenes),
+    });
+    const rEdit = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+      {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fdSinCategoria,
+      },
+    );
+    const textoEdit = await rEdit.text();
+    verificar(
+      "RQNF8.1 editar sin categoría se bloquea",
+      rEdit.status === 400 &&
+        textoEdit.includes("Selecciona una categoría válida"),
+      `status ${rEdit.status}: ${textoEdit}`,
+    );
+  }
+
+  // 27) Se guarda la categoría elegida por el vendedor (RQNF8.2)
+  etiquetasMock = ["Chair"];
+  r = await crear(
+    "categoria Coleccionables",
+    { categoria: "Coleccionables" },
+    { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  );
+  let categoriaGuardada = "";
+  if (r.id) {
+    const consultaFinal = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${r.id}`,
+    );
+    const productoFinal = (await consultaFinal.json()) as {
+      categoria?: string;
+      imagenes: string[];
+    };
+    categoriaGuardada = productoFinal.categoria ?? "";
+    productosCreados.push({ id: r.id, imagenes: productoFinal.imagenes });
+  }
+  verificar(
+    "RQNF8.2 se guarda la categoría seleccionada (Coleccionables)",
+    r.status === 201 && categoriaGuardada === "Coleccionables",
+    `status ${r.status}, categoría guardada: "${categoriaGuardada}"`,
+  );
 } finally {
   // Limpieza: borrar productos y promocionales creados (y sus archivos) y
   // apagar todo

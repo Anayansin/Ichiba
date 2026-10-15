@@ -334,7 +334,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run contract:emit` | Regenera el contrato Prisma |
 | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` | Ver contenido de Mongo |
-| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7 y RQNF8: formatos/dimensiones/validaciones de publicación, moderación con Cloud Vision vía mock y alertas de palabras no permitidas con corrección y reenvío (23 pruebas; levanta dos backends locales, con y sin llave) |
+| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7, RQNF8 y RQF8: formatos/dimensiones/validaciones de publicación (incluye categorías obligatorias), moderación con Cloud Vision vía mock y alertas de palabras no permitidas con corrección y reenvío (27 pruebas; levanta dos backends locales, con y sin llave) |
 
 ### npm (desde `frontend/Ichiba/`)
 

@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   CATEGORIAS_PRODUCTO,
   TIPOS_PROMOCIONAL,
+  textoCategoria,
 } from "../../configuracion/categorias";
 import "./Header.css";
 
@@ -92,7 +93,7 @@ function Header({ onOpenLogin }: HeaderProps) {
                   to={`/inicio?categoria=${categoria.toLowerCase()}`}
                   className="header__menu-item"
                 >
-                  {categoria}
+                  {textoCategoria(categoria)}
                 </Link>
               ))}
 
