@@ -903,6 +903,101 @@ try {
     rResumenSinToken.status === 401,
     `status ${rResumenSinToken.status}`,
   );
+
+  // -------------------------------------------------------------------------
+  // Rol del administrador: supervisión únicamente. No confirma horarios, no
+  // publica y no compra (ni siquiera por las rutas que se identifican con
+  // x-comprador-id).
+  // -------------------------------------------------------------------------
+
+  if (!datosAdmin.token) {
+    verificar(
+      "Rol de administrador: sin sesión no se pueden probar los 403",
+      false,
+      "falta el token de admin",
+    );
+  } else {
+    const authAdmin = { Authorization: `Bearer ${datosAdmin.token}` };
+
+    // 40) Confirmar horario → 403
+    const rHorario = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/usuarios/confirmar-horario`,
+      {
+        method: "PUT",
+        headers: { ...authAdmin, "Content-Type": "application/json" },
+        body: JSON.stringify({ horarios: [] }),
+      },
+    );
+    verificar(
+      "Rol admin: confirmar horario responde 403",
+      rHorario.status === 403,
+      `status ${rHorario.status}`,
+    );
+
+    // 41) Publicar producto → 403
+    const rProducto = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos`,
+      { method: "POST", headers: authAdmin },
+    );
+    verificar(
+      "Rol admin: publicar producto responde 403",
+      rProducto.status === 403,
+      `status ${rProducto.status}`,
+    );
+
+    // 42) Publicar promocional → 403
+    const rPromo = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/promocionales`,
+      { method: "POST", headers: authAdmin },
+    );
+    verificar(
+      "Rol admin: publicar promocional responde 403",
+      rPromo.status === 403,
+      `status ${rPromo.status}`,
+    );
+
+    // 43) Entrar en una fila → 403 (la ruta usa x-comprador-id, pero el
+    // token de administrador manda)
+    const rFila = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/colas/entrar`,
+      {
+        method: "POST",
+        headers: { ...authAdmin, "x-comprador-id": "prueba-rol-admin" },
+        body: JSON.stringify({ productoId: "000000000000000000000000" }),
+      },
+    );
+    verificar(
+      "Rol admin: entrar en la fila responde 403",
+      rFila.status === 403,
+      `status ${rFila.status}`,
+    );
+
+    // 44) Crear orden de pago → 403
+    const rOrden = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/pagos/crear-orden`,
+      {
+        method: "POST",
+        headers: { ...authAdmin, "x-comprador-id": "prueba-rol-admin" },
+        body: JSON.stringify({ productoId: "000000000000000000000000" }),
+      },
+    );
+    verificar(
+      "Rol admin: crear orden de pago responde 403",
+      rOrden.status === 403,
+      `status ${rOrden.status}`,
+    );
+
+    // 45) Vincular PayPal → 403 (la vinculación es parte del alta de vendedor)
+    const rVinculo = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/pagos/paypal/vincular`,
+      { method: "POST", headers: authAdmin },
+    );
+    verificar(
+      "Rol admin: vincular PayPal responde 403",
+      rVinculo.status === 403,
+      `status ${rVinculo.status}`,
+    );
+  }
 } finally {
   // Limpieza: borrar productos y promocionales creados (y sus archivos) y
   // apagar todo

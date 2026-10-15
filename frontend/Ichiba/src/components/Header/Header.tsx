@@ -198,22 +198,33 @@ function Header({ onOpenLogin }: HeaderProps) {
               <p className="header__usuario-nombre">{usuario.nombreCompleto}</p>
               <p className="header__usuario-correo">{usuario.correo}</p>
               <hr />
-              <Link to="/panel-vendedor" className="header__menu-item">
-                Mi panel
-              </Link>
-              <Link to="/panel-vendedor/publicar" className="header__menu-item">
-                Publicar producto
-              </Link>
-              <Link
-                to="/panel-vendedor/estadisticas"
-                className="header__menu-item"
-              >
-                Estadísticas
-              </Link>
-              {usuario.tipo === "admin" && (
-                <Link to="/admin/reportes" className="header__menu-item">
-                  Reportes
-                </Link>
+              {usuario.tipo !== "admin" ? (
+                <>
+                  <Link to="/panel-vendedor" className="header__menu-item">
+                    Mi panel
+                  </Link>
+                  <Link
+                    to="/panel-vendedor/publicar"
+                    className="header__menu-item"
+                  >
+                    Publicar producto
+                  </Link>
+                  <Link
+                    to="/panel-vendedor/estadisticas"
+                    className="header__menu-item"
+                  >
+                    Estadísticas
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/admin" className="header__menu-item">
+                    Administración
+                  </Link>
+                  <Link to="/admin/reportes" className="header__menu-item">
+                    Reportes
+                  </Link>
+                </>
               )}
               <button
                 className="header__menu-item header__logout"

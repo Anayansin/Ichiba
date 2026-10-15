@@ -182,6 +182,7 @@ function ProductoCompleto() {
     return <p className="producto-no-encontrado">Producto no encontrado</p>;
 
   const esDueño = String(usuario?.id) === String(producto.vendedorId);
+  const esAdmin = usuario?.tipo === "admin";
 
   if (!producto.activo && !esDueño) {
     return (
@@ -257,7 +258,12 @@ function ProductoCompleto() {
           {producto.datosDeEnvio && <p>{producto.datosDeEnvio}</p>}
         </div>
 
-        {estadoFila ? (
+        {esAdmin ? (
+          <p className="producto-completo__aviso-inactivo">
+            Tu cuenta es de administración: supervisa la plataforma, no
+            realiza compras.
+          </p>
+        ) : estadoFila ? (
           estadoFila.puedePagar ? (
             <div className="producto-completo__pago-listo">
               <p>¡Es tu turno! Estás en la posición 1.</p>

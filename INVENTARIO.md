@@ -78,6 +78,7 @@ para responder preguntas.
 |---|---|
 | `auth.ts` → `verificarToken` | Valida el JWT (`Authorization: Bearer …`) |
 | `admin.ts` → `requiereAdmin`, `esAdmin.ts` → `esAdmin` | Solo usuarios `tipo: "admin"` |
+| `vendedor.ts` → `requiereVendedor`, `rechazarAdminEnCompra` | El administrador es solo de supervisión: no publica, no confirma horarios ni vincula PayPal (`requiereVendedor` → 403) y no entra a filas ni paga (`rechazarAdminEnCompra`, revisa el token de las rutas de compra que usan `x-comprador-id`) |
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
 | `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar y para editar el catálogo (crear, editar, archivar/activar y eliminar productos, RQNF6) |

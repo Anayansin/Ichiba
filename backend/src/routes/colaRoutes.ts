@@ -8,11 +8,13 @@ import {
 } from "../controllers/colaController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { requiereCompradorSinSancion } from "../middleware/sancion.js";
+import { rechazarAdminEnCompra } from "../middleware/vendedor.js";
 
 const router = Router();
 
 router.post(
   "/entrar",
+  rechazarAdminEnCompra,
   requiereCompradorId,
   requiereCompradorSinSancion,
   entrarEnFila,
