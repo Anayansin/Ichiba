@@ -13,6 +13,11 @@ import {
   ventasDelVendedor,
   misComprasDelComprador,
   calificar,
+  abrirDisputa,
+  responderDisputaDeVenta,
+  misDisputasDelComprador,
+  disputasDelVendedor,
+  imagenEvidenciaDisputa,
 } from "../controllers/pagoController.js";
 import {
   iniciarVinculacionPayPal,
@@ -21,7 +26,10 @@ import {
 } from "../controllers/paypalVinculacionController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { verificarToken } from "../middleware/auth.js";
-import { subirComprobante } from "../middleware/upload.js";
+import {
+  subirComprobante,
+  subirEvidenciasDisputa,
+} from "../middleware/upload.js";
 import {
   rechazarAdminEnCompra,
   requiereVendedor,
@@ -113,6 +121,43 @@ router.get(
   rechazarAdminEnCompra,
   requiereCompradorId,
   misComprasDelComprador,
+);
+
+// RQF40 / RQNF32: disputas de reembolso. El comprador abre la disputa con
+// evidencias; el vendedor responde con las suyas; la administración dictamina
+// desde el BackOffice mientras el pago queda retenido.
+router.post(
+  "/:ventaId/disputa",
+  rechazarAdminEnCompra,
+  requiereCompradorId,
+  subirEvidenciasDisputa("evidencias"),
+  abrirDisputa,
+);
+router.get(
+  "/disputas/mis-disputas",
+  rechazarAdminEnCompra,
+  requiereCompradorId,
+  misDisputasDelComprador,
+);
+router.get(
+  "/vendedor/disputas",
+  verificarToken,
+  requiereVendedorDeEntregas,
+  disputasDelVendedor,
+);
+router.post(
+  "/disputas/:disputaId/responder",
+  verificarToken,
+  requiereVendedorDeEntregas,
+  subirEvidenciasDisputa("evidencias"),
+  responderDisputaDeVenta,
+);
+
+// Las evidencias solo las ven el comprador, el vendedor y la administración
+// (nunca se sirven como archivos estáticos).
+router.get(
+  "/disputas/:disputaId/evidencia/:lado/:indice",
+  imagenEvidenciaDisputa,
 );
 
 // Detalle de una compra (comprador o vendedor).

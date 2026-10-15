@@ -16,6 +16,8 @@ import {
   enviarCorreoVentaCancelada,
 } from "./emailService.js";
 import { reanudarFilaTrasCancelacion } from "./filaService.js";
+import { registrarAdeudo } from "./adeudoService.js";
+import type { CausaAdeudo } from "../models/Adeudo.js";
 import { publicarResumenAdmin } from "../graphql/suscripciones.js";
 import {
   finDeBloquesDeAtencion,
@@ -433,6 +435,16 @@ export async function registrarEntregaDeVenta(
     };
   }
 
+  // RQNF32: con una retención preventiva vigente (reporte, disputa o
+  // irregularidad) no se puede liberar el pago al vendedor; primero la
+  // administración debe resolver la retención.
+  if (venta.retenido) {
+    return {
+      error:
+        "Esta venta tiene una retención preventiva de fondos (RQNF32): la administración debe resolverla antes de que puedas liberar el pago.",
+    };
+  }
+
   const codigoLimpio = codigo.trim();
   if (!/^\d{4}$/.test(codigoLimpio) || codigoLimpio !== venta.codigoEntrega) {
     return {
@@ -540,6 +552,19 @@ export type OpcionesCancelacion = {
   motivo: string;
   /** Si el llamador manda su propio correo al comprador (p. ej. rechazo). */
   omitirCorreoComprador?: boolean;
+  /** Si el llamador manda su propio correo al vendedor (p. ej. disputa). */
+  omitirCorreoVendedor?: boolean;
+  /**
+   * RQNF32 / RQF40: permite resolver una venta con retención preventiva
+   * (disputa, reporte o reembolso fallido) e incluso una ya completada; al
+   * terminar el reembolso, la retención queda levantada.
+   */
+  resolverRetencion?: boolean;
+  /**
+   * RQNF37: culpa directa del vendedor en el incumplimiento; después del
+   * reembolso se registra su adeudo por el monto cubierto por la plataforma.
+   */
+  culpaVendedor?: { causa: CausaAdeudo };
 };
 
 /**
@@ -553,17 +578,24 @@ export type OpcionesCancelacion = {
  * Después reanuda la fila (RQNF23.2 / RQNF24.2), cierra la fila del
  * comprador y avisa a ambas partes con la hora y día de la resolución
  * (RQNF24). Si `venta.retenido` es true (RQNF32) no se toca: la resuelve un
- * administrador.
+ * administrador, salvo que se pase `resolverRetencion` (disputas y ventas
+ * retenidas, RQF40). Con `culpaVendedor` se registra además el adeudo del
+ * vendedor (RQNF37).
  */
 export async function cancelarEscrow(
   venta: VentaEscrow,
   opciones: OpcionesCancelacion,
-): Promise<{ error?: string; omitida?: boolean }> {
-  if (venta.retenido) {
+): Promise<{
+  error?: string;
+  omitida?: boolean;
+  reembolsoId?: string | null;
+  adeudoId?: string;
+}> {
+  if (venta.retenido && !opciones.resolverRetencion) {
     return { omitida: true };
   }
 
-  if (venta.estado === "completada") {
+  if (venta.estado === "completada" && !opciones.resolverRetencion) {
     return {
       error:
         "Esta venta ya fue completada; un administrador debe resolver el reembolso de una disputa",
@@ -636,6 +668,8 @@ export async function cancelarEscrow(
       canceladoMotivo: opciones.motivo,
       reembolsadoEn: ahora,
       reembolsoId,
+      // RQNF32: al resolver una venta retenida, la retención queda levantada.
+      ...(opciones.resolverRetencion ? { retenido: false } : {}),
     },
   });
 
@@ -644,6 +678,7 @@ export async function cancelarEscrow(
     canceladoMotivo: opciones.motivo,
     reembolsadoEn: ahora,
     reembolsoId,
+    ...(opciones.resolverRetencion ? { retenido: false } : {}),
   });
 
   // RQNF23.2 / RQNF24.2: la fila del comprador se cierra y el siguiente
@@ -655,6 +690,32 @@ export async function cancelarEscrow(
       "[escrow] No se pudo reanudar la fila tras la cancelación:",
       error instanceof Error ? error.message : error,
     );
+  }
+
+  // RQNF37: si el reembolso fue por culpa directa del vendedor, se registra
+  // su adeudo con la plataforma (queda suspendido con saldo pendiente por
+  // liquidar, RQNF38).
+  let adeudoId: string | undefined;
+  if (opciones.culpaVendedor) {
+    try {
+      const adeudo = await registrarAdeudo({
+        usuarioId: Number(venta.vendedorId),
+        venta: {
+          id: venta.id,
+          productoId: venta.productoId,
+          paypalOrderId: venta.paypalOrderId,
+          monto: Number(venta.monto),
+        },
+        motivo: opciones.motivo,
+        causa: opciones.culpaVendedor.causa,
+      });
+      adeudoId = adeudo.id;
+    } catch (error) {
+      console.error(
+        "[escrow] No se pudo registrar el adeudo del vendedor:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   const producto = await cargarProducto(venta);
@@ -677,7 +738,7 @@ export async function cancelarEscrow(
       ),
     );
   }
-  if (vendedor) {
+  if (vendedor && !opciones.omitirCorreoVendedor) {
     promesas.push(
       enviarCorreoVentaCancelada(
         vendedor.correo,
@@ -699,7 +760,7 @@ export async function cancelarEscrow(
     }
   }
 
-  return {};
+  return { reembolsoId, adeudoId };
 }
 
 /**

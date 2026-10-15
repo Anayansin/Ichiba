@@ -4,7 +4,9 @@
  * por bloques de atención y fila en reposo), RQNF26/29/30 (chat de
  * coordinación), RQNF27 (captura diferida de PayPal / reembolso de
  * MercadoPago), RQNF28 (plazo de entrega de 15 días), RQNF31 (inactividad del
- * chat), RQNF32 (retención por reembolso fallido) y RQF22/26/27/30/31/33.
+ * chat), RQNF32 (retención por reembolso fallido), RQNF37/RQNF38 (adeudo y
+ * suspensión por saldo cuando la cancelación automática es por culpa directa
+ * del vendedor) y RQF22/26/27/30/31/33.
  *
  * Levanta:
  *  - un mock local de PayPal (orden AUTHORIZE, autorización, captura,
@@ -36,6 +38,8 @@ import sharp from "sharp";
 import clientePrisma from "../src/configuracion/prisma.js";
 import { Producto } from "../src/models/producto.js";
 import { Venta } from "../src/models/Venta.js";
+import { Usuario } from "../src/models/usuario.js";
+import { Adeudo } from "../src/models/Adeudo.js";
 import { revisarEntregasVencidas } from "../src/jobs/revisionEntregas.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1140,6 +1144,11 @@ try {
         );
       }
 
+      // Fase 7b: la venta nace retenida para protegerla de los crons de
+      // desarrollo; se libera aquí porque el flujo real no retiene ventas
+      // sanas y `confirmar-entrega` exige `retenido = false` (RQNF32).
+      await actualizarVenta(venta1, { retenido: false });
+
       const entregaMala = await confirmarEntrega(venta1, tokenVendedor, "0000");
       const ventaTrasMala = await leerVenta(venta1);
       verificar(
@@ -1385,6 +1394,12 @@ try {
         String(venta?.canceladoMotivo ?? "").includes("comprobante"),
         `motivo=${venta?.canceladoMotivo}`,
       );
+      const adeudoP3 = await Adeudo.findOne({ ventaIdPg: compra.ventaId }).lean();
+      verificar(
+        "RQNF37 la cancelación por culpa del comprador (sin comprobante) NO genera adeudo del vendedor",
+        adeudoP3 === null,
+        `adeudo=${JSON.stringify(adeudoP3)}`,
+      );
     }
   }
 
@@ -1417,6 +1432,14 @@ try {
           String(venta?.canceladoMotivo ?? "").includes("no confirmó") &&
           acciones.some((accion) => accion.includes(`Venta ${compra.ventaId}`)),
         `estado=${venta?.estado} motivo=${venta?.canceladoMotivo} acciones=${JSON.stringify(acciones)}`,
+      );
+      const adeudoP4 = await Adeudo.findOne({ ventaIdPg: compra.ventaId }).lean();
+      verificar(
+        "RQNF37 no confirmar el comprobante a tiempo genera adeudo del vendedor (causa sin_confirmar_comprobante)",
+        adeudoP4?.causa === "sin_confirmar_comprobante" &&
+          Number(adeudoP4?.monto) === 170 &&
+          adeudoP4?.estado === "pendiente",
+        `adeudo=${JSON.stringify(adeudoP4)}`,
       );
     }
   }
@@ -1451,6 +1474,23 @@ try {
           String(venta?.canceladoMotivo ?? "").includes("entrega") &&
           acciones.some((accion) => accion.includes(`Venta ${compra.ventaId}`)),
         `estado=${venta?.estado} motivo=${venta?.canceladoMotivo} acciones=${JSON.stringify(acciones)}`,
+      );
+      const adeudoP5 = await Adeudo.findOne({ ventaIdPg: compra.ventaId }).lean();
+      const espejoVendedor = await Usuario.findOne({
+        correo: "vendedor.demo@ichiba.test",
+      }).lean();
+      verificar(
+        "RQNF37/RQNF38 la entrega vencida genera adeudo (causa entrega_vencida) y suspende al vendedor con saldo pendiente",
+        adeudoP5?.causa === "entrega_vencida" &&
+          Number(adeudoP5?.monto) === 190 &&
+          espejoVendedor?.suspendido === true &&
+          espejoVendedor?.motivoSuspension === "saldo_pendiente" &&
+          Number(espejoVendedor?.saldoPendiente ?? 0) >= 190,
+        `adeudo=${JSON.stringify(adeudoP5)} espejo=${JSON.stringify({
+          suspendido: espejoVendedor?.suspendido,
+          motivo: espejoVendedor?.motivoSuspension,
+          saldo: espejoVendedor?.saldoPendiente,
+        })}`,
       );
     }
   }
@@ -1499,6 +1539,12 @@ try {
           String(venta?.canceladoMotivo ?? "").includes("Inactividad") &&
           acciones.some((accion) => accion.includes(`Venta ${compra.ventaId}`)),
         `estado=${venta?.estado} motivo=${venta?.canceladoMotivo} acciones=${JSON.stringify(acciones)}`,
+      );
+      const adeudoP6 = await Adeudo.findOne({ ventaIdPg: compra.ventaId }).lean();
+      verificar(
+        "RQNF37 la inactividad del chat genera adeudo del vendedor (causa inactividad_chat)",
+        adeudoP6?.causa === "inactividad_chat" && Number(adeudoP6?.monto) === 210,
+        `adeudo=${JSON.stringify(adeudoP6)}`,
       );
     }
   }
@@ -1709,6 +1755,9 @@ try {
       const compraL = (await misCompras(COMPRADOR_L)).find(
         (compra) => compra.ventaId === ventaIdMP2,
       );
+      // Igual que en la suite de PayPal: se libera la retención preventiva
+      // antes de registrar la entrega (RQNF32).
+      await actualizarVenta(ventaIdMP2, { retenido: false });
       const entrega = await confirmarEntrega(
         ventaIdMP2,
         tokenMP,
@@ -1756,6 +1805,52 @@ try {
     }
   } catch (error) {
     console.error("[limpieza] No se pudieron borrar filas/ventas de prueba:", error);
+  }
+
+  try {
+    // Fase 7b (RQNF37/RQNF38): las cancelaciones por culpa del vendedor de
+    // las ventas de prueba (y las de corridas anteriores que quedaron
+    // huérfanas) se reflejan en adeudos y en la suspensión del espejo. Al
+    // borrarse las ventas, se eliminan los adeudos huérfanos y se recalcula
+    // el saldo para devolver a los vendedores demo su estado normal.
+    const adeudos = await Adeudo.find({}).lean();
+    const usuariosConSaldo = new Set<number>();
+    let borrados = 0;
+    for (const adeudo of adeudos) {
+      const venta = await clientePrisma.venta.findUnique({
+        where: { id: Number(adeudo.ventaIdPg) },
+      });
+      if (venta) continue;
+      await Adeudo.deleteOne({ _id: adeudo._id });
+      usuariosConSaldo.add(Number(adeudo.usuarioId));
+      borrados += 1;
+    }
+    for (const usuarioId of usuariosConSaldo) {
+      const pendientes = await Adeudo.find({
+        usuarioId,
+        estado: "pendiente",
+      }).lean();
+      const saldo = pendientes.reduce(
+        (suma, adeudo) => suma + Number(adeudo.monto ?? 0),
+        0,
+      );
+      const espejo = await Usuario.findOne({ usuarioId }).lean();
+      const actualizacion: Record<string, unknown> = { saldoPendiente: saldo };
+      if (
+        saldo === 0 &&
+        espejo?.suspendido === true &&
+        String(espejo?.motivoSuspension ?? "") === "saldo_pendiente"
+      ) {
+        actualizacion.suspendido = false;
+        actualizacion.motivoSuspension = null;
+      }
+      await Usuario.updateOne({ usuarioId }, { $set: actualizacion });
+    }
+    if (borrados > 0) {
+      console.log(`[limpieza] Adeudos huérfanos de prueba eliminados: ${borrados}`);
+    }
+  } catch (error) {
+    console.error("[limpieza] No se pudieron limpiar los adeudos de prueba:", error);
   }
 
   try {

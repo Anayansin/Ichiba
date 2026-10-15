@@ -177,6 +177,14 @@ export const definicionesEsquema = `
     generadoEn: String!
   }
 
+  type EventoDisputa {
+    tipo: String!
+    mensaje: String!
+    "Disputas que siguen abiertas tras el cambio."
+    abiertas: Int!
+    generadoEn: String!
+  }
+
   type Subscription {
     "Resumen completo y fresco del dashboard, emitido al cambiar cualquier cifra."
     resumenAdmin: ResumenAdmin!
@@ -186,6 +194,8 @@ export const definicionesEsquema = `
     usuariosAdmin: EventoUsuario!
     "Entrada agregada o quitada de la lista negra."
     listaNegraActualizada: EventoListaNegra!
+    "RQF40 / RQNF32: disputa abierta, respondida o resuelta y retenciones de ventas."
+    disputasActualizadas: EventoDisputa!
   }
 
   type Mutation {

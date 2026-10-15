@@ -11,6 +11,11 @@ import {
   agregarEntradaListaNegra,
   quitarEntradaListaNegra,
   obtenerResumenAdmin,
+  obtenerDisputas,
+  resolverDisputa,
+  resolverVentaRetenida,
+  obtenerAdeudos,
+  liquidarAdeudo,
 } from "../controllers/adminController.js";
 import {
   listarInformesGlobales,
@@ -77,6 +82,35 @@ router.delete(
   verificarToken,
   esAdmin,
   quitarEntradaListaNegra,
+);
+
+// RQF40 / RQNF32: disputas de reembolso, ventas con retención preventiva y
+// su dictamen administrativo.
+router.get("/disputas", verificarToken, esAdmin, obtenerDisputas);
+
+router.post(
+  "/disputas/:id/resolver",
+  verificarToken,
+  esAdmin,
+  resolverDisputa,
+);
+
+router.post(
+  "/ventas-retenidas/:ventaId/resolver",
+  verificarToken,
+  esAdmin,
+  resolverVentaRetenida,
+);
+
+// RQNF37 / RQNF38: adeudos de los vendedores (reembolsos por su culpa) y el
+// registro de su liquidación total (pago por transferencia).
+router.get("/adeudos", verificarToken, esAdmin, obtenerAdeudos);
+
+router.post(
+  "/adeudos/:id/liquidar",
+  verificarToken,
+  esAdmin,
+  liquidarAdeudo,
 );
 
 // RQF14 / RQNF13.2 / RQNF14.1: informes globales mensuales, descarga en PDF y

@@ -14,6 +14,7 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 import {
+  CANAL_DISPUTAS,
   CANAL_LISTA_NEGRA,
   CANAL_REPORTES_PENDIENTES,
   CANAL_RESUMEN_ADMIN,
@@ -398,6 +399,11 @@ export const resolutoresGraphQL = {
     },
     listaNegraActualizada: {
       subscribe: () => suscribirseAlCanal(CANAL_LISTA_NEGRA),
+      resolve: (evento: unknown) => evento,
+    },
+    // RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
+    disputasActualizadas: {
+      subscribe: () => suscribirseAlCanal(CANAL_DISPUTAS),
       resolve: (evento: unknown) => evento,
     },
   },

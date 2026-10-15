@@ -5,12 +5,14 @@
  * Cubre:
  *  1. El transporte HTTP (Streamable HTTP) montado en `/mcp` del backend:
  *     rechaza peticiones sin token (401) y de vendedores (403); con token de
- *     administrador completa el saludo MCP y lista las 13 herramientas.
+ *     administrador completa el saludo MCP y lista las 18 herramientas.
  *  2. Las herramientas contra datos reales, creados y borrados por la suite:
  *     resumen_backoffice, listar_usuarios, suspender/reactivar_usuario
  *     (con el id numérico de PostgreSQL), reportes (listar y resolver),
  *     lista negra (alta, listado y baja), historial_transacciones,
- *     auditar_chat_venta, listar_informes_globales y generar_informes.
+ *     auditar_chat_venta, disputas y adeudos (listar_disputas,
+ *     resolver_disputa, resolver_venta_retenida, listar_adeudos,
+ *     liquidar_adeudo), listar_informes_globales y generar_informes.
  *  3. El transporte stdio (`npm run mcp`): el cliente MCP lanza el proceso,
  *     negocia el protocolo y ejecuta herramientas igual que por HTTP.
  *
@@ -69,6 +71,11 @@ const HERRAMIENTAS_ESPERADAS = [
   "quitar_lista_negra",
   "historial_transacciones",
   "auditar_chat_venta",
+  "listar_disputas",
+  "resolver_disputa",
+  "resolver_venta_retenida",
+  "listar_adeudos",
+  "liquidar_adeudo",
   "listar_informes_globales",
   "generar_informes",
 ];
@@ -354,7 +361,7 @@ async function main() {
 
   const nombresHttp = await herramientasDe(clienteHttp);
   verificar(
-    "el saludo MCP por HTTP lista las 13 herramientas del BackOffice",
+    "el saludo MCP por HTTP lista las 18 herramientas del BackOffice",
     HERRAMIENTAS_ESPERADAS.every((nombre) => nombresHttp.includes(nombre)) &&
       nombresHttp.length >= HERRAMIENTAS_ESPERADAS.length,
     `herramientas=${nombresHttp.join(", ")}`,
@@ -602,7 +609,7 @@ async function main() {
 
   const nombresStdio = await herramientasDe(clienteStdio);
   verificar(
-    "el saludo MCP por stdio lista las 13 herramientas del BackOffice",
+    "el saludo MCP por stdio lista las 18 herramientas del BackOffice",
     HERRAMIENTAS_ESPERADAS.every((nombre) => nombresStdio.includes(nombre)) &&
       nombresStdio.length >= HERRAMIENTAS_ESPERADAS.length,
     `herramientas=${nombresStdio.join(", ")}`,

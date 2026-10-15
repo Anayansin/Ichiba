@@ -156,3 +156,47 @@ export function subirComprobante(campo: string) {
     });
   };
 }
+
+/**
+ * RQF40: evidencias de una disputa de reembolso (hasta 5 imágenes: fotos del
+ * producto, capturas del chat, comprobantes…). Viven en su propia carpeta
+ * porque NO se sirven como archivos estáticos: solo las partes de la disputa
+ * y la administración pueden verlas (el backend las sirve con autorización).
+ */
+const carpetaDisputas = path.join(__dirname, "../../uploads/disputas");
+
+if (!fs.existsSync(carpetaDisputas)) {
+  fs.mkdirSync(carpetaDisputas, { recursive: true });
+}
+
+const storageDisputas = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, carpetaDisputas);
+  },
+  filename: (req, file, cb) => {
+    const nombreUnico = `disputa-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+    cb(null, nombreUnico);
+  },
+});
+
+const uploadDisputas = multer({
+  storage: storageDisputas,
+  fileFilter: filtroArchivos,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/** Sube hasta 5 evidencias de una disputa (RQF40). */
+export function subirEvidenciasDisputa(campo: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    uploadDisputas.array(campo, 5)(req, res, (error) => {
+      if (error) {
+        const mensaje =
+          error instanceof multer.MulterError
+            ? "Las evidencias no cumplen con los requisitos (máximo 5 imágenes de 5 MB cada una)"
+            : error.message || "No se pudieron procesar las evidencias";
+        return res.status(400).json({ message: mensaje });
+      }
+      next();
+    });
+  };
+}

@@ -923,6 +923,9 @@ try {
       const compra0Lista = (await misCompras(COMPRADOR_UNO)).find(
         (compra) => compra.ventaId === venta0,
       );
+      // Fase 7b (RQNF32): la venta nace retenida para protegerla de los
+      // crons; el flujo real no retiene ventas sanas.
+      await actualizarVenta(venta0, { retenido: false });
       const entrega0 = await confirmarEntrega(
         venta0,
         tokenVendedor,
@@ -1425,6 +1428,7 @@ try {
     const compra1Final = (await misCompras(COMPRADOR_UNO)).find(
       (compra) => compra.ventaId === venta1,
     );
+    await actualizarVenta(venta1, { retenido: false });
     const entrega1 = await confirmarEntrega(
       venta1,
       tokenCancelado,
@@ -1446,6 +1450,7 @@ try {
     const compra2Final = (await misCompras(COMPRADOR_DOS)).find(
       (compra) => compra.ventaId === venta2,
     );
+    await actualizarVenta(venta2, { retenido: false });
     const entrega2 = await confirmarEntrega(
       venta2,
       tokenCancelado,

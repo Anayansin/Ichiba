@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { Producto } from "../models/producto.js";
 import { Usuario } from "../models/usuario.js";
 import { Venta } from "../models/Venta.js";
+import { Disputa } from "../models/Disputa.js";
 import { VinculoPayPal } from "../models/VinculoPayPal.js";
 import {
   crearOrdenPaypal,
@@ -34,6 +35,13 @@ import {
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import {
+  crearDisputa,
+  listarDisputasDeComprador,
+  listarDisputasDeVendedor,
+  responderDisputa,
+} from "../services/disputaService.js";
+import { ErrorBackoffice } from "../services/errorBackoffice.js";
+import {
   iniciarTemporizadorPago,
   expirarTurnoSiVencido,
 } from "../services/filaService.js";
@@ -51,6 +59,8 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const carpetaComprobantes = path.join(__dirname, "../../uploads/comprobantes");
+// RQF40: evidencias de las disputas (solo se sirven con autorización).
+const carpetaDisputas = path.join(__dirname, "../../uploads/disputas");
 
 async function buscarProducto(productoId: unknown) {
   if (typeof productoId !== "string" || !/^[0-9a-fA-F]{24}$/.test(productoId))
@@ -1239,5 +1249,229 @@ export async function calificar(req: Request, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al calificar la compra" });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Disputas de reembolso (RQF40 / RQNF32)
+// ---------------------------------------------------------------------------
+
+/** Archivos subidos por Multer para una disputa (si los hay). */
+function archivosDeDisputa(req: Request): Express.Multer.File[] {
+  return (req.files as Express.Multer.File[] | undefined) ?? [];
+}
+
+function limpiarArchivosDeDisputa(archivos: Express.Multer.File[]) {
+  for (const archivo of archivos) {
+    fs.unlink(archivo.path, () => {});
+  }
+}
+
+function rutasDeEvidencias(archivos: Express.Multer.File[]): string[] {
+  return archivos.map((archivo) => `/uploads/disputas/${archivo.filename}`);
+}
+
+/**
+ * RQF40: el comprador abre una disputa de reembolso sobre una compra en
+ * entrega o completada (motivo + descripción + hasta 5 evidencias). El pago
+ * queda retenido (RQNF32) mientras la administración la resuelve.
+ */
+export async function abrirDisputa(req: RequestConComprador, res: Response) {
+  const archivos = archivosDeDisputa(req);
+
+  try {
+    const compradorId = req.compradorId as string;
+    const ventaId = Number(req.params.ventaId);
+
+    const motivo = String(req.body?.motivo ?? "").trim();
+    const descripcion = String(req.body?.descripcion ?? "").trim();
+
+    // El filtro global de palabras corre antes de Multer, así que aquí se
+    // revisan otra vez los campos escritos.
+    const campoProhibido = campoConPalabrasProhibidas({ motivo, descripcion });
+    if (campoProhibido) {
+      limpiarArchivosDeDisputa(archivos);
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    const resultado = await crearDisputa({
+      compradorId,
+      ventaId,
+      motivo,
+      descripcion,
+      evidencias: rutasDeEvidencias(archivos),
+    });
+
+    res.status(201).json(resultado);
+  } catch (error) {
+    limpiarArchivosDeDisputa(archivos);
+
+    if (error instanceof ErrorBackoffice) {
+      return res.status(error.estado).json({ message: error.message });
+    }
+
+    console.error("[disputas] Error al abrir la disputa:", error);
+    res.status(500).json({ message: "Error al abrir la disputa" });
+  }
+}
+
+/**
+ * RQF40: el vendedor responde la disputa con su versión y sus propias
+ * evidencias (hasta 5 imágenes).
+ */
+export async function responderDisputaDeVenta(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  const archivos = archivosDeDisputa(req);
+
+  try {
+    const vendedorId = Number(req.usuarioId);
+    const respuesta = String(req.body?.respuesta ?? "").trim();
+
+    const campoProhibido = campoConPalabrasProhibidas({ respuesta });
+    if (campoProhibido) {
+      limpiarArchivosDeDisputa(archivos);
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    const resultado = await responderDisputa({
+      vendedorId,
+      disputaId: req.params.disputaId,
+      respuesta,
+      evidencias: rutasDeEvidencias(archivos),
+    });
+
+    res.json(resultado);
+  } catch (error) {
+    limpiarArchivosDeDisputa(archivos);
+
+    if (error instanceof ErrorBackoffice) {
+      return res.status(error.estado).json({ message: error.message });
+    }
+
+    console.error("[disputas] Error al responder la disputa:", error);
+    res.status(500).json({ message: "Error al responder la disputa" });
+  }
+}
+
+/** RQF40: disputas del comprador para «Mis pedidos». */
+export async function misDisputasDelComprador(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const compradorId = req.compradorId as string;
+    res.json({ disputas: await listarDisputasDeComprador(compradorId) });
+  } catch (error) {
+    console.error("[disputas] Error al listar las disputas del comprador:", error);
+    res.status(500).json({ message: "Error al consultar tus disputas" });
+  }
+}
+
+/** RQF40: disputas del vendedor para su panel. */
+export async function disputasDelVendedor(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const vendedorId = Number(req.usuarioId);
+    res.json({ disputas: await listarDisputasDeVendedor(vendedorId) });
+  } catch (error) {
+    console.error("[disputas] Error al listar las disputas del vendedor:", error);
+    res.status(500).json({ message: "Error al consultar tus disputas" });
+  }
+}
+
+/**
+ * RQF40: sirve una evidencia de una disputa (imagen). Nunca se expone como
+ * archivo estático: solo la ven el comprador, el vendedor de la disputa y la
+ * administración.
+ */
+export async function imagenEvidenciaDisputa(req: Request, res: Response) {
+  try {
+    const disputaId = String(req.params.disputaId ?? "");
+    if (!/^[0-9a-fA-F]{24}$/.test(disputaId)) {
+      return res.status(404).json({ message: "Evidencia no encontrada" });
+    }
+
+    const disputa = (await Disputa.findById(disputaId).lean()) as {
+      compradorId?: string;
+      vendedorId?: number;
+      evidenciasComprador?: string[];
+      evidenciasVendedor?: string[];
+    } | null;
+    if (!disputa) {
+      return res.status(404).json({ message: "Disputa no encontrada" });
+    }
+
+    const lado = String(req.params.lado ?? "");
+    if (lado !== "comprador" && lado !== "vendedor") {
+      return res.status(404).json({ message: "Evidencia no encontrada" });
+    }
+
+    // Autorización: el comprador de la disputa (x-comprador-id), su vendedor
+    // (JWT) o cualquier administrador (JWT con tipo admin).
+    let autorizado = false;
+
+    const compradorIdCabecera = req.headers["x-comprador-id"];
+    if (
+      typeof compradorIdCabecera === "string" &&
+      compradorIdCabecera !== "" &&
+      compradorIdCabecera === String(disputa.compradorId)
+    ) {
+      autorizado = true;
+    }
+
+    if (!autorizado) {
+      const cabecera = req.headers.authorization;
+      if (cabecera?.startsWith("Bearer ")) {
+        try {
+          const payload = jwt.verify(
+            cabecera.split(" ")[1],
+            process.env.JWT_SECRET as string,
+          ) as { id?: number | string; tipo?: string };
+
+          if (payload.tipo === "admin") {
+            autorizado = true;
+          } else if (Number(payload.id) === Number(disputa.vendedorId)) {
+            autorizado = true;
+          }
+        } catch {
+          // Token inválido: se responde como acceso denegado.
+        }
+      }
+    }
+
+    if (!autorizado) {
+      return res
+        .status(403)
+        .json({ message: "No tienes acceso a esta evidencia" });
+    }
+
+    const rutas =
+      lado === "comprador"
+        ? disputa.evidenciasComprador
+        : disputa.evidenciasVendedor;
+    const indice = Number(req.params.indice);
+    const ruta = Array.isArray(rutas) ? rutas[indice] : undefined;
+
+    if (!ruta) {
+      return res.status(404).json({ message: "Evidencia no encontrada" });
+    }
+
+    const rutaAbsoluta = path.join(carpetaDisputas, path.basename(String(ruta)));
+    if (!fs.existsSync(rutaAbsoluta)) {
+      return res.status(404).json({ message: "Evidencia no encontrada" });
+    }
+
+    res.sendFile(rutaAbsoluta);
+  } catch (error) {
+    console.error("[disputas] Error al servir la evidencia:", error);
+    res.status(500).json({ message: "Error al obtener la evidencia" });
   }
 }

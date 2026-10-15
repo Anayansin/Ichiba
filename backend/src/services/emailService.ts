@@ -758,3 +758,248 @@ export async function enviarCorreoProductoNoDisponible(
 
   return true;
 }
+
+/**
+ * RQNF37: avisa al vendedor que la plataforma cubrió un reembolso por su
+ * culpa directa y que su cuenta queda suspendida con un saldo pendiente por
+ * liquidar.
+ */
+export async function enviarCorreoAdeudoRegistrado(
+  correo: string,
+  nombre: string,
+  datos: {
+    producto: string;
+    monto: number;
+    motivo: string;
+    saldoTotal: number;
+  },
+): Promise<boolean> {
+  const montoTexto = `$${datos.monto.toFixed(2)}`;
+  const saldoTexto = `$${datos.saldoTotal.toFixed(2)}`;
+
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Adeudo para ${correo} (${nombre}): ${montoTexto} — ${datos.motivo} (saldo total ${saldoTexto})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tienes un saldo pendiente en Ichiba",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>La plataforma cubrió el reembolso${datos.producto ? ` de <strong>${escaparHtml(datos.producto)}</strong>` : ""} por <strong>${montoTexto}</strong> ante el incumplimiento de tu entrega.</p>
+        <p><strong>Motivo:</strong> ${escaparHtml(datos.motivo)}</p>
+        <p>Tu cuenta quedó <strong>suspendida con un saldo pendiente de ${saldoTexto}</strong>. Puedes terminar las entregas que ya tenían pago confirmado, pero no publicar productos ni recibir nuevos clientes.</p>
+        <p>Para reactivar tu cuenta deberás liquidar la totalidad del adeudo. El equipo de Ichiba se pondrá en contacto contigo para acordar el pago por transferencia.</p>
+        <p style="color: #888; font-size: 12px;">Resolución emitida el ${escaparHtml(new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }))} (hora del centro, GMT-6).</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF38: confirma al vendedor que la administración registró la liquidación
+ * de su adeudo. Si el saldo llegó a cero, su cuenta queda reactivada.
+ */
+export async function enviarCorreoAdeudoLiquidado(
+  correo: string,
+  nombre: string,
+  datos: { monto: number; saldoRestante: number },
+): Promise<boolean> {
+  const montoTexto = `$${datos.monto.toFixed(2)}`;
+
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Adeudo liquidado para ${correo} (${nombre}): ${montoTexto} (saldo restante $${datos.saldoRestante.toFixed(2)})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const saldado = datos.saldoRestante <= 0;
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: saldado
+      ? "Tu adeudo quedó liquidado: cuenta reactivada"
+      : "Registramos un pago de tu adeudo en Ichiba",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>Registramos la liquidación de <strong>${montoTexto}</strong> de tu adeudo con la plataforma.</p>
+        ${
+          saldado
+            ? "<p>Tu saldo pendiente quedó en <strong>$0.00</strong> y tu cuenta fue <strong>reactivada</strong>: ya puedes volver a publicar productos y recibir clientes.</p>"
+            : `<p>Tu saldo pendiente restante es de <strong>$${datos.saldoRestante.toFixed(2)}</strong>. La cuenta seguirá suspendida hasta liquidarlo por completo.</p>`
+        }
+        <p>Gracias por regularizar tu situación con Ichiba.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQF40 / RQNF32: avisa al vendedor que un comprador abrió una disputa de
+ * reembolso sobre una de sus ventas y que el pago quedó retenido hasta que
+ * responda y la administración la resuelva.
+ */
+export async function enviarCorreoDisputaAbiertaVendedor(
+  correo: string,
+  nombreProducto: string,
+  datos: { motivo: string; descripcion: string; monto: number },
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Disputa abierta para ${correo} (${nombreProducto || "producto sin nombre"}): ${datos.motivo}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Se abrió una disputa sobre una de tus ventas",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>El comprador${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""} abrió una disputa de reembolso por <strong>$${datos.monto.toFixed(2)}</strong>.</p>
+        <p><strong>Motivo:</strong> ${escaparHtml(datos.motivo)}</p>
+        <p><strong>Descripción:</strong> ${escaparHtml(datos.descripcion)}</p>
+        <p>El pago quedó <strong>retenido</strong> en el escrow de Ichiba mientras la disputa esté abierta. Ingresa a tu panel de vendedor para responder con tus propias evidencias (fotografías, comprobantes o capturas del chat); la administración revisará todo y dictaminará la resolución.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/** RQF40: avisa al comprador que el vendedor respondió su disputa. */
+export async function enviarCorreoDisputaRespondidaComprador(
+  correo: string,
+  nombreProducto: string,
+  respuesta: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Disputa respondida para ${correo} (${nombreProducto || "producto sin nombre"}): ${respuesta}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "El vendedor respondió tu disputa",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>El vendedor${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""} respondió a tu disputa de reembolso:</p>
+        <blockquote style="background:#f8f9fa; border-left:4px solid #d90429; padding:10px 14px; margin:10px 0;">
+          ${escaparHtml(respuesta)}
+        </blockquote>
+        <p>La administración de Ichiba revisará las evidencias de ambas partes y dictaminará la resolución. El pago permanece retenido mientras tanto.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQF40: informa a las partes el dictamen del administrador sobre una
+ * disputa de reembolso (a favor del comprador con reembolso, o rechazada).
+ */
+export async function enviarCorreoDisputaResuelta(
+  correo: string,
+  nombreProducto: string,
+  datos: {
+    reembolsada: boolean;
+    nota: string;
+    esVendedor: boolean;
+    monto: number;
+  },
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Disputa resuelta (${datos.reembolsada ? "reembolsada" : "rechazada"}) para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const cuerpo = datos.reembolsada
+    ? datos.esVendedor
+      ? `<p>La administración resolvió la disputa <strong>a favor del comprador</strong>${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: la plataforma cubrió el reembolso de <strong>$${datos.monto.toFixed(2)}</strong>.</p>
+         <p>Ese monto quedó registrado como un <strong>saldo pendiente a tu cargo</strong> y tu cuenta fue suspendida. Para reactivarla deberás liquidar la totalidad del adeudo con el equipo de Ichiba.</p>`
+      : `<p>La administración resolvió tu disputa <strong>a favor</strong>${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: se procesó el reembolso de <strong>$${datos.monto.toFixed(2)}</strong> a tu medio de pago. Puede tardar unos días en reflejarse.</p>`
+    : datos.esVendedor
+      ? `<p>La administración <strong>rechazó</strong> la disputa${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: se retiró la retención preventiva y el pago sigue el curso normal de la venta.</p>`
+      : `<p>La administración revisó las evidencias y <strong>rechazó</strong> tu disputa${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: el pago se liberó al vendedor conforme al flujo normal de la venta.</p>`;
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: datos.reembolsada
+      ? "Resolución de tu disputa: reembolso aprobado"
+      : "Resolución de tu disputa: rechazada",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        ${cuerpo}
+        ${datos.nota ? `<p><strong>Dictamen:</strong> ${escaparHtml(datos.nota)}</p>` : ""}
+        <p style="color: #888; font-size: 12px;">Resolución emitida el ${escaparHtml(new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }))} (hora del centro, GMT-6).</p>
+      </div>
+    `,
+  });
+
+  return true;
+}

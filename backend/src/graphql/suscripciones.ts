@@ -1,6 +1,7 @@
 import { EventEmitter } from "events";
 import clientePrisma from "../configuracion/prisma.js";
 import { ListaNegra } from "../models/ListaNegra.js";
+import { Disputa } from "../models/Disputa.js";
 import {
   usuarioPublicado,
   type UsuarioPublicado,
@@ -23,6 +24,8 @@ export const CANAL_RESUMEN_ADMIN = "resumenAdmin";
 export const CANAL_REPORTES_PENDIENTES = "reportesPendientes";
 export const CANAL_USUARIOS_ADMIN = "usuariosAdmin";
 export const CANAL_LISTA_NEGRA = "listaNegraActualizada";
+// RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
+export const CANAL_DISPUTAS = "disputasActualizadas";
 
 export type TipoEventoReporte = "creado" | "resuelto" | "rechazado";
 export type TipoEventoUsuario =
@@ -34,8 +37,19 @@ export type TipoEventoUsuario =
   | "purgada"
   // RQNF33 / RQNF34 / RQNF35: faltas, bloqueos y revisiones administrativas.
   | "sancion"
-  | "desbloqueado";
+  | "desbloqueado"
+  // RQNF37 / RQNF38: adeudos del vendedor y sus liquidaciones.
+  | "adeudo"
+  | "adeudo_liquidado";
 export type TipoEventoListaNegra = "agregada" | "quitada";
+export type TipoEventoDisputa =
+  | "abierta"
+  | "respondida"
+  | "reembolsada"
+  | "rechazada"
+  // RQNF32: retención preventiva puesta o retirada de una venta.
+  | "retencion"
+  | "retencion_liberada";
 
 export type EventoReportePublicado = {
   tipo: TipoEventoReporte;
@@ -57,6 +71,14 @@ export type EventoListaNegraPublicado = {
   mensaje: string;
   /** Entradas que tiene la lista negra tras el cambio. */
   entradas: number;
+  generadoEn: string;
+};
+
+export type EventoDisputaPublicado = {
+  tipo: TipoEventoDisputa;
+  mensaje: string;
+  /** Disputas que siguen abiertas tras el cambio. */
+  abiertas: number;
   generadoEn: string;
 };
 
@@ -188,6 +210,30 @@ export async function publicarListaNegraActualizada(
   } catch (error) {
     console.error(
       "[suscripciones] No se pudo publicar el evento de lista negra:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+/**
+ * RQF40 / RQNF32: evento de disputas y retenciones preventivas; incluye
+ * cuántas disputas siguen abiertas tras el cambio.
+ */
+export async function publicarDisputasActualizadas(
+  tipo: TipoEventoDisputa,
+  mensaje: string,
+): Promise<void> {
+  try {
+    const abiertas = await Disputa.countDocuments({ estado: "abierta" });
+    emisor.emit(CANAL_DISPUTAS, {
+      tipo,
+      mensaje,
+      abiertas,
+      generadoEn: new Date().toISOString(),
+    } satisfies EventoDisputaPublicado);
+  } catch (error) {
+    console.error(
+      "[suscripciones] No se pudo publicar el evento de disputas:",
       error instanceof Error ? error.message : error,
     );
   }

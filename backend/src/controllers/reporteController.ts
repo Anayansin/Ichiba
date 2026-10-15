@@ -16,6 +16,7 @@ import {
   PUNTOS_CANCELACION,
 } from "../services/cancelacionCuentaService.js";
 import { aplicarFaltaConfirmada } from "../services/backofficeService.js";
+import { marcarVentaRetenidaPorReporte } from "../services/disputaService.js";
 import {
   publicarReportesPendientes,
   publicarResumenAdmin,
@@ -228,6 +229,20 @@ export async function crearReporte(req: Request, res: Response) {
       reportadoPor: `${reportero.tipo}:${reportero.id}`,
     });
 
+    // RQNF32: si el reporte está ligado a una compra cuyo pago aún no se
+    // liberó al vendedor, el escrow lo retiene de forma preventiva hasta que
+    // la administración resuelva el reporte.
+    if (ventaRelacionada) {
+      try {
+        await marcarVentaRetenidaPorReporte(Number(ventaRelacionada.id));
+      } catch (error) {
+        console.error(
+          "[reportes] No se pudo retener el pago de la venta reportada:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
     await publicarReportesPendientes(
       "creado",
@@ -370,6 +385,17 @@ export async function crearReporteComprador(
       elemento: elementoReportado,
       reportadoPor: `usuario:${idVendedor}`,
     });
+
+    // RQNF32: retención preventiva del pago si la compra reportada aún no se
+    // liberó al vendedor.
+    try {
+      await marcarVentaRetenidaPorReporte(Number(venta.id));
+    } catch (error) {
+      console.error(
+        "[reportes] No se pudo retener el pago de la venta reportada:",
+        error instanceof Error ? error.message : error,
+      );
+    }
 
     // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
     await publicarReportesPendientes(

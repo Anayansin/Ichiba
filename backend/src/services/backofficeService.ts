@@ -23,6 +23,17 @@ import {
   type UsuarioResumido,
 } from "./resumenAdminService.js";
 import { levantarSancionPorAdmin, quitarFalta } from "./sancionService.js";
+import { ErrorBackoffice } from "./errorBackoffice.js";
+import {
+  listarAdeudosAdmin as listarAdeudosDelServicio,
+  liquidarAdeudoAdmin as liquidarAdeudoDelServicio,
+} from "./adeudoService.js";
+import {
+  liberarRetencionSiCorresponde,
+  listarDisputasAdmin as listarDisputasDelServicio,
+  resolverDisputaAdmin as resolverDisputaDelServicio,
+  resolverVentaRetenidaAdmin as resolverVentaRetenidaDelServicio,
+} from "./disputaService.js";
 import {
   publicarEventoUsuario,
   publicarListaNegraActualizada,
@@ -45,15 +56,7 @@ import {
  * error legible.
  */
 
-export class ErrorBackoffice extends Error {
-  constructor(
-    public readonly estado: number,
-    mensaje: string,
-  ) {
-    super(mensaje);
-    this.name = "ErrorBackoffice";
-  }
-}
+export { ErrorBackoffice };
 
 export const USUARIOS_POR_PAGINA = 10;
 export const ENTRADAS_POR_PAGINA = 20;
@@ -362,6 +365,21 @@ export async function resolverReporteAdmin(
       );
     }
 
+    // RQNF32: si el reporte era lo único que retenía el pago de la venta
+    // (sin disputas abiertas ni otros reportes vivos), se retira la
+    // retención preventiva.
+    const ventaIdPg = Number(reporte.ventaId);
+    if (Number.isInteger(ventaIdPg)) {
+      try {
+        await liberarRetencionSiCorresponde(ventaIdPg);
+      } catch (error) {
+        console.error(
+          "[backoffice] No se pudo revisar la retención de la venta del reporte rechazado:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+
     // Fase 4: el BackOffice actualiza la bandeja de reportes al instante.
     await publicarReportesPendientes(
       "rechazado",
@@ -444,6 +462,67 @@ export async function resolverReporteAdmin(
     puntosReputacion: resultadoPuntos.puntosReputacion,
     cuentaCancelada: Boolean(resultadoPuntos.cancelacion),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Disputas y ventas retenidas (RQF40 / RQNF32)
+// ---------------------------------------------------------------------------
+
+/**
+ * RQF40: bandeja de disputas del BackOffice más las ventas con retención
+ * preventiva pendientes de resolver. La lógica vive en `disputaService` y se
+ * delega aquí para que la compartan REST, MCP y GraphQL.
+ */
+export async function listarDisputasAdmin(opciones: {
+  pagina?: number;
+  porPagina?: number;
+  estado?: string;
+}) {
+  return listarDisputasDelServicio(opciones);
+}
+
+/** RQF40: dictamen del administrador sobre una disputa (reembolsar/rechazar). */
+export async function resolverDisputaAdmin(
+  id: unknown,
+  dictamen: unknown,
+  opciones: { nota?: string; adminId?: number | null } = {},
+) {
+  return resolverDisputaDelServicio(id, dictamen, opciones);
+}
+
+/** RQF40 / RQNF32: resuelve una venta retenida (reembolsar o liberar). */
+export async function resolverVentaRetenidaAdmin(
+  idVenta: unknown,
+  opciones: {
+    dictamen?: unknown;
+    causaAdeudo?: unknown;
+    nota?: string;
+    adminId?: number | null;
+  } = {},
+) {
+  return resolverVentaRetenidaDelServicio(idVenta, opciones);
+}
+
+// ---------------------------------------------------------------------------
+// Adeudos del vendedor (RQNF37 / RQNF38)
+// ---------------------------------------------------------------------------
+
+/** RQNF37: listado paginado de adeudos con el total pendiente de liquidar. */
+export async function listarAdeudosAdmin(opciones: {
+  pagina?: number;
+  porPagina?: number;
+  estado?: string;
+  usuarioId?: number;
+}) {
+  return listarAdeudosDelServicio(opciones);
+}
+
+/** RQNF38: registra la liquidación de un adeudo (pago por transferencia). */
+export async function liquidarAdeudoAdmin(
+  id: unknown,
+  opciones: { nota?: string; adminId?: number | null } = {},
+) {
+  return liquidarAdeudoDelServicio(id, opciones);
 }
 
 // ---------------------------------------------------------------------------

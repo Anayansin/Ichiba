@@ -4,14 +4,20 @@ import {
   agregarEntradaListaNegraAdmin,
   cambiarSuspensionUsuarioAdmin,
   historialTransaccionesAdmin,
+  listarAdeudosAdmin,
+  listarDisputasAdmin,
   listarListaNegraAdmin,
   listarReportesPendientesAdmin,
   listarUsuariosAdmin,
+  liquidarAdeudoAdmin,
   mensajesDeVentaAdmin,
   obtenerResumenAdmin as obtenerResumenAdminServicio,
   quitarEntradaListaNegraAdmin,
+  resolverDisputaAdmin,
   resolverReporteAdmin,
+  resolverVentaRetenidaAdmin,
 } from "../services/backofficeService.js";
+import { RequestConUsuario } from "../middleware/auth.js";
 
 /**
  * Endpoints REST del BackOffice (`/api/admin/*`).
@@ -156,5 +162,97 @@ export async function obtenerResumenAdmin(_req: Request, res: Response) {
     res.json(await obtenerResumenAdminServicio());
   } catch (error) {
     responderError(res, error, "No se pudo cargar el resumen");
+  }
+}
+
+/** Identificador numérico del administrador autenticado (para auditoría). */
+function idAdmin(req: RequestConUsuario): number | null {
+  const id = Number(req.usuarioId);
+  return Number.isInteger(id) ? id : null;
+}
+
+// ---------------------------------------------------------------------------
+// Disputas y ventas retenidas (RQF40 / RQNF32)
+// ---------------------------------------------------------------------------
+
+export async function obtenerDisputas(req: Request, res: Response) {
+  try {
+    res.json(
+      await listarDisputasAdmin({
+        pagina: Number(req.query.pagina),
+        porPagina: Number(req.query.porPagina),
+        estado:
+          typeof req.query.estado === "string" ? req.query.estado : undefined,
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al obtener las disputas");
+  }
+}
+
+export async function resolverDisputa(req: RequestConUsuario, res: Response) {
+  try {
+    res.json(
+      await resolverDisputaAdmin(String(req.params.id), req.body?.dictamen, {
+        nota: typeof req.body?.nota === "string" ? req.body.nota : undefined,
+        adminId: idAdmin(req),
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al resolver la disputa");
+  }
+}
+
+export async function resolverVentaRetenida(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    res.json(
+      await resolverVentaRetenidaAdmin(String(req.params.ventaId), {
+        dictamen: req.body?.dictamen,
+        causaAdeudo: req.body?.causaAdeudo,
+        nota: typeof req.body?.nota === "string" ? req.body.nota : undefined,
+        adminId: idAdmin(req),
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al resolver la venta retenida");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Adeudos del vendedor (RQNF37 / RQNF38)
+// ---------------------------------------------------------------------------
+
+export async function obtenerAdeudos(req: Request, res: Response) {
+  try {
+    res.json(
+      await listarAdeudosAdmin({
+        pagina: Number(req.query.pagina),
+        porPagina: Number(req.query.porPagina),
+        estado:
+          typeof req.query.estado === "string" ? req.query.estado : undefined,
+        usuarioId:
+          req.query.usuarioId !== undefined
+            ? Number(req.query.usuarioId)
+            : undefined,
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al obtener los adeudos");
+  }
+}
+
+export async function liquidarAdeudo(req: RequestConUsuario, res: Response) {
+  try {
+    res.json(
+      await liquidarAdeudoAdmin(String(req.params.id), {
+        nota: typeof req.body?.nota === "string" ? req.body.nota : undefined,
+        adminId: idAdmin(req),
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al liquidar el adeudo");
   }
 }

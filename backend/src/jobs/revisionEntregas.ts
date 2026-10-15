@@ -75,6 +75,7 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
         const resultado = await cancelarEscrow(venta, {
           motivo:
             "El vendedor no confirmó el comprobante de pago antes de que finalizara su siguiente bloque de horario de atención",
+          culpaVendedor: { causa: "sin_confirmar_comprobante" },
         });
         if (!resultado.error && !resultado.omitida) {
           acciones.push(
@@ -89,6 +90,7 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
           const resultado = await cancelarEscrow(venta, {
             motivo:
               "El vendedor no registró la entrega del producto dentro del plazo establecido",
+            culpaVendedor: { causa: "entrega_vencida" },
           });
           if (!resultado.error && !resultado.omitida) {
             acciones.push(`Venta ${venta.id}: cancelada por entrega no realizada`);
@@ -106,6 +108,7 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
           const resultado = await cancelarEscrow(venta, {
             motivo:
               "Inactividad prolongada en el chat de coordinación (3 bloques de atención del vendedor sin mensajes)",
+            culpaVendedor: { causa: "inactividad_chat" },
           });
           if (!resultado.error && !resultado.omitida) {
             acciones.push(`Venta ${venta.id}: cancelada por inactividad del chat`);

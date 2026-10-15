@@ -1,18 +1,24 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Usuario } from "../models/usuario.js";
+import { CAUSAS_ADEUDO } from "../models/Adeudo.js";
 import {
   ErrorBackoffice,
   agregarEntradaListaNegraAdmin,
   cambiarSuspensionUsuarioAdmin,
   historialTransaccionesAdmin,
+  listarAdeudosAdmin,
+  listarDisputasAdmin,
   listarListaNegraAdmin,
   listarReportesPendientesAdmin,
   listarUsuariosAdmin,
+  liquidarAdeudoAdmin,
   mensajesDeVentaAdmin,
   obtenerResumenAdmin,
   quitarEntradaListaNegraAdmin,
+  resolverDisputaAdmin,
   resolverReporteAdmin,
+  resolverVentaRetenidaAdmin,
 } from "../services/backofficeService.js";
 import {
   esPeriodoValido,
@@ -114,7 +120,7 @@ export function crearServidorMcp(): McpServer {
     },
     {
       instructions:
-        "Servidor MCP del BackOffice de Ichiba (marketplace). Ofrece al asistente las mismas herramientas del panel de administración: resumen del dashboard, usuarios (suspender y reactivar), reportes y su resolución, lista negra, historial de transacciones, auditoría de chats de una venta e informes globales. Los cambios que hagan estas herramientas se reflejan al instante en el BackOffice y respetan las reglas de negocio de la plataforma.",
+        "Servidor MCP del BackOffice de Ichiba (marketplace). Ofrece al asistente las mismas herramientas del panel de administración: resumen del dashboard, usuarios (suspender y reactivar), reportes y su resolución, disputas de reembolso y ventas con retención preventiva (RQF40 / RQNF32), adeudos de los vendedores y sus liquidaciones (RQNF37 / RQNF38), lista negra, historial de transacciones, auditoría de chats de una venta e informes globales. Los cambios que hagan estas herramientas se reflejan al instante en el BackOffice y respetan las reglas de negocio de la plataforma.",
     },
   );
 
@@ -371,6 +377,177 @@ export function crearServidorMcp(): McpServer {
       annotations: { readOnlyHint: true },
     },
     async ({ id_venta }) => ejecutar(() => mensajesDeVentaAdmin(id_venta)),
+  );
+
+  // -------------------------------------------------------------------------
+  // Disputas y ventas retenidas (RQF40 / RQNF32)
+  // -------------------------------------------------------------------------
+  servidor.registerTool(
+    "listar_disputas",
+    {
+      title: "Listar disputas y ventas retenidas",
+      description:
+        "Bandeja del BackOffice para resolver disputas de reembolso (RQF40): disputas abiertas y resueltas con motivo, evidencias y respuesta del vendedor, más las ventas con retención preventiva de fondos (RQNF32) pendientes de resolver (por reportes o porque el reembolso automático falló).",
+      inputSchema: {
+        pagina: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe("Número de página (empieza en 1). Por defecto 1."),
+        por_pagina: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Disputas por página (por defecto 10)."),
+        estado: z
+          .enum(["abierta", "reembolsada", "rechazada"])
+          .optional()
+          .describe("Filtra por el estado de la disputa."),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ pagina, por_pagina, estado }) =>
+      ejecutar(() =>
+        listarDisputasAdmin({ pagina, porPagina: por_pagina, estado }),
+      ),
+  );
+
+  servidor.registerTool(
+    "resolver_disputa",
+    {
+      title: "Resolver disputa de reembolso",
+      description:
+        "Dictamina una disputa (RQF40): 'reembolsar' devuelve el dinero al comprador (aunque la venta esté completada o retenida) y registra el adeudo del vendedor por su culpa directa (RQNF37: queda suspendido con saldo pendiente); 'rechazar' retira la retención preventiva si ya no hay otras irregularidades vivas sobre la venta.",
+      inputSchema: {
+        id_disputa: z
+          .string()
+          .describe(
+            "Id de la disputa (MongoDB de 24 caracteres) que devuelve `listar_disputas`.",
+          ),
+        dictamen: z
+          .enum(["reembolsar", "rechazar"])
+          .describe("Resolución de la disputa."),
+        nota: z
+          .string()
+          .optional()
+          .describe("Dictamen o nota de la administración para las partes."),
+      },
+      annotations: { destructiveHint: true },
+    },
+    async ({ id_disputa, dictamen, nota }) =>
+      ejecutar(() => resolverDisputaAdmin(id_disputa, dictamen, { nota })),
+  );
+
+  servidor.registerTool(
+    "resolver_venta_retenida",
+    {
+      title: "Resolver venta retenida",
+      description:
+        "Resuelve una venta con retención preventiva que no tiene disputa abierta (retenida por un reporte o porque el reembolso automático falló): 'reembolsar' devuelve el dinero al comprador (y con causa_adeudo registra además el adeudo del vendedor, RQNF37); 'liberar' retira la retención y la venta continúa su flujo normal. Acepta el id numérico de la venta o el id de MongoDB.",
+      inputSchema: {
+        id_venta: z
+          .string()
+          .describe(
+            "Id de la venta (numérico de PostgreSQL o MongoDB de 24 caracteres).",
+          ),
+        dictamen: z
+          .enum(["reembolsar", "liberar"])
+          .describe("Resolución de la venta retenida."),
+        causa_adeudo: z
+          .enum(CAUSAS_ADEUDO)
+          .optional()
+          .describe(
+            "Causa del adeudo si el reembolso es por culpa directa del vendedor (RQNF37). Si se omite, no se registra adeudo.",
+          ),
+        nota: z
+          .string()
+          .optional()
+          .describe("Nota de la administración."),
+      },
+      annotations: { destructiveHint: true },
+    },
+    async ({ id_venta, dictamen, causa_adeudo, nota }) =>
+      ejecutar(() =>
+        resolverVentaRetenidaAdmin(id_venta, {
+          dictamen,
+          causaAdeudo: causa_adeudo,
+          nota,
+        }),
+      ),
+  );
+
+  // -------------------------------------------------------------------------
+  // Adeudos del vendedor (RQNF37 / RQNF38)
+  // -------------------------------------------------------------------------
+  servidor.registerTool(
+    "listar_adeudos",
+    {
+      title: "Listar adeudos",
+      description:
+        "Lista paginada de adeudos de los vendedores (reembolsos cubiertos por la plataforma por su culpa directa): monto, motivo, causa, estado y el total pendiente de liquidar. La cuenta del vendedor permanece suspendida con saldo pendiente hasta liquidarlo (RQNF38).",
+      inputSchema: {
+        pagina: z
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe("Número de página (empieza en 1). Por defecto 1."),
+        por_pagina: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .optional()
+          .describe("Adeudos por página (por defecto 10)."),
+        estado: z
+          .enum(["pendiente", "liquidado"])
+          .optional()
+          .describe("Filtra por el estado del adeudo."),
+        id_usuario: z
+          .number()
+          .int()
+          .optional()
+          .describe("Filtra por el id numérico (PostgreSQL) del vendedor."),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async ({ pagina, por_pagina, estado, id_usuario }) =>
+      ejecutar(() =>
+        listarAdeudosAdmin({
+          pagina,
+          porPagina: por_pagina,
+          estado,
+          usuarioId: id_usuario,
+        }),
+      ),
+  );
+
+  servidor.registerTool(
+    "liquidar_adeudo",
+    {
+      title: "Liquidar adeudo",
+      description:
+        "Registra la liquidación total de un adeudo (pago por transferencia fuera de la aplicación, RQNF38). Descuenta el monto del saldo pendiente del vendedor y, cuando el saldo llega a cero, levanta automáticamente su suspensión por saldo para que vuelva a operar.",
+      inputSchema: {
+        id_adeudo: z
+          .string()
+          .describe(
+            "Id del adeudo (MongoDB de 24 caracteres) que devuelve `listar_adeudos`.",
+          ),
+        nota: z
+          .string()
+          .optional()
+          .describe(
+            "Nota de la administración (referencia de la transferencia, etc.).",
+          ),
+      },
+      annotations: { destructiveHint: true },
+    },
+    async ({ id_adeudo, nota }) =>
+      ejecutar(() => liquidarAdeudoAdmin(id_adeudo, { nota })),
   );
 
   // -------------------------------------------------------------------------
