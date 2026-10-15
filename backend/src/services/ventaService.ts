@@ -65,6 +65,12 @@ export async function registrarVentaExitosa(
     // confirma el pago.
     await Producto.updateOne({ _id: productoId }, { activo: false });
 
+    // RQF13 / RQF14: se congelan nombre y categoría del producto para que los
+    // informes sigan siendo correctos aunque la publicación se elimine.
+    const producto = await Producto.findById(productoId).select(
+      "nombre categoria",
+    );
+
     // La fila del comprador pasa a "pagada" y el resto de la fila queda
     // "esperando_confirmacion" (coincide con el reparto de turnos).
     await clientePrisma.cola.updateMany({
@@ -95,6 +101,8 @@ export async function registrarVentaExitosa(
         estado: "pendiente_comprobante",
         codigoPago,
         autorizacionPaypalId,
+        productoCategoria: producto?.categoria ?? null,
+        productoNombre: producto?.nombre ?? null,
       },
     });
   }

@@ -12,6 +12,11 @@ import {
   quitarEntradaListaNegra,
   obtenerResumenAdmin,
 } from "../controllers/adminController.js";
+import {
+  listarInformesGlobales,
+  descargarInformeGlobal,
+  generarInformesAdmin,
+} from "../controllers/informeController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { esAdmin } from "../middleware/esAdmin.js";
 
@@ -72,6 +77,19 @@ router.delete(
   verificarToken,
   esAdmin,
   quitarEntradaListaNegra,
+);
+
+// RQF14 / RQNF13.2 / RQNF14.1: informes globales mensuales, descarga en PDF y
+// generación manual de un período (recuperación o pruebas controladas).
+router.get("/informes", verificarToken, esAdmin, listarInformesGlobales);
+
+router.post("/informes/generar", verificarToken, esAdmin, generarInformesAdmin);
+
+router.get(
+  "/informes/:periodo/pdf",
+  verificarToken,
+  esAdmin,
+  descargarInformeGlobal,
 );
 
 export default router;

@@ -88,6 +88,10 @@ model venta {
   canceladoMotivo String?
   // RQNF32: retención preventiva de fondos por reportes o disputas.
   retenido       Boolean  @default(false)
+  // RQF13 / RQF14: datos del producto congelados al confirmarse la venta,
+  // para que los informes sobrevivan a la eliminación del producto.
+  productoCategoria String?
+  productoNombre    String?
   createdAt     DateTime @default(now())
   updatedAt     temporal.updatedAtString()
   vendedor      usuario  @relation(fields: [vendedorId], references: [id])
@@ -100,6 +104,10 @@ model cola {
   correo        String?
   posicion      Int
   estado        String    @default("activa")
+  // RQNF14.2: causa de cierre de la fila, para la tasa de abandono:
+  //   salio_voluntariamente | turno_vencido | venta_completada |
+  //   venta_cancelada | producto_eliminado | cuenta_cancelada
+  motivoCierre  String?
   pagoExpiraEn  DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     temporal.updatedAtString()

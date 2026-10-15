@@ -548,7 +548,7 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
         productoId: producto._id,
         estado: { $in: ["activa", "esperando_confirmacion"] },
       },
-      { estado: "finalizada" },
+      { estado: "finalizada", motivoCierre: "producto_eliminado" },
     );
 
     await producto.deleteOne();

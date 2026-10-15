@@ -1,0 +1,128 @@
+[
+  {
+    "id": "column.public.cola.motivoCierre",
+    "label": "Add column \"motivoCierre\" to \"cola\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "motivoCierre",
+        "table": "cola"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"motivoCierre\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cola",
+          "motivoCierre"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"motivoCierre\"",
+        "sql": "ALTER TABLE \"public\".\"cola\" ADD COLUMN \"motivoCierre\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"motivoCierre\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cola",
+          "motivoCierre"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.productoCategoria",
+    "label": "Add column \"productoCategoria\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "productoCategoria",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"productoCategoria\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "productoCategoria"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"productoCategoria\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"productoCategoria\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"productoCategoria\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "productoCategoria"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.productoNombre",
+    "label": "Add column \"productoNombre\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "productoNombre",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"productoNombre\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "productoNombre"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"productoNombre\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"productoNombre\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"productoNombre\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "productoNombre"
+        ]
+      }
+    ]
+  }
+]

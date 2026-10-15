@@ -142,7 +142,7 @@ export async function salirDeFila(req: RequestConComprador, res: Response) {
 
     await clientePrisma.cola.update({
       where: { id: fila.id },
-      data: { estado: "finalizada" },
+      data: { estado: "finalizada", motivoCierre: "salio_voluntariamente" },
     });
 
     await reacomodarFila(fila.productoId, fila.posicion);
@@ -234,7 +234,7 @@ export async function responderEsperaConfirmacion(
 
     await clientePrisma.cola.update({
       where: { id: fila.id },
-      data: { estado: "finalizada" },
+      data: { estado: "finalizada", motivoCierre: "salio_voluntariamente" },
     });
     await reacomodarFila(fila.productoId, fila.posicion);
 

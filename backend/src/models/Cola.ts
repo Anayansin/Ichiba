@@ -19,6 +19,10 @@ const colaSchema = new Schema(
       ],
       default: "activa",
     },
+    // RQNF14.2: causa de cierre de la fila (tasa de abandono):
+    //   salio_voluntariamente | turno_vencido | venta_completada |
+    //   venta_cancelada | producto_eliminado | cuenta_cancelada
+    motivoCierre: { type: String },
     pagoExpiraEn: { type: Date },
   },
   { timestamps: true },

@@ -485,7 +485,7 @@ export async function registrarEntregaDeVenta(
       compradorId: venta.compradorId,
       estado: "reposo",
     },
-    data: { estado: "finalizada" },
+    data: { estado: "finalizada", motivoCierre: "venta_completada" },
   });
   await clientePrisma.cola.updateMany({
     where: {
@@ -493,7 +493,7 @@ export async function registrarEntregaDeVenta(
       compradorId: venta.compradorId,
       estado: "pagada",
     },
-    data: { estado: "finalizada" },
+    data: { estado: "finalizada", motivoCierre: "venta_completada" },
   });
 
   await actualizarEspejoVenta(venta.paypalOrderId, {

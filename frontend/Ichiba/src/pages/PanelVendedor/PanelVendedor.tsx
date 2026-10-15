@@ -30,6 +30,11 @@ import {
   type VentaDelVendedor,
 } from "../../services/pagoService";
 import EtiquetaEstadoVenta from "../../components/EtiquetaEstadoVenta/EtiquetaEstadoVenta";
+import {
+  descargarInformeVendedorPdf,
+  fetchInformesDelVendedor,
+  type InformeVendedor,
+} from "../../services/informeService";
 import { fechaLimiteTexto } from "../../utils/estadoVenta";
 import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
@@ -74,6 +79,13 @@ function PanelVendedor() {
   );
   const [errorVentas, setErrorVentas] = useState("");
 
+  // RQF13 / RQNF13.3: informes mensuales de ventas (consulta y descarga PDF).
+  const [informes, setInformes] = useState<InformeVendedor[]>([]);
+  const [descargandoInforme, setDescargandoInforme] = useState<string | null>(
+    null,
+  );
+  const [errorInformes, setErrorInformes] = useState("");
+
   function cargarImagenesDeComprobantes(data: ResumenVentasDelVendedor | null) {
     if (!data) return;
     for (const venta of data.ventas) {
@@ -107,12 +119,18 @@ function PanelVendedor() {
         console.error("Error al cargar las ventas:", error);
         return null;
       }),
+      // Los informes de ventas tampoco deben impedir cargar el panel
+      fetchInformesDelVendedor().catch((error) => {
+        console.error("Error al cargar los informes:", error);
+        return [] as InformeVendedor[];
+      }),
     ])
-      .then(([datosPerfil, productos, promocionales, datosVentas]) => {
+      .then(([datosPerfil, productos, promocionales, datosVentas, datosInformes]) => {
         setPerfil(datosPerfil);
         setMisProductos(productos);
         setMisPromocionales(promocionales);
         setVentasData(datosVentas);
+        setInformes(datosInformes);
         cargarImagenesDeComprobantes(datosVentas);
       })
       .catch((error) => {
@@ -326,6 +344,22 @@ function PanelVendedor() {
       );
     } finally {
       setAccionVentaEnCurso(null);
+    }
+  }
+
+  // --- RQF13 / RQNF13.3: informes mensuales de ventas ----------------------
+
+  async function handleDescargarInforme(periodo: string) {
+    setDescargandoInforme(periodo);
+    setErrorInformes("");
+    try {
+      await descargarInformeVendedorPdf(periodo);
+    } catch (err) {
+      setErrorInformes(
+        mensajeDeError(err) || "No se pudo descargar el informe en PDF",
+      );
+    } finally {
+      setDescargandoInforme(null);
     }
   }
 
@@ -744,6 +778,76 @@ function PanelVendedor() {
         ) : (
           <div className="panel-vendedor__lista-ventas">
             {ventasHistorial.map(renderHistorial)}
+          </div>
+        )}
+      </div>
+
+      {/* RQF13 / RQNF13.3: informes mensuales de ventas y descarga en PDF. */}
+      <div className="panel-vendedor__informes">
+        <h2>Informes de ventas</h2>
+        <p className="panel-vendedor__informes-nota">
+          Cada mes el sistema genera tu informe de ventas con los productos
+          vendidos, tus ingresos, la tasa de concertación y el tiempo promedio
+          por fila. Puedes consultarlo aquí y descargarlo en PDF.
+        </p>
+
+        {errorInformes && (
+          <p className="panel-vendedor__error">{errorInformes}</p>
+        )}
+
+        {informes.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            Todavía no tienes informes: el primero se genera automáticamente el
+            día 1° del próximo mes.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-informes">
+            {informes.map((informe) => (
+              <div key={informe.periodo} className="panel-vendedor__informe">
+                <div className="panel-vendedor__informe-info">
+                  <p className="panel-vendedor__venta-nombre">
+                    Período {informe.periodo}
+                  </p>
+                  <p className="panel-vendedor__venta-detalle">
+                    {informe.totalVentas} venta(s) · $
+                    {informe.ingresos.toFixed(2)} de ingresos
+                  </p>
+                  <p className="panel-vendedor__venta-detalle">
+                    Filas iniciadas: {informe.filasIniciadas} · Ventas
+                    concluidas: {informe.ventasConcluidas} · Tasa de
+                    concertación: {informe.tasaConcertacion.toFixed(1)}%
+                  </p>
+                  <p className="panel-vendedor__venta-detalle">
+                    Tiempo promedio por fila:{" "}
+                    {informe.tiempoPromedioFilaMinutos === null
+                      ? "—"
+                      : `${informe.tiempoPromedioFilaMinutos.toFixed(1)} min`}
+                  </p>
+                  {informe.productosVendidos.length > 0 && (
+                    <p className="panel-vendedor__venta-detalle">
+                      Productos:{" "}
+                      {informe.productosVendidos
+                        .slice(0, 3)
+                        .map((p) => `${p.nombre} ×${p.cantidad}`)
+                        .join(" · ")}
+                      {informe.productosVendidos.length > 3
+                        ? ` y ${informe.productosVendidos.length - 3} más`
+                        : ""}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="panel-vendedor__descargar-informe"
+                  onClick={() => handleDescargarInforme(informe.periodo)}
+                  disabled={descargandoInforme === informe.periodo}
+                >
+                  {descargandoInforme === informe.periodo
+                    ? "Descargando..."
+                    : "⬇ Descargar PDF"}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

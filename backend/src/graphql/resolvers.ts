@@ -316,6 +316,7 @@ export const resolutoresGraphQL = {
       }
 
       fila.estado = "finalizada";
+      fila.motivoCierre = "salio_voluntariamente";
       await fila.save();
       await reacomodarFila(fila.productoId.toString(), fila.posicion);
       return fila;

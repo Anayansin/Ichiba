@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'1221e10be509fe8eb880c207d9cd1d982d1493bd4fce723f57412136a378ce66'>;
+  StorageHashBase<'5108b8929e6722be58d52ac16970443767367605d0b92eb24d42fc640d305526'>;
 export type ExecutionHash =
   ExecutionHashBase<'ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037'>;
 export type ProfileHash =
@@ -256,6 +256,7 @@ export type FieldOutputTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly motivoCierre: CodecTypes['pg/text@1']['output'] | null;
       readonly pagoExpiraEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly posicion: CodecTypes['pg/int4@1']['output'];
       readonly productoId: CodecTypes['pg/text@1']['output'];
@@ -336,7 +337,9 @@ export type FieldOutputTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly monto: CodecTypes['pg/float8@1']['output'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['output'];
+      readonly productoCategoria: CodecTypes['pg/text@1']['output'] | null;
       readonly productoId: CodecTypes['pg/text@1']['output'];
+      readonly productoNombre: CodecTypes['pg/text@1']['output'] | null;
       readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly reembolsoId: CodecTypes['pg/text@1']['output'] | null;
       readonly retenido: CodecTypes['pg/bool@1']['output'];
@@ -354,6 +357,7 @@ export type FieldInputTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly motivoCierre: CodecTypes['pg/text@1']['input'] | null;
       readonly pagoExpiraEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly posicion: CodecTypes['pg/int4@1']['input'];
       readonly productoId: CodecTypes['pg/text@1']['input'];
@@ -434,7 +438,9 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly monto: CodecTypes['pg/float8@1']['input'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['input'];
+      readonly productoCategoria: CodecTypes['pg/text@1']['input'] | null;
       readonly productoId: CodecTypes['pg/text@1']['input'];
+      readonly productoNombre: CodecTypes['pg/text@1']['input'] | null;
       readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly reembolsoId: CodecTypes['pg/text@1']['input'] | null;
       readonly retenido: CodecTypes['pg/bool@1']['input'];
@@ -452,6 +458,7 @@ export type StorageColumnTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
+      readonly motivoCierre: CodecTypes['pg/text@1']['output'] | null;
       readonly pagoExpiraEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly posicion: CodecTypes['pg/int4@1']['output'];
       readonly productoId: CodecTypes['pg/text@1']['output'];
@@ -532,7 +539,9 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly monto: CodecTypes['pg/float8@1']['output'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['output'];
+      readonly productoCategoria: CodecTypes['pg/text@1']['output'] | null;
       readonly productoId: CodecTypes['pg/text@1']['output'];
+      readonly productoNombre: CodecTypes['pg/text@1']['output'] | null;
       readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly reembolsoId: CodecTypes['pg/text@1']['output'] | null;
       readonly retenido: CodecTypes['pg/bool@1']['output'];
@@ -550,6 +559,7 @@ export type StorageColumnInputTypes = {
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
+      readonly motivoCierre: CodecTypes['pg/text@1']['input'] | null;
       readonly pagoExpiraEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly posicion: CodecTypes['pg/int4@1']['input'];
       readonly productoId: CodecTypes['pg/text@1']['input'];
@@ -630,7 +640,9 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly monto: CodecTypes['pg/float8@1']['input'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['input'];
+      readonly productoCategoria: CodecTypes['pg/text@1']['input'] | null;
       readonly productoId: CodecTypes['pg/text@1']['input'];
+      readonly productoNombre: CodecTypes['pg/text@1']['input'] | null;
       readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly reembolsoId: CodecTypes['pg/text@1']['input'] | null;
       readonly retenido: CodecTypes['pg/bool@1']['input'];
@@ -648,6 +660,7 @@ export namespace Models {
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     estado: CodecTypes['pg/text@1']['output'];
     id: CodecTypes['pg/int4@1']['output'];
+    motivoCierre: CodecTypes['pg/text@1']['output'] | null;
     pagoExpiraEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     posicion: CodecTypes['pg/int4@1']['output'];
     productoId: CodecTypes['pg/text@1']['output'];
@@ -734,7 +747,9 @@ export namespace Models {
     id: CodecTypes['pg/int4@1']['output'];
     monto: CodecTypes['pg/float8@1']['output'];
     paypalOrderId: CodecTypes['pg/text@1']['output'];
+    productoCategoria: CodecTypes['pg/text@1']['output'] | null;
     productoId: CodecTypes['pg/text@1']['output'];
+    productoNombre: CodecTypes['pg/text@1']['output'] | null;
     reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     reembolsoId: CodecTypes['pg/text@1']['output'] | null;
     retenido: CodecTypes['pg/bool@1']['output'];
@@ -808,6 +823,11 @@ type ContractBase = Omit<
                     readonly kind: 'function';
                     readonly expression: 'autoincrement()';
                   };
+                };
+                readonly motivoCierre: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly pagoExpiraEn: {
                   readonly nativeType: 'timestamptz';
@@ -1286,10 +1306,20 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                 };
+                readonly productoCategoria: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly productoId: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly productoNombre: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                 };
                 readonly reembolsadoEn: {
                   readonly nativeType: 'timestamptz';
@@ -1396,6 +1426,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
+              readonly motivoCierre: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly pagoExpiraEn: {
                 readonly nullable: true;
                 readonly type: {
@@ -1429,6 +1463,7 @@ type ContractBase = Omit<
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly estado: { readonly column: 'estado' };
                 readonly id: { readonly column: 'id' };
+                readonly motivoCierre: { readonly column: 'motivoCierre' };
                 readonly pagoExpiraEn: { readonly column: 'pagoExpiraEn' };
                 readonly posicion: { readonly column: 'posicion' };
                 readonly productoId: { readonly column: 'productoId' };
@@ -1876,8 +1911,16 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly productoCategoria: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly productoId: {
                 readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly productoNombre: {
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly reembolsadoEn: {
@@ -1951,7 +1994,9 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly monto: { readonly column: 'monto' };
                 readonly paypalOrderId: { readonly column: 'paypalOrderId' };
+                readonly productoCategoria: { readonly column: 'productoCategoria' };
                 readonly productoId: { readonly column: 'productoId' };
+                readonly productoNombre: { readonly column: 'productoNombre' };
                 readonly reembolsadoEn: { readonly column: 'reembolsadoEn' };
                 readonly reembolsoId: { readonly column: 'reembolsoId' };
                 readonly retenido: { readonly column: 'retenido' };

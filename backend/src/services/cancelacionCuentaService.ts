@@ -128,7 +128,7 @@ export async function cancelarFilasSinPagoDelVendedor(
 
     await clientePrisma.cola.update({
       where: { id: Number(fila.id) },
-      data: { estado: "cancelada" },
+      data: { estado: "cancelada", motivoCierre: "cuenta_cancelada" },
     });
     canceladas += 1;
 

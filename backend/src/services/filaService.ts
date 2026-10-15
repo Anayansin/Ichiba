@@ -63,7 +63,7 @@ export async function limpiarFilasHuerfanas(
     if (validos.has(String(fila.productoId))) continue;
     await clientePrisma.cola.update({
       where: { id: Number(fila.id) },
-      data: { estado: "finalizada" },
+      data: { estado: "finalizada", motivoCierre: "producto_eliminado" },
     });
   }
 }
@@ -124,7 +124,7 @@ export async function expirarTurnoSiVencido(fila: Fila): Promise<boolean> {
   } else {
     await clientePrisma.cola.update({
       where: { id: Number(fila.id) },
-      data: { estado: "finalizada" },
+      data: { estado: "finalizada", motivoCierre: "turno_vencido" },
     });
   }
   await reacomodarFila(String(fila.productoId), fila.posicion);
@@ -146,7 +146,7 @@ export async function expirarFilasVencidas(): Promise<number> {
 
     await clientePrisma.cola.update({
       where: { id: Number(fila.id) },
-      data: { estado: "finalizada" },
+      data: { estado: "finalizada", motivoCierre: "turno_vencido" },
     });
     await reacomodarFila(String(fila.productoId), Number(fila.posicion));
     liberadas += 1;
@@ -169,11 +169,11 @@ export async function reanudarFilaTrasCancelacion(
 ): Promise<{ reanudados: number }> {
   await clientePrisma.cola.updateMany({
     where: { productoId, compradorId, estado: "pagada" },
-    data: { estado: "finalizada" },
+    data: { estado: "finalizada", motivoCierre: "venta_cancelada" },
   });
   await clientePrisma.cola.updateMany({
     where: { productoId, compradorId, estado: "reposo" },
-    data: { estado: "finalizada" },
+    data: { estado: "finalizada", motivoCierre: "venta_cancelada" },
   });
 
   const enEspera = await clientePrisma.cola.findMany({

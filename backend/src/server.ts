@@ -18,11 +18,13 @@ import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
 import { iniciarJobRevisionPagos } from "./jobs/revisionPagos.js";
 import { iniciarJobNotificacionesCategoria } from "./jobs/notificacionesCategoria.js";
 import { iniciarJobRevisionEntregas } from "./jobs/revisionEntregas.js";
+import { iniciarJobInformesMensuales } from "./jobs/informesMensuales.js";
 import mensajeRoutes from "./routes/mensajeRoutes.js";
 import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
+import informeRoutes from "./routes/informeRoutes.js";
 import { ApolloServer as ServidorApollo } from "@apollo/server";
 import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
 import { definicionesEsquema } from "./graphql/esquema.js";
@@ -123,6 +125,7 @@ app.use("/api/reportes", reporteRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
+app.use("/api/informes", informeRoutes);
 
 // Los errores de Multer (archivo muy pesado o tipo no permitido) deben
 // responder JSON y no el HTML del manejador por defecto de Express.
@@ -174,3 +177,4 @@ iniciarJobRevisionHorarios();
 iniciarJobRevisionPagos();
 iniciarJobNotificacionesCategoria();
 iniciarJobRevisionEntregas();
+iniciarJobInformesMensuales();
