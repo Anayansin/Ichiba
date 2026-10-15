@@ -244,3 +244,73 @@
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* RQF18 / RQNF18: esperando la próxima apertura del vendedor */
+.producto-completo__esperando--apertura {
+  background-color: #eef4fd;
+  border-left-color: #1a56b0;
+}
+
+.producto-completo__esperando--apertura span {
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+/* RQNF16: advertencia de bloque por terminar antes del pago */
+.producto-completo__aviso-atencion {
+  background-color: #fff4e5;
+  border-left: 4px solid #e69500;
+  color: #8a5a00;
+  padding: 0.7rem 1rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* RQF18: elegir entre pagar ahora o esperar la próxima apertura */
+.producto-completo__eleccion-espera {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.producto-completo__esperar-boton {
+  background: #ffffff;
+  color: #1a56b0;
+  border: 2px solid #1a56b0;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.producto-completo__esperar-boton:hover:not(:disabled) {
+  background: #eef4fd;
+}
+
+.producto-completo__esperar-boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* RQNF15: el vendedor está fuera de su bloque de atención */
+.producto-completo__fuera-horario {
+  background-color: #eef4fd;
+  border-left: 4px solid #1a56b0;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.producto-completo__fuera-horario-titulo {
+  margin: 0 0 0.3rem 0;
+  font-weight: 700;
+  color: #1a56b0;
+}
+
+.producto-completo__fuera-horario-texto {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #444;
+}

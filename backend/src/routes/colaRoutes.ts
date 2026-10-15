@@ -5,6 +5,7 @@ import {
   salirDeFila,
   estadoDeMiFila,
   responderEsperaConfirmacion,
+  esperarProximaApertura,
 } from "../controllers/colaController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { requiereCompradorSinSancion } from "../middleware/sancion.js";
@@ -22,6 +23,11 @@ router.post(
 router.get("/mias", requiereCompradorId, misFilas);
 router.get("/producto/:productoId/estado", requiereCompradorId, estadoDeMiFila);
 router.patch("/:id/salir", requiereCompradorId, salirDeFila);
+router.patch(
+  "/:id/esperar-apertura",
+  requiereCompradorId,
+  esperarProximaApertura,
+);
 router.patch(
   "/:id/responder-confirmacion",
   requiereCompradorId,

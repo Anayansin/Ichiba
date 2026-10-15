@@ -318,3 +318,127 @@ export function obtenerTextoDeProximoBloque(
 
   return null;
 }
+
+/**
+ * RQF18 / RQNF15: texto de la *siguiente apertura* del vendedor: el primer
+ * bloque que todavía no ha comenzado (si el bloque vigente está activo, es el
+ * de después). Es el momento al que se puede posponer un turno de pago.
+ */
+export function obtenerTextoDeLaSiguienteApertura(
+  horarios: BloqueHorario[],
+  fechaActual: Date,
+): string | null {
+  if (!Array.isArray(horarios)) return null;
+
+  const bloques = bloquesProgramados(horarios, fechaActual, 14);
+  const siguiente = bloques.find(
+    (bloque) => bloque.inicio.getTime() > fechaActual.getTime(),
+  );
+  if (!siguiente) return null;
+
+  const relojAhora = relojZonaCentro(fechaActual);
+  const relojInicio = relojZonaCentro(siguiente.inicio);
+  const relojFin = relojZonaCentro(siguiente.fin);
+
+  const diaDe = (fecha: Date) =>
+    new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()).getTime();
+  const diasAdelante = Math.round(
+    (diaDe(relojInicio) - diaDe(relojAhora)) / 86400000,
+  );
+  const nombreDelDia = NOMBRES_DE_DIA[relojInicio.getDay()];
+  const horaDe = (fecha: Date) =>
+    `${String(fecha.getHours()).padStart(2, "0")}:${String(fecha.getMinutes()).padStart(2, "0")}`;
+
+  return `${etiquetaDeDia(diasAdelante, nombreDelDia)} de ${horaDe(relojInicio)} a ${horaDe(relojFin)}`;
+}
+
+/**
+ * RQNF15: un vendedor sin horarios definidos se considera disponible siempre;
+ * con horarios, solo atiende dentro de su bloque vigente.
+ */
+export function estaAtendiendo(
+  horarios: BloqueHorario[] | null | undefined,
+  fechaActual: Date,
+): boolean {
+  if (!Array.isArray(horarios) || horarios.length === 0) return true;
+  return estaDentroDeSuHorario(horarios, fechaActual);
+}
+
+export type EvaluacionAtencion = {
+  /** true si el vendedor atiende en este momento (sin horarios = siempre). */
+  atendiendo: boolean;
+  /** minutos que le quedan al bloque vigente (null si no hay bloque activo). */
+  minutosRestantesBloque: number | null;
+  /**
+   * RQF18: el comprador puede guardar su lugar hasta la próxima apertura
+   * cuando el vendedor no atiende o su bloque actual termina antes del
+   * tiempo límite de pago (RQNF16).
+   */
+  puedeEsperarApertura: boolean;
+  /** RQNF16: advertencia previa al pago en el turno del comprador. */
+  avisoAtencion: string | null;
+  /** RQF18: texto de la próxima apertura del vendedor. */
+  siguienteApertura: string | null;
+};
+
+/**
+ * RQNF15 / RQNF16 / RQF18: evalúa la atención del vendedor para la fila
+ * virtual y prepara la advertencia y las opciones del comprador en su turno.
+ */
+export function evaluarAtencionDelVendedor(
+  horarios: BloqueHorario[] | null | undefined,
+  fechaActual: Date,
+  minutosLimitePago: number,
+): EvaluacionAtencion {
+  if (!Array.isArray(horarios) || horarios.length === 0) {
+    return {
+      atendiendo: true,
+      minutosRestantesBloque: null,
+      puedeEsperarApertura: false,
+      avisoAtencion: null,
+      siguienteApertura: null,
+    };
+  }
+
+  const reloj = relojZonaCentro(fechaActual);
+  const nombreDelDia = NOMBRES_DE_DIA[reloj.getDay()];
+  const minutosAhora = reloj.getHours() * 60 + reloj.getMinutes();
+  const bloqueDeHoy = horarios.find(
+    (bloque) => bloque.dia === nombreDelDia && bloqueUtilizable(bloque),
+  );
+
+  const siguienteApertura = obtenerTextoDeLaSiguienteApertura(
+    horarios,
+    fechaActual,
+  );
+  const aperturaTexto = siguienteApertura ?? "una próxima apertura aún por definir";
+
+  const activo =
+    !!bloqueDeHoy &&
+    minutosAhora >= minutosDesdeMedianoche(bloqueDeHoy.horaInicio) &&
+    minutosAhora < minutosDesdeMedianoche(bloqueDeHoy.horaFin);
+
+  if (!activo) {
+    return {
+      atendiendo: false,
+      minutosRestantesBloque: null,
+      puedeEsperarApertura: true,
+      avisoAtencion: `El vendedor no está en horario de atención en este momento. Su próxima apertura es ${aperturaTexto}. Puedes pagar ahora (sin atención ni chat hasta entonces) o esperar conservando tu lugar.`,
+      siguienteApertura,
+    };
+  }
+
+  const minutosRestantes =
+    minutosDesdeMedianoche(bloqueDeHoy.horaFin) - minutosAhora;
+  const porTerminar = minutosRestantes < minutosLimitePago;
+
+  return {
+    atendiendo: true,
+    minutosRestantesBloque: minutosRestantes,
+    puedeEsperarApertura: porTerminar,
+    avisoAtencion: porTerminar
+      ? `Al vendedor le quedan ${minutosRestantes} minutos de atención en su bloque actual. Si pagas ahora, el pago queda registrado, pero la atención y el chat se reanudarán en su próxima apertura (${aperturaTexto}). También puedes esperar conservando tu lugar.`
+      : null,
+    siguienteApertura,
+  };
+}

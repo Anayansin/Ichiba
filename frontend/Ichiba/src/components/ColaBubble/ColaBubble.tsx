@@ -43,6 +43,12 @@ function ColaBubble() {
                 <div className="cola-bubble__item-info">
                   <p>{fila.productoId.nombre}</p>
                   <span>${fila.productoId.precio}</span>
+                  {/* RQF18: el lugar está guardado hasta la próxima apertura. */}
+                  {fila.estado === "esperando_apertura" && (
+                    <span className="cola-bubble__espera">
+                      Esperando la próxima apertura del vendedor
+                    </span>
+                  )}
                 </div>
                 <button onClick={() => handleSalir(fila._id)}>Salir</button>
               </div>

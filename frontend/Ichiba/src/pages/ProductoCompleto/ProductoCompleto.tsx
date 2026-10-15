@@ -11,6 +11,7 @@ import {
 } from "../../services/productoService";
 import {
   entrarEnFila,
+  esperarProximaApertura,
   fetchEstadoDeMiFila,
   type EstadoFila,
 } from "../../services/colaService";
@@ -44,6 +45,8 @@ function ProductoCompleto() {
   // RQNF24.1: aviso de atención y enlace a la pasarela tras confirmar el pago.
   const [avisoAtencion, setAvisoAtencion] = useState("");
   const [enlacePago, setEnlacePago] = useState("");
+  // RQF18: espera a la próxima apertura del vendedor.
+  const [guardandoEspera, setGuardandoEspera] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -65,10 +68,6 @@ function ProductoCompleto() {
     function actualizar() {
       fetchEstadoDeMiFila(productoActual._id)
         .then((data) => {
-          if (data.enFila === false) {
-            setEstadoFila(null);
-            return;
-          }
           if (data.expiro) {
             setEstadoFila(null);
             setMensajeFila(
@@ -77,6 +76,8 @@ function ProductoCompleto() {
             recargarFilas();
             return;
           }
+          // RQNF15: aunque no esté en la fila, se conserva el estado del
+          // horario del vendedor (próximo bloque disponible).
           setEstadoFila(data);
         })
         .catch(() => setEstadoFila(null));
@@ -154,6 +155,29 @@ function ProductoCompleto() {
       setEnlacePago(String(linkAprobacion));
     } catch (err) {
       setMensajeFila(mensajeDeError(err) || "Error al iniciar el pago");
+    }
+  }
+
+  /**
+   * RQF18: el comprador decide esperar a la próxima apertura: se guarda su
+   * lugar en la fila (RQNF18) y su reloj de pago queda en pausa.
+   */
+  async function handleEsperarApertura() {
+    if (!producto || !estadoFila?.colaId) return;
+    setGuardandoEspera(true);
+    setMensajeFila("");
+    try {
+      const respuesta = await esperarProximaApertura(estadoFila.colaId);
+      setMensajeFila(respuesta.message);
+      recargarFilas();
+      const datos = await fetchEstadoDeMiFila(producto._id);
+      setEstadoFila(datos);
+    } catch (err) {
+      setMensajeFila(
+        mensajeDeError(err) || "No pudimos guardar tu lugar en la fila",
+      );
+    } finally {
+      setGuardandoEspera(false);
     }
   }
 
@@ -271,7 +295,25 @@ function ProductoCompleto() {
             Tu cuenta es de administración: supervisa la plataforma, no
             realiza compras.
           </p>
-        ) : estadoFila ? (
+        ) : estadoFila?.esperandoApertura ? (
+          /* RQF18: lugar guardado; el reloj sigue en pausa hasta la apertura. */
+          <div className="producto-completo__esperando producto-completo__esperando--apertura">
+            <p>Guardamos tu lugar — posición {estadoFila.posicion}</p>
+            <span>
+              El vendedor no está atendiendo en este momento.
+              {estadoFila.proximoBloque
+                ? ` Su próxima apertura es ${estadoFila.proximoBloque}.`
+                : ""}{" "}
+              Tu reloj de pago está en pausa y se reanudará cuando abra su
+              bloque de atención; te avisaremos por correo.
+            </span>
+            {mensajeFila && (
+              <p className="producto-completo__mensaje-fila">{mensajeFila}</p>
+            )}
+          </div>
+        ) : estadoFila &&
+          estadoFila.enFila !== false &&
+          estadoFila.posicion !== null ? (
           estadoFila.puedePagar ? (
             <div className="producto-completo__pago-listo">
               <p>¡Es tu turno! Estás en la posición 1.</p>
@@ -282,6 +324,13 @@ function ProductoCompleto() {
                     {Math.floor(segundosRestantes / 60)}:
                     {String(segundosRestantes % 60).padStart(2, "0")}
                   </strong>
+                </p>
+              )}
+              {/* RQNF16: advertencia cuando el bloque del vendedor termina
+                  antes del tiempo límite de pago. */}
+              {estadoFila.puedeElegirEspera && estadoFila.avisoAtencion && (
+                <p className="producto-completo__aviso-atencion">
+                  {estadoFila.avisoAtencion}
                 </p>
               )}
               {enlacePago ? (
@@ -316,6 +365,21 @@ function ProductoCompleto() {
                     </button>
                   </div>
                 </div>
+              ) : estadoFila.puedeElegirEspera ? (
+                /* RQF18: el comprador elige pagar ahora o esperar la apertura. */
+                <div className="producto-completo__eleccion-espera">
+                  <Boton texto="Pagar ahora" onClick={handlePagar} />
+                  <button
+                    type="button"
+                    className="producto-completo__esperar-boton"
+                    onClick={handleEsperarApertura}
+                    disabled={guardandoEspera}
+                  >
+                    {guardandoEspera
+                      ? "Guardando tu lugar..."
+                      : "Esperar a la próxima apertura"}
+                  </button>
+                </div>
               ) : (
                 <Boton
                   texto={
@@ -338,7 +402,22 @@ function ProductoCompleto() {
             {mensajeFila && (
               <p className="producto-completo__mensaje-fila">{mensajeFila}</p>
             )}
-            <Boton texto="Entrar en la fila" onClick={handleEntrarFila} />
+            {/* RQNF15: fuera del bloque de atención no se puede entrar a la
+                fila; se muestra la fecha y hora del próximo bloque. */}
+            {estadoFila?.horarioActivo === false ? (
+              <div className="producto-completo__fuera-horario">
+                <p className="producto-completo__fuera-horario-titulo">
+                  El vendedor no está en horario de atención
+                </p>
+                <p className="producto-completo__fuera-horario-texto">
+                  {estadoFila.proximoBloque
+                    ? `Su próxima apertura es ${estadoFila.proximoBloque}. Podrás entrar a la fila cuando abra su bloque de atención.`
+                    : "El vendedor no tiene bloques de atención programados por ahora."}
+                </p>
+              </div>
+            ) : (
+              <Boton texto="Entrar en la fila" onClick={handleEntrarFila} />
+            )}
           </>
         )}
       </div>

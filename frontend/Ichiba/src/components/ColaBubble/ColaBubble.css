@@ -77,6 +77,15 @@
   font-weight: 700;
 }
 
+/* RQF18: la fila espera la próxima apertura del vendedor */
+.cola-bubble__item-info .cola-bubble__espera {
+  display: block;
+  color: #1a56b0;
+  font-weight: 600;
+  font-size: 0.68rem;
+  margin-top: 0.1rem;
+}
+
 .cola-bubble__item button {
   background: none;
   border: none;

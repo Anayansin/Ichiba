@@ -753,6 +753,45 @@ const COMPRADOR_L = "comprador-escrow-laura";
 const HORA = 60 * 60 * 1000;
 const DIA = 24 * HORA;
 
+// RQNF15: la fila solo se abre dentro del bloque de atención del vendedor.
+// Los vendedores demo nacen en la semilla con 09:00-18:00; durante la suite
+// se les abre la ventana máxima permitida y se restauran al terminar.
+const CORREOS_DEMO = ["vendedor.demo@ichiba.test", "vendedor.mp@ichiba.test"];
+
+const HORARIOS_SIEMPRE = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+].map((dia) => ({
+  dia,
+  activo: true,
+  horaInicio: "00:00",
+  horaFin: "23:59",
+}));
+
+const HORARIOS_SEMILLA = HORARIOS_SIEMPRE.map((bloque) => ({
+  ...bloque,
+  horaInicio: "09:00",
+  horaFin: "18:00",
+}));
+
+async function fijarHorariosDemo(
+  horarios: typeof HORARIOS_SIEMPRE,
+): Promise<void> {
+  await clientePrisma.usuario.updateMany({
+    where: { correo: { in: CORREOS_DEMO } },
+    data: { horarios },
+  });
+  await Usuario.updateMany(
+    { correo: { $in: CORREOS_DEMO } },
+    { $set: { horarios } },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Pruebas
 // ---------------------------------------------------------------------------
@@ -764,6 +803,10 @@ try {
   await esperarSalud(PUERTO_BACKEND);
 
   await mongoose.connect(process.env.MONGO_URI as string);
+
+  // RQNF15: con los vendedores demo en horario abierto, la fila acepta
+  // compradores a cualquier hora de la corrida.
+  await fijarHorariosDemo(HORARIOS_SIEMPRE);
 
   const tokenVendedor = await iniciarSesion(
     "vendedor.demo@ichiba.test",
@@ -1780,6 +1823,15 @@ try {
   // Limpieza: archivos de comprobantes, filas y ventas de prueba en
   // PostgreSQL, espejos y productos en MongoDB, y todos los procesos/mocks.
   // -------------------------------------------------------------------------
+  try {
+    await fijarHorariosDemo(HORARIOS_SEMILLA);
+  } catch (error) {
+    console.error(
+      "[limpieza] No se pudieron restaurar los horarios de los vendedores demo:",
+      error,
+    );
+  }
+
   try {
     if (ventasCreadas.size > 0) {
       const ventas = (await clientePrisma.venta.findMany({ where: {} })) as any[];

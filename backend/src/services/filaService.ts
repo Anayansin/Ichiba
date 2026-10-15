@@ -1,6 +1,10 @@
 import { Producto, TIEMPO_PAGO_DEFECTO } from "../models/producto.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { enviarCorreoTurnoDePago } from "./emailService.js";
+import {
+  estaAtendiendo,
+  type BloqueHorario,
+} from "../utils/validarHorario.js";
 
 export type Fila = {
   id?: unknown;
@@ -43,7 +47,7 @@ export async function limpiarFilasHuerfanas(
   compradorId: string,
 ): Promise<void> {
   const filas = await clientePrisma.cola.findMany({
-    where: { compradorId, estado: "activa" },
+    where: { compradorId, estado: { in: ["activa", "esperando_apertura"] } },
   });
   if (filas.length === 0) return;
 
@@ -219,4 +223,101 @@ export async function reanudarFilaTrasCancelacion(
   }
 
   return { reanudados: enEspera.length };
+}
+
+/**
+ * RQNF15: horarios de atención del vendedor dueño de un producto. Devuelve []
+ * cuando el vendedor no tiene horarios definidos (disponible siempre).
+ */
+export async function horariosDelVendedorDeProducto(
+  productoId: string,
+): Promise<BloqueHorario[]> {
+  const producto = await Producto.findById(productoId);
+  if (!producto) return [];
+  const vendedor = await clientePrisma.usuario.findUnique({
+    where: { id: Number(producto.vendedorId) },
+  });
+  return Array.isArray(vendedor?.horarios)
+    ? (vendedor?.horarios as BloqueHorario[])
+    : [];
+}
+
+/**
+ * RQF18 / RQNF18: guarda el lugar del comprador en la fila y pausa su reloj
+ * de pago hasta la próxima apertura del vendedor.
+ */
+export async function pausarHastaLaApertura(filaId: number): Promise<void> {
+  await clientePrisma.cola.update({
+    where: { id: filaId },
+    data: { estado: "esperando_apertura", pagoExpiraEn: null },
+  });
+}
+
+/**
+ * RQF18: al abrir un bloque de atención del vendedor, las filas que esperaban
+ * su próxima apertura se reanudan conservando su lugar (RQNF18); si la
+ * primera posición vuelve a estar activa, arranca su temporizador de pago y
+ * se le avisa por correo.
+ */
+export async function reactivarFilasEnEsperaDeApertura(): Promise<number> {
+  const enEspera = await clientePrisma.cola.findMany({
+    where: { estado: "esperando_apertura" },
+    orderBy: { posicion: "asc" },
+  });
+  if (enEspera.length === 0) return 0;
+
+  const ahora = new Date();
+  const cache = new Map<
+    string,
+    { horarios: BloqueHorario[]; nombre: string }
+  >();
+  let reactivadas = 0;
+
+  for (const fila of enEspera) {
+    const productoId = String(fila.productoId);
+
+    let datos = cache.get(productoId);
+    if (!datos) {
+      const producto = await Producto.findById(productoId);
+      const vendedor = producto
+        ? await clientePrisma.usuario.findUnique({
+            where: { id: Number(producto.vendedorId) },
+          })
+        : null;
+      datos = {
+        horarios: Array.isArray(vendedor?.horarios)
+          ? (vendedor?.horarios as BloqueHorario[])
+          : [],
+        nombre: producto?.nombre ?? "",
+      };
+      cache.set(productoId, datos);
+    }
+
+    if (!estaAtendiendo(datos.horarios, ahora)) continue;
+
+    const esTurno = Number(fila.posicion) === 1;
+    const tiempoLimite = esTurno
+      ? await obtenerTiempoLimitePago(productoId)
+      : 0;
+    await clientePrisma.cola.update({
+      where: { id: Number(fila.id) },
+      data: {
+        estado: "activa",
+        pagoExpiraEn: esTurno
+          ? new Date(Date.now() + tiempoLimite * 60000)
+          : null,
+      },
+    });
+    reactivadas += 1;
+
+    if (esTurno && fila.correo) {
+      try {
+        await enviarCorreoTurnoDePago(fila.correo, datos.nombre, tiempoLimite);
+      } catch (error) {
+        console.error("Error real:", error);
+      }
+    }
+  }
+
+  return reactivadas;
 }

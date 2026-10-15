@@ -99,6 +99,16 @@ const HORARIOS = [
   horaFin: "18:00",
 }));
 
+// RQNF15: la fila solo se abre dentro del bloque de atención del vendedor;
+// las cuentas de prueba se crean con la ventana máxima permitida para poder
+// comprar a cualquier hora. `HORARIOS` (09:00-18:00) se conserva para la
+// prueba de la cuenta cancelada que intenta confirmar horario.
+const HORARIOS_SIEMPRE = HORARIOS.map((bloque) => ({
+  ...bloque,
+  horaInicio: "00:00",
+  horaFin: "23:59",
+}));
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
@@ -772,7 +782,7 @@ async function crearCuentaDePrueba(opciones: {
       recibirNotificacionesCriticas: true,
       recibirNotificacionesPublicitarias: false,
       paypalEmail: CORREO_PAYPAL,
-      horarios: HORARIOS,
+      horarios: HORARIOS_SIEMPRE,
       horarioConfirmadoEn,
       diasSinConfirmarHorario: 0,
       ...(opciones.curp ? { curp: opciones.curp } : {}),
@@ -804,7 +814,7 @@ async function crearCuentaDePrueba(opciones: {
         recibirNotificacionesPublicitarias: false,
         metodoPago: "paypal",
         datosMetodoPago: CORREO_PAYPAL,
-        horarios: HORARIOS,
+        horarios: HORARIOS_SIEMPRE,
         horarioConfirmadoEn,
         diasSinConfirmarHorario: 0,
         puntosReputacion: 0,

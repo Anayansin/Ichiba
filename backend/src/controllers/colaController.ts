@@ -8,9 +8,17 @@ import {
   iniciarTemporizadorPago,
   expirarTurnoSiVencido,
   limpiarFilasHuerfanas,
+  limitarTiempoPago,
+  obtenerTiempoLimitePago,
+  horariosDelVendedorDeProducto,
+  pausarHastaLaApertura,
 } from "../services/filaService.js";
+import { evaluarAtencionDelVendedor } from "../utils/validarHorario.js";
 
 const LIMITE_FILAS_ACTIVAS = 3;
+
+/** RQNF18: estados que ocupan un lugar en la fila virtual. */
+const ESTADOS_EN_FILA = ["activa", "esperando_apertura"];
 
 async function productosDeFilas(filas: any[]) {
   const ids = [
@@ -38,13 +46,35 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
       return res.status(400).json({ message: "Escribe un correo válido" });
     }
 
+    const producto = await Producto.findById(productoId);
+    if (!producto) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    // RQNF15: fuera del bloque de atención del vendedor no se puede entrar a
+    // la fila (el producto sigue visible); se indica la próxima apertura.
+    const horarios = await horariosDelVendedorDeProducto(productoId);
+    const evaluacion = evaluarAtencionDelVendedor(
+      horarios,
+      new Date(),
+      limitarTiempoPago(producto.tiempoLimitePago),
+    );
+    if (!evaluacion.atendiendo) {
+      return res.status(400).json({
+        message: evaluacion.siguienteApertura
+          ? `El vendedor no está en horario de atención. Podrás entrar a la fila en su próxima apertura: ${evaluacion.siguienteApertura}.`
+          : "El vendedor no tiene bloques de atención programados por ahora.",
+        proximoBloque: evaluacion.siguienteApertura,
+      });
+    }
+
     await limpiarFilasHuerfanas(compradorId);
 
     const yaEstaEnEstaFila = await clientePrisma.cola.findFirst({
       where: {
         productoId,
         compradorId,
-        estado: "activa",
+        estado: { in: ESTADOS_EN_FILA },
       },
     });
 
@@ -57,7 +87,7 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
     const filasActivasDelComprador = await clientePrisma.cola.count({
       where: {
         compradorId,
-        estado: "activa",
+        estado: { in: ESTADOS_EN_FILA },
       },
     });
 
@@ -70,7 +100,7 @@ export async function entrarEnFila(req: RequestConComprador, res: Response) {
     const ultimaOcupada = await clientePrisma.cola.findFirst({
       where: {
         productoId,
-        estado: "activa",
+        estado: { in: ESTADOS_EN_FILA },
       },
       orderBy: { posicion: "desc" },
       select: { posicion: true },
@@ -109,7 +139,7 @@ export async function misFilas(req: RequestConComprador, res: Response) {
     await limpiarFilasHuerfanas(compradorId);
 
     const filas = await clientePrisma.cola.findMany({
-      where: { compradorId, estado: "activa" },
+      where: { compradorId, estado: { in: ESTADOS_EN_FILA } },
       orderBy: { posicion: "asc" },
     });
 
@@ -157,13 +187,31 @@ export async function salirDeFila(req: RequestConComprador, res: Response) {
 export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
   try {
     const compradorId = req.compradorId as string;
-    const { productoId } = req.params;
+    const productoId = String(req.params.productoId);
+
+    const producto = await Producto.findById(productoId);
+    if (!producto) {
+      return res.status(404).json({ message: "Producto no encontrado" });
+    }
+
+    // RQNF15 / RQNF16 / RQF18: estado de atención del vendedor para esta fila.
+    const horarios = await horariosDelVendedorDeProducto(productoId);
+    const evaluacion = evaluarAtencionDelVendedor(
+      horarios,
+      new Date(),
+      limitarTiempoPago(producto.tiempoLimitePago),
+    );
+    const datosHorario = {
+      horarioActivo: evaluacion.atendiendo,
+      proximoBloque: evaluacion.siguienteApertura,
+      avisoAtencion: evaluacion.avisoAtencion,
+    };
 
     const miFila = await clientePrisma.cola.findFirst({
       where: {
         productoId,
         compradorId,
-        estado: "activa",
+        estado: { in: ESTADOS_EN_FILA },
       },
     });
 
@@ -175,6 +223,24 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
         pagoExpiraEn: null,
         expiro: false,
         enFila: false,
+        esperandoApertura: false,
+        puedeElegirEspera: false,
+        ...datosHorario,
+      });
+    }
+
+    // RQF18: el comprador guardó su lugar hasta la próxima apertura.
+    if (miFila.estado === "esperando_apertura") {
+      return res.json({
+        posicion: miFila.posicion,
+        puedePagar: false,
+        colaId: miFila.id,
+        pagoExpiraEn: null,
+        expiro: false,
+        enFila: true,
+        esperandoApertura: true,
+        puedeElegirEspera: false,
+        ...datosHorario,
       });
     }
 
@@ -192,8 +258,12 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
           colaId: miFila.id,
           pagoExpiraEn: null,
           expiro: true,
+          enFila: false,
+          esperandoApertura: false,
+          puedeElegirEspera: false,
           mensaje:
             "Se agotó tu tiempo para pagar y perdiste tu turno en la fila",
+          ...datosHorario,
         });
       }
     }
@@ -204,10 +274,74 @@ export async function estadoDeMiFila(req: RequestConComprador, res: Response) {
       colaId: miFila.id,
       pagoExpiraEn: miFila.pagoExpiraEn ?? null,
       expiro: false,
+      enFila: true,
+      esperandoApertura: false,
+      // RQF18: solo en su turno puede elegir esperar a la próxima apertura.
+      puedeElegirEspera:
+        miFila.posicion === 1 && evaluacion.puedeEsperarApertura,
+      ...datosHorario,
     });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al consultar tu posición" });
+  }
+}
+
+/**
+ * RQF18 / RQNF18: el comprador, en su turno, decide esperar a la próxima
+ * apertura del vendedor cuando su bloque está por terminar (RQNF16) o no está
+ * atendiendo: se guarda su lugar y su reloj de pago queda en pausa.
+ */
+export async function esperarProximaApertura(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const compradorId = req.compradorId as string;
+
+    const fila = await clientePrisma.cola.findFirst({
+      where: { id: Number(req.params.id), compradorId },
+    });
+    if (!fila) return res.status(404).json({ message: "Fila no encontrada" });
+
+    if (fila.estado !== "activa") {
+      return res
+        .status(400)
+        .json({ message: "Esta fila no está esperando su turno" });
+    }
+
+    if (Number(fila.posicion) !== 1) {
+      return res.status(400).json({
+        message: "Solo puedes esperar la próxima apertura cuando es tu turno",
+      });
+    }
+
+    const productoId = String(fila.productoId);
+    const horarios = await horariosDelVendedorDeProducto(productoId);
+    const evaluacion = evaluarAtencionDelVendedor(
+      horarios,
+      new Date(),
+      await obtenerTiempoLimitePago(productoId),
+    );
+
+    if (!evaluacion.puedeEsperarApertura) {
+      return res.status(400).json({
+        message:
+          "El vendedor está en horario de atención: paga ahora o abandona la fila.",
+      });
+    }
+
+    await pausarHastaLaApertura(Number(fila.id));
+
+    res.json({
+      message: evaluacion.siguienteApertura
+        ? `Guardamos tu lugar. Tu turno se reanudará en la próxima apertura del vendedor (${evaluacion.siguienteApertura}); te avisaremos por correo.`
+        : "Guardamos tu lugar hasta la próxima apertura del vendedor.",
+      proximoBloque: evaluacion.siguienteApertura,
+    });
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al esperar la próxima apertura" });
   }
 }
 

@@ -26,6 +26,17 @@ export async function salirDeFila(id: string) {
   return response.data;
 }
 
+/**
+ * RQF18: guarda el lugar en la fila y pausa el reloj de pago hasta la
+ * próxima apertura del vendedor.
+ */
+export async function esperarProximaApertura(
+  id: string,
+): Promise<{ message: string; proximoBloque: string | null }> {
+  const response = await api.patch(`/colas/${id}/esperar-apertura`);
+  return response.data;
+}
+
 export type EstadoFila = {
   posicion: number | null;
   puedePagar: boolean;
@@ -34,6 +45,16 @@ export type EstadoFila = {
   expiro?: boolean;
   mensaje?: string;
   enFila?: boolean;
+  /** RQF18: el comprador está esperando la próxima apertura del vendedor. */
+  esperandoApertura?: boolean;
+  /** RQF18: en su turno puede elegir esperar a la próxima apertura. */
+  puedeElegirEspera?: boolean;
+  /** RQNF16: advertencia previa al pago (bloque por terminar). */
+  avisoAtencion?: string | null;
+  /** RQNF15: texto del próximo bloque de atención del vendedor. */
+  proximoBloque?: string | null;
+  /** RQNF15: el vendedor atiende en este momento (sin horarios = siempre). */
+  horarioActivo?: boolean;
 };
 
 export async function fetchEstadoDeMiFila(

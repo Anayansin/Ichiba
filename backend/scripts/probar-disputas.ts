@@ -83,6 +83,9 @@ const COMPRADOR_R1 = `comprador-disputas-r1-${marca}`;
 const COMPRADOR_R2 = `comprador-disputas-r2-${marca}`;
 const COMPRADOR_R3 = `comprador-disputas-r3-${marca}`;
 
+// RQNF15: la fila solo se abre dentro del bloque de atención del vendedor;
+// para que las pruebas puedan comprar a cualquier hora los vendedores de
+// prueba se crean con la ventana máxima permitida.
 const HORARIOS = [
   "lunes",
   "martes",
@@ -94,8 +97,8 @@ const HORARIOS = [
 ].map((dia) => ({
   dia,
   activo: true,
-  horaInicio: "09:00",
-  horaFin: "18:00",
+  horaInicio: "00:00",
+  horaFin: "23:59",
 }));
 
 // ---------------------------------------------------------------------------
