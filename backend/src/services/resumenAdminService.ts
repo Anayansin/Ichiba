@@ -29,11 +29,25 @@ export type UsuarioResumido = {
   /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta: string;
   fechaRegistro: Date | null;
+  /** RQNF37 / RQNF38: motivo de la suspensión administrativa (p. ej. saldo_pendiente). */
+  motivoSuspension: string | null;
+  /** RQNF37 / RQNF38: adeudo pendiente de liquidar (reembolsos por culpa del vendedor). */
+  saldoPendiente: number;
+  /** RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente. */
+  sancionHasta: Date | null;
+  /** RQNF34 / RQNF35: la sanción es indefinida. */
+  sancionPermanente: boolean;
+  /** RQNF35: la cuenta está en revisión administrativa. */
+  revisionAdministrativa: boolean;
 };
 
-/** Igual que `UsuarioResumido` pero con la fecha en ISO (para GraphQL/JSON). */
-export type UsuarioPublicado = Omit<UsuarioResumido, "fechaRegistro"> & {
+/** Igual que `UsuarioResumido` pero con las fechas en ISO (para GraphQL/JSON). */
+export type UsuarioPublicado = Omit<
+  UsuarioResumido,
+  "fechaRegistro" | "sancionHasta"
+> & {
   fechaRegistro: string | null;
+  sancionHasta: string | null;
 };
 
 export function resumirUsuario(usuario: {
@@ -45,6 +59,11 @@ export function resumirUsuario(usuario: {
   puntosReputacion?: number;
   estadoCuenta?: string;
   createdAt?: Date;
+  motivoSuspension?: string | null;
+  saldoPendiente?: number;
+  sancionHasta?: Date | string | null;
+  sancionPermanente?: boolean;
+  revisionAdministrativa?: boolean;
 }): UsuarioResumido {
   return {
     id: String(usuario._id),
@@ -55,6 +74,13 @@ export function resumirUsuario(usuario: {
     puntosReputacion: Number(usuario.puntosReputacion ?? 0),
     estadoCuenta: usuario.estadoCuenta ?? "activa",
     fechaRegistro: usuario.createdAt ?? null,
+    motivoSuspension: usuario.motivoSuspension
+      ? String(usuario.motivoSuspension)
+      : null,
+    saldoPendiente: Number(usuario.saldoPendiente ?? 0),
+    sancionHasta: usuario.sancionHasta ? new Date(usuario.sancionHasta) : null,
+    sancionPermanente: usuario.sancionPermanente === true,
+    revisionAdministrativa: usuario.revisionAdministrativa === true,
   };
 }
 
@@ -63,6 +89,9 @@ export function usuarioPublicado(usuario: UsuarioResumido): UsuarioPublicado {
     ...usuario,
     fechaRegistro: usuario.fechaRegistro
       ? new Date(usuario.fechaRegistro).toISOString()
+      : null,
+    sancionHasta: usuario.sancionHasta
+      ? new Date(usuario.sancionHasta).toISOString()
       : null,
   };
 }
@@ -140,7 +169,9 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
     Usuario.find()
       .sort({ createdAt: -1 })
       .limit(5)
-      .select("nombreCompleto correo tipo suspendido createdAt")
+      .select(
+        "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt motivoSuspension saldoPendiente sancionHasta sancionPermanente revisionAdministrativa",
+      )
       .lean(),
     Producto.countDocuments(),
     Producto.countDocuments({ activo: true }),

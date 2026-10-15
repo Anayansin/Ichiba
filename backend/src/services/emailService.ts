@@ -611,6 +611,116 @@ export async function enviarCorreoCuentaCancelada(
 }
 
 /**
+ * RQNF33 / RQNF34 / RQNF35: avisa al usuario sancionado que un reporte
+ * confirmado (o la reincidencia de faltas) le aplicó un bloqueo temporal,
+ * una suspensión indefinida o el envío a revisión administrativa.
+ */
+export async function enviarCorreoSancionAplicada(
+  correo: string,
+  nombre: string,
+  datos: {
+    descripcion: string;
+    motivo: string;
+    revision: boolean;
+    hasta: Date | null;
+  },
+): Promise<boolean> {
+  const detalleHasta = datos.hasta
+    ? `<p>El bloqueo concluirá de forma automática el <strong>${escaparHtml(
+        new Date(datos.hasta).toLocaleString("es-MX", {
+          dateStyle: "long",
+          timeStyle: "short",
+        }),
+      )}</strong>, sin que tengas que hacer ningún trámite.</p>`
+    : "";
+  const detalleRevision = datos.revision
+    ? "<p>Tu caso fue enviado a <strong>revisión administrativa</strong>: el equipo de Ichiba analizará lo sucedido y podrá levantar la suspensión si corresponde.</p>"
+    : "";
+
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Sanción para ${correo}: ${datos.descripcion} (motivo: ${datos.motivo})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: datos.revision
+      ? "Tu cuenta quedó suspendida y en revisión administrativa"
+      : "Tu cuenta tiene una sanción activa en Ichiba",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>${escaparHtml(datos.descripcion)}</p>
+        <p><strong>Motivo:</strong> ${escaparHtml(datos.motivo)}</p>
+        ${detalleHasta}
+        ${detalleRevision}
+        <p>Mientras la sanción esté vigente no podrás entrar a filas, publicar o editar productos ni enviar mensajes (reportar siempre está permitido). Las faltas solo cuentan durante 13 meses y después prescriben.</p>
+        <p style="color: #888; font-size: 12px;">
+          Resolución emitida el ${escaparHtml(
+            new Date().toLocaleString("es-MX", {
+              timeZone: "America/Mexico_City",
+            }),
+          )} (hora del centro, GMT-6).
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF33: avisa al usuario que su bloqueo temporal concluyó (de forma
+ * automática al expirar) o que la administración revirtió la sanción.
+ */
+export async function enviarCorreoSancionLevantada(
+  correo: string,
+  nombre: string,
+  motivo: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Sanción levantada para ${correo}: ${motivo}`);
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu sanción en Ichiba fue levantada",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>${escaparHtml(motivo)}</p>
+        <p>Ya puedes volver a entrar a filas, publicar productos y enviar mensajes en la plataforma. Te pedimos mantener el respeto y cumplir con tus entregas para evitar nuevas sanciones.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
  * RQNF10.7: avisa al cliente que fue retirado de una fila virtual porque el
  * vendedor canceló su cuenta: el producto ya no está disponible.
  */

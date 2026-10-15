@@ -12,6 +12,16 @@ export type UsuarioAdmin = {
   /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta: string;
   fechaRegistro: string | null;
+  /** RQNF37 / RQNF38: motivo de la suspensión (p. ej. saldo_pendiente). */
+  motivoSuspension?: string | null;
+  /** RQNF37 / RQNF38: adeudo pendiente de liquidar. */
+  saldoPendiente?: number;
+  /** RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente. */
+  sancionHasta?: string | null;
+  /** RQNF34 / RQNF35: la sanción es indefinida. */
+  sancionPermanente?: boolean;
+  /** RQNF35: la cuenta está en revisión administrativa. */
+  revisionAdministrativa?: boolean;
 };
 
 export type RespuestaUsuarios = {

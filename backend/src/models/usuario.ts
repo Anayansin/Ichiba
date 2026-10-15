@@ -56,6 +56,19 @@ const usuarioSchema = new Schema(
     horarioConfirmadoEn: { type: Date },
     diasSinConfirmarHorario: { type: Number, default: 0 },
     suspendido: { type: Boolean, default: false },
+    /**
+     * RQNF37 / RQNF38: motivo de la suspensión administrativa. El valor
+     * `saldo_pendiente` permite ingresar solo a terminar entregas en curso.
+     */
+    motivoSuspension: { type: String },
+    /** RQNF37 / RQNF38: adeudo pendiente de liquidar (reembolsos por culpa del vendedor). */
+    saldoPendiente: { type: Number, default: 0 },
+    // RQNF33 / RQNF34 / RQNF35: espejo de la sanción vigente por faltas.
+    sancionHasta: { type: Date, default: null },
+    sancionPermanente: { type: Boolean, default: false },
+    bloqueosAplicados: { type: Number, default: 0 },
+    revisionAdministrativa: { type: Boolean, default: false },
+    motivoRevision: { type: String },
   },
   { timestamps: true },
 );

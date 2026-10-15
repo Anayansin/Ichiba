@@ -31,7 +31,10 @@ export type TipoEventoUsuario =
   | "reactivado"
   | "puntos"
   | "cancelada"
-  | "purgada";
+  | "purgada"
+  // RQNF33 / RQNF34 / RQNF35: faltas, bloqueos y revisiones administrativas.
+  | "sancion"
+  | "desbloqueado";
 export type TipoEventoListaNegra = "agregada" | "quitada";
 
 export type EventoReportePublicado = {

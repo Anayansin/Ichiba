@@ -22,10 +22,38 @@ const CONSULTA_USUARIOS = `
       usuario {
         id nombreCompleto correo tipo suspendido
         puntosReputacion estadoCuenta fechaRegistro
+        motivoSuspension saldoPendiente sancionHasta
+        sancionPermanente revisionAdministrativa
       }
     }
   }
 `;
+
+/** RQNF33 / RQNF34 / RQNF35: describe el estado de sanción de una cuenta. */
+function describirSancion(usuario: UsuarioAdmin): {
+  texto: string;
+  clase: string;
+} | null {
+  if (usuario.revisionAdministrativa) {
+    return {
+      texto: "En revisión administrativa",
+      clase: "gestion-usuarios__estado--revision",
+    };
+  }
+  if (usuario.sancionPermanente) {
+    return {
+      texto: "Bloqueo indefinido",
+      clase: "gestion-usuarios__estado--cancelada",
+    };
+  }
+  if (usuario.sancionHasta) {
+    return {
+      texto: `Bloqueado hasta ${new Date(usuario.sancionHasta).toLocaleDateString("es-MX")}`,
+      clase: "gestion-usuarios__estado--suspendido",
+    };
+  }
+  return null;
+}
 
 function GestionUsuarios() {
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
@@ -154,22 +182,46 @@ function GestionUsuarios() {
                     : "Sin fecha"}
                 </td>
                 {/* RQNF10.1 / RQNF10.3: puntos acumulados (8 = cancelación). */}
-                <td>{usuario.puntosReputacion}/8</td>
+                <td>
+                  {usuario.puntosReputacion}/8
+                  {Number(usuario.saldoPendiente ?? 0) > 0 && (
+                    <span className="gestion-usuarios__saldo">
+                      Saldo pendiente: ${Number(usuario.saldoPendiente).toFixed(2)}
+                    </span>
+                  )}
+                </td>
                 <td>
                   {usuario.estadoCuenta === "cancelada" ? (
                     <span className="gestion-usuarios__estado gestion-usuarios__estado--cancelada">
                       Cancelada
                     </span>
                   ) : (
-                    <span
-                      className={`gestion-usuarios__estado ${
-                        usuario.suspendido
-                          ? "gestion-usuarios__estado--suspendido"
-                          : ""
-                      }`}
-                    >
-                      {usuario.suspendido ? "Suspendido" : "Activo"}
-                    </span>
+                    <>
+                      <span
+                        className={`gestion-usuarios__estado ${
+                          usuario.suspendido
+                            ? "gestion-usuarios__estado--suspendido"
+                            : ""
+                        }`}
+                      >
+                        {usuario.suspendido
+                          ? usuario.motivoSuspension === "saldo_pendiente"
+                            ? "Suspendido por saldo"
+                            : "Suspendido"
+                          : "Activo"}
+                      </span>
+                      {/* RQNF33 / RQNF34 / RQNF35: estado de la sanción por faltas. */}
+                      {(() => {
+                        const sancion = describirSancion(usuario);
+                        return sancion ? (
+                          <span
+                            className={`gestion-usuarios__estado ${sancion.clase}`}
+                          >
+                            {sancion.texto}
+                          </span>
+                        ) : null;
+                      })()}
+                    </>
                   )}
                 </td>
                 <td>

@@ -12,7 +12,7 @@ import { verificarToken } from "../middleware/auth.js";
 import { subirImagenUnica } from "../middleware/upload.js";
 import {
   requiereCompradorSinSancion,
-  requiereUsuarioSinSancion,
+  requiereUsuarioSinSancionDeEntregas,
 } from "../middleware/sancion.js";
 
 const router = Router();
@@ -42,7 +42,7 @@ router.get("/vendedor/:ventaId", verificarToken, fetchMensajesComoVendedor);
 router.post(
   "/vendedor/:ventaId",
   verificarToken,
-  requiereUsuarioSinSancion,
+  requiereUsuarioSinSancionDeEntregas,
   subirImagenUnica("imagen"),
   enviarMensajeComoVendedor,
 );

@@ -381,6 +381,11 @@ export async function registrarUsuario(req: Request, res: Response) {
         fechaRegistro: usuarioCreado.createdAt
           ? new Date(usuarioCreado.createdAt)
           : new Date(),
+        motivoSuspension: null,
+        saldoPendiente: 0,
+        sancionHasta: null,
+        sancionPermanente: false,
+        revisionAdministrativa: false,
       },
     );
     publicarResumenAdmin();
@@ -432,6 +437,22 @@ export async function iniciarSesion(req: Request, res: Response) {
         .json({ message: "Correo o contraseña incorrectos" });
     }
 
+    // RQNF37 / RQNF38: la suspensión administrativa se refleja en el espejo
+    // de MongoDB. La suspensión por saldo pendiente permite ingresar solo
+    // para terminar las entregas en curso (el middleware bloquea el resto de
+    // las acciones); las demás suspensiones impiden el ingreso.
+    const motivoSuspension = usuario.motivoSuspension
+      ? String(usuario.motivoSuspension)
+      : null;
+    if (usuario.suspendido && motivoSuspension !== "saldo_pendiente") {
+      return res.status(403).json({
+        message:
+          "Tu cuenta está suspendida por la administración de Ichiba. Contacta al equipo para más información.",
+        suspendido: true,
+        motivoSuspension,
+      });
+    }
+
     // El token conserva el id numérico de PostgreSQL, que es el que usan el
     // middleware y el resto de los módulos de la plataforma.
     const idCuenta = Number(usuario.usuarioId);
@@ -453,6 +474,11 @@ export async function iniciarSesion(req: Request, res: Response) {
         nombreCompleto: usuario.nombreCompleto,
         correo: usuario.correo,
         tipo: usuario.tipo,
+        // RQNF10.3 / RQNF37: la UI avisa cuando la cuenta está cancelada o
+        // suspendida por saldo pendiente (solo entregas en curso).
+        estadoCuenta: usuario.estadoCuenta ?? "activa",
+        suspendido: usuario.suspendido === true,
+        motivoSuspension,
       },
     });
   } catch (error) {

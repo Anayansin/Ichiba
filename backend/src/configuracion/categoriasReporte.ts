@@ -12,6 +12,12 @@ export type CategoriaReporte = {
    *   - resto de faltas leves: 1 punto
    */
   puntos: number;
+  /**
+   * RQNF35: las faltas graves de revisión inmediata (fraude comprobado,
+   * suplantación de identidad, amenazas y comprobantes falsos) suspenden la
+   * cuenta de forma indefinida y la mandan a revisión administrativa.
+   */
+  revisionInmediata?: boolean;
 };
 
 /** Puntos por tipo de falta, para reportes sin categoría conocida. */
@@ -65,6 +71,8 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Acoso, amenazas o intimidación",
     tipoFalta: "grave",
     puntos: 3,
+    // RQNF35: amenazas -> suspensión indefinida + revisión administrativa.
+    revisionInmediata: true,
   },
   {
     id: "discriminacion",
@@ -83,12 +91,16 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Comprobante de pago falso",
     tipoFalta: "grave",
     puntos: 3,
+    // RQNF35: comprobantes falsos -> suspensión indefinida + revisión.
+    revisionInmediata: true,
   },
   {
     id: "estafa",
     nombre: "Estafa o dinero no entregado",
     tipoFalta: "grave",
     puntos: 3,
+    // RQNF35: fraude comprobado -> suspensión indefinida + revisión.
+    revisionInmediata: true,
   },
   {
     id: "datos_falsos",
@@ -101,6 +113,8 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Suplantación de identidad",
     tipoFalta: "grave",
     puntos: 3,
+    // RQNF35: suplantación de identidad -> suspensión indefinida + revisión.
+    revisionInmediata: true,
   },
   {
     id: "otro",
@@ -112,6 +126,14 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
 
 export function categoriaReporte(id: string): CategoriaReporte | null {
   return CATEGORIAS_REPORTE.find((categoria) => categoria.id === id) ?? null;
+}
+
+/**
+ * RQNF35: ¿la categoría es una falta grave de revisión inmediata? (fraude
+ * comprobado, suplantación de identidad, amenazas o comprobantes falsos).
+ */
+export function categoriaRequiereRevisionInmediata(id: string): boolean {
+  return categoriaReporte(id)?.revisionInmediata === true;
 }
 
 /**

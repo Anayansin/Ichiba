@@ -58,6 +58,16 @@ export const definicionesEsquema = `
     puntosReputacion: Float!
     estadoCuenta: String!
     fechaRegistro: String
+    "RQNF37 / RQNF38: motivo de la suspensión administrativa (p. ej. saldo_pendiente)."
+    motivoSuspension: String
+    "RQNF37 / RQNF38: adeudo pendiente de liquidar."
+    saldoPendiente: Float!
+    "RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente."
+    sancionHasta: String
+    "RQNF34 / RQNF35: la sanción es indefinida."
+    sancionPermanente: Boolean!
+    "RQNF35: la cuenta está en revisión administrativa."
+    revisionAdministrativa: Boolean!
   }
 
   type PeriodoMes {

@@ -48,7 +48,13 @@ export async function obtenerTodosLosUsuarios(req: Request, res: Response) {
 
 export async function suspenderUsuario(req: Request, res: Response) {
   try {
-    res.json(await cambiarSuspensionUsuarioAdmin(String(req.params.id), true));
+    res.json(
+      await cambiarSuspensionUsuarioAdmin(
+        String(req.params.id),
+        true,
+        typeof req.body?.motivo === "string" ? req.body.motivo : undefined,
+      ),
+    );
   } catch (error) {
     responderError(res, error, "Error al actualizar el usuario");
   }

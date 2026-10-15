@@ -263,6 +263,11 @@ async function publicarCambioDeReputacion(
             ? "cancelada"
             : String(vendedor?.estadoCuenta ?? "activa"),
           fechaRegistro: vendedor?.createdAt ? new Date(vendedor.createdAt) : null,
+          motivoSuspension: null,
+          saldoPendiente: 0,
+          sancionHasta: null,
+          sancionPermanente: false,
+          revisionAdministrativa: false,
         };
 
     const nombre = resumen.nombreCompleto || `#${vendedorId}`;

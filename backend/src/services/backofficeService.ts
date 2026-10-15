@@ -22,6 +22,7 @@ import {
   type ResumenAdminSerializado,
   type UsuarioResumido,
 } from "./resumenAdminService.js";
+import { levantarSancionPorAdmin, quitarFalta } from "./sancionService.js";
 import {
   publicarEventoUsuario,
   publicarListaNegraActualizada,
@@ -103,7 +104,7 @@ export async function listarUsuariosAdmin(opciones: {
   const [usuarios, total] = await Promise.all([
     Usuario.find(filtro)
       .select(
-        "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt",
+        "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt motivoSuspension saldoPendiente sancionHasta sancionPermanente revisionAdministrativa",
       )
       .sort({ createdAt: -1 })
       .skip((pagina - 1) * porPagina)
@@ -124,6 +125,7 @@ export async function listarUsuariosAdmin(opciones: {
 export async function cambiarSuspensionUsuarioAdmin(
   id: string,
   suspendido: boolean,
+  motivo?: string,
 ): Promise<UsuarioResumido> {
   if (!id || !mongoose.isValidObjectId(id)) {
     throw new ErrorBackoffice(400, "Indica el usuario que quieres modificar");
@@ -131,7 +133,9 @@ export async function cambiarSuspensionUsuarioAdmin(
 
   // RQNF10.3 / RQF12: la cancelación por 8 puntos es permanente; no se
   // suspende ni se reactiva manualmente.
-  const existente = await Usuario.findById(id).select("estadoCuenta").lean();
+  const existente = await Usuario.findById(id)
+    .select("estadoCuenta saldoPendiente")
+    .lean();
   if (existente && existente.estadoCuenta === "cancelada") {
     throw new ErrorBackoffice(
       400,
@@ -139,14 +143,51 @@ export async function cambiarSuspensionUsuarioAdmin(
     );
   }
 
+  // RQNF38: la reactivación queda bloqueada mientras exista un adeudo
+  // pendiente; primero el administrador debe registrar la liquidación total.
+  if (!suspendido) {
+    const saldo = Number(existente?.saldoPendiente ?? 0);
+    if (saldo > 0) {
+      throw new ErrorBackoffice(
+        400,
+        `No se puede reactivar: la cuenta tiene un saldo pendiente de $${saldo.toFixed(
+          2,
+        )}. Registra la liquidación total del adeudo antes de reactivarla (RQNF38).`,
+      );
+    }
+  }
+
+  const motivoFinal = (motivo ?? "").trim();
   const usuario = await Usuario.findByIdAndUpdate(
     id,
-    { suspendido },
+    {
+      suspendido,
+      motivoSuspension: suspendido
+        ? motivoFinal || "manual"
+        : null,
+    },
     { new: true },
   );
 
   if (!usuario) {
     throw new ErrorBackoffice(404, "Usuario no encontrado");
+  }
+
+  // RQNF33 / RQNF35: al reactivar se levanta la sanción vigente (incluida la
+  // revisión administrativa) para que la cuenta vuelva a operar.
+  if (!suspendido && Number.isInteger(Number(usuario.usuarioId))) {
+    try {
+      await levantarSancionPorAdmin(
+        "usuario",
+        String(usuario.usuarioId),
+        "La administración reactivó la cuenta.",
+      );
+    } catch (error) {
+      console.error(
+        "[backoffice] No se pudo levantar la sanción al reactivar:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   // Fase 4: el BackOffice recibe el cambio al instante por suscripción.
@@ -309,6 +350,17 @@ export async function resolverReporteAdmin(
       where: { id: reporte.id },
       data: { estado: "rechazado" },
     });
+
+    // RQNF33: el reporte rechazado revierte la falta y el bloqueo automático
+    // que había generado al crearse.
+    try {
+      await quitarFalta(String(reporte.id));
+    } catch (error) {
+      console.error(
+        "[backoffice] No se pudo revertir la falta del reporte rechazado:",
+        error instanceof Error ? error.message : error,
+      );
+    }
 
     // Fase 4: el BackOffice actualiza la bandeja de reportes al instante.
     await publicarReportesPendientes(

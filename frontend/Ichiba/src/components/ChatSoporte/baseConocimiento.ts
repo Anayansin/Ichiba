@@ -297,7 +297,7 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
     id: "reportar-vendedor",
     pregunta: "¿Cómo reporto a alguien?",
     respuesta:
-      "Puedes reportar desde dos lugares:\n1) Ayuda → Reportar un vendedor: selecciona la compra relacionada, elige qué quieres reportar (mensaje, comentario, comprobante, estafa, producto u otro) y una categoría.\n2) Chats: abre la conversación y toca el botón ⚠ Reportar; sirve tanto para el comprador como para el vendedor.\nLas categorías indican si es una falta leve o grave; los reportes por reincidencia generan bloqueos automáticos (3 faltas leves = 7 días, 1 falta grave = 30 días y 2 faltas graves = bloqueo permanente).",
+      "Puedes reportar desde dos lugares:\n1) Ayuda → Reportar un vendedor: selecciona la compra relacionada, elige qué quieres reportar (mensaje, comentario, comprobante, estafa, producto u otro) y una categoría.\n2) Chats: abre la conversación y toca el botón ⚠ Reportar; sirve tanto para el comprador como para el vendedor.\nLas categorías indican si es una falta leve o grave; los reportes por reincidencia generan bloqueos automáticos (3 faltas leves = 7 días, 1 falta grave = 30 días y 2 faltas graves = suspensión indefinida). Las faltas graves de estafa, suplantación de identidad, amenazas o comprobantes falsos suspenden la cuenta y la envían a revisión administrativa.",
     claves: [
       "reportar vendedor",
       "reportar vendedor o comprador",
@@ -319,7 +319,7 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
     id: "sanciones",
     pregunta: "¿Qué pasa con los reportes y bloqueos?",
     respuesta:
-      "Cada reporte con categoría registrada genera una falta en la cuenta de la otra persona:\n• 3 faltas leves = bloqueo de 7 días.\n• 1 falta grave = bloqueo de 30 días.\n• 2 faltas graves = bloqueo permanente.\nMientras la sanción esté vigente no puedes entrar a filas, publicar o editar productos ni enviar mensajes (los reportes siempre están permitidos). Además, ningún campo del proyecto acepta palabras ofensivas: si escribes una, te marcará el campo a corregir.",
+      "Cada reporte con categoría registrada genera una falta en la cuenta de la otra persona:\n• 3 faltas leves = bloqueo de 7 días (cada falta leve adicional extiende el bloqueo otros 7 días).\n• 1 falta grave = bloqueo de 30 días.\n• 2 faltas graves = suspensión indefinida.\n• Estafa, suplantación de identidad, amenazas o comprobantes falsos = suspensión indefinida y revisión administrativa del caso.\nMientras la sanción esté vigente no puedes entrar a filas, publicar o editar productos ni enviar mensajes (los reportes siempre están permitidos). Los bloqueos temporales se levantan solos al concluir su periodo, las faltas prescriben a los 13 meses y, si la administración rechaza el reporte que originó la sanción, esta se revierte. Además, ningún campo del proyecto acepta palabras ofensivas: si escribes una, te marcará el campo a corregir.",
     claves: [
       "sancion",
       "sanciones",
