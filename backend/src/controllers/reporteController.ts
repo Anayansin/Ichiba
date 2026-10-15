@@ -15,6 +15,10 @@ import {
   acumularPuntosDeReporte,
   PUNTOS_CANCELACION,
 } from "../services/cancelacionCuentaService.js";
+import {
+  publicarReportesPendientes,
+  publicarResumenAdmin,
+} from "../graphql/suscripciones.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
 const LIMITE_DETALLE = 1000;
@@ -223,6 +227,13 @@ export async function crearReporte(req: Request, res: Response) {
       reportadoPor: `${reportero.tipo}:${reportero.id}`,
     });
 
+    // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
+    await publicarReportesPendientes(
+      "creado",
+      "Nuevo reporte pendiente de revisión",
+    );
+    publicarResumenAdmin();
+
     res.status(201).json({
       message: "Reporte enviado correctamente",
       sujetoSancionado: estado.bloqueada,
@@ -359,6 +370,13 @@ export async function crearReporteComprador(
       reportadoPor: `usuario:${idVendedor}`,
     });
 
+    // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
+    await publicarReportesPendientes(
+      "creado",
+      "Nuevo reporte pendiente de revisión",
+    );
+    publicarResumenAdmin();
+
     res.status(201).json({
       message: "Reporte enviado correctamente",
       sujetoSancionado: estado.bloqueada,
@@ -491,6 +509,13 @@ export async function confirmarReporte(req: Request, res: Response) {
       reporte.categoria,
       reporte.tipoFalta,
     );
+
+    // Fase 4: bandeja y dashboard del BackOffice al instante.
+    await publicarReportesPendientes(
+      "resuelto",
+      "Se confirmó un reporte de la bandeja",
+    );
+    publicarResumenAdmin();
 
     res.json({
       message: resultadoPuntos.cancelacion

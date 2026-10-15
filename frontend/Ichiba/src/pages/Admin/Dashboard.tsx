@@ -3,11 +3,43 @@ import {
   fetchResumenAdmin,
   type ResumenAdmin,
 } from "../../services/adminService";
+import { suscribirse } from "../../services/suscripcionesService";
 import { mensajeDeError } from "../../utils/errores";
 import "./Dashboard.css";
 
 /** Los datos se vuelven a leer cada 20 segundos: siempre están en vivo. */
 const INTERVALO_MS = 20000;
+
+/** Fase 4: el resumen completo llega al instante por GraphQL Subscription. */
+const CONSULTA_RESUMEN = `
+  subscription ResumenEnVivo {
+    resumenAdmin {
+      generadoEn
+      periodoMes { desde }
+      usuarios {
+        total activos suspendidos cancelados administradores nuevos30Dias
+      }
+      catalogo {
+        productos { total activos }
+        promocionales { total activos }
+      }
+      ventas {
+        total ingresos
+        mes { total ingresos }
+        porEstado { estado total ingresos }
+        ultimas { id producto vendedor monto estado fecha }
+      }
+      reportes { pendientes total }
+      filas { activas }
+      mensajes { total }
+      listaNegra { total }
+      ultimosUsuarios {
+        id nombreCompleto correo tipo suspendido
+        puntosReputacion estadoCuenta fechaRegistro
+      }
+    }
+  }
+`;
 
 const dinero = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -86,14 +118,34 @@ function Dashboard() {
     return () => clearInterval(intervalo);
   }, [cargar]);
 
+  // Fase 4: con cada cambio del backoffice (reportes, usuarios, ventas,
+  // lista negra…) el servidor emite el resumen fresco y la pantalla se
+  // actualiza sin recargar. La relectura cada 20 s queda como respaldo.
+  useEffect(() => {
+    return suscribirse<ResumenAdmin>(
+      CONSULTA_RESUMEN,
+      "resumenAdmin",
+      (resumenNuevo) => {
+        setResumen(resumenNuevo);
+        setError("");
+      },
+      (error) =>
+        console.warn(
+          "Suscripción del resumen no disponible; se mantiene la relectura periódica:",
+          error,
+        ),
+    );
+  }, []);
+
   return (
     <div className="admin-dashboard">
       <div className="admin-dashboard__cabecera">
         <div>
           <h2>Resumen general</h2>
           <p className="admin-dashboard__vivo">
-            <span className="admin-dashboard__punto" /> Datos en vivo — se
-            vuelven a leer cada 20 segundos
+            <span className="admin-dashboard__punto" /> Datos en vivo —
+            actualización instantánea por GraphQL Subscription (y relectura
+            cada 20 segundos)
             {resumen && (
               <>
                 {" "}

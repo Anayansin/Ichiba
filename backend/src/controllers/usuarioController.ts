@@ -24,6 +24,10 @@ import { enviarCorreoRecuperacion } from "../services/emailService.js";
 import { calcularReputacionVendedor } from "../services/reputacionService.js";
 import { PUNTOS_CANCELACION } from "../services/cancelacionCuentaService.js";
 import {
+  publicarEventoUsuario,
+  publicarResumenAdmin,
+} from "../graphql/suscripciones.js";
+import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
@@ -361,6 +365,25 @@ export async function registrarUsuario(req: Request, res: Response) {
       },
       true,
     );
+
+    // Fase 4: el BackOffice ve al nuevo usuario registrado al instante.
+    await publicarEventoUsuario(
+      "registrado",
+      `Nuevo usuario registrado: ${nombreCompleto}`,
+      {
+        id: String(usuarioCreado.id),
+        nombreCompleto,
+        correo,
+        tipo: usuarioCreado.tipo,
+        suspendido: false,
+        puntosReputacion: Number(usuarioCreado.puntosReputacion ?? 0),
+        estadoCuenta: usuarioCreado.estadoCuenta ?? "activa",
+        fechaRegistro: usuarioCreado.createdAt
+          ? new Date(usuarioCreado.createdAt)
+          : new Date(),
+      },
+    );
+    publicarResumenAdmin();
 
     const token = jwt.sign(
       { id: usuarioCreado.id, tipo: usuarioCreado.tipo },

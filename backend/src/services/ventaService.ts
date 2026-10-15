@@ -2,6 +2,7 @@ import { Producto } from "../models/producto.js";
 import { Venta } from "../models/Venta.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { generarCodigoPagoUnico } from "./escrowService.js";
+import { publicarResumenAdmin } from "../graphql/suscripciones.js";
 
 /**
  * Efectos de una venta confirmada, compartidos por todas las pasarelas.
@@ -130,6 +131,9 @@ export async function registrarVentaExitosa(
     },
     { upsert: true },
   );
+
+  // Fase 4: el dashboard del BackOffice refleja la venta nueva al instante.
+  publicarResumenAdmin();
 
   return {
     nueva: !ventaYaRegistrada,

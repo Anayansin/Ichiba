@@ -16,6 +16,7 @@ import {
   enviarCorreoVentaCancelada,
 } from "./emailService.js";
 import { reanudarFilaTrasCancelacion } from "./filaService.js";
+import { publicarResumenAdmin } from "../graphql/suscripciones.js";
 import {
   finDeBloquesDeAtencion,
   finDelSiguienteBloqueDeAtencion,
@@ -187,6 +188,10 @@ export async function actualizarEspejoVenta(
       error instanceof Error ? error.message : error,
     );
   }
+
+  // Fase 4: cualquier cambio de estado de una venta (comprobante, entrega,
+  // cancelación…) refresca el dashboard del BackOffice al instante.
+  publicarResumenAdmin();
 }
 
 export async function cargarVenta(

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   fetchUsuarios,
@@ -6,9 +6,26 @@ import {
   suspenderUsuario,
   type UsuarioAdmin,
 } from "../../services/adminService";
+import {
+  suscribirse,
+  type EventoUsuario,
+} from "../../services/suscripcionesService";
 import "./GestionUsuarios.css";
 
 const USUARIOS_POR_PAGINA = 10;
+
+/** Fase 4: la tabla se refresca al instante cuando cambia cualquier cuenta. */
+const CONSULTA_USUARIOS = `
+  subscription UsuariosEnVivo {
+    usuariosAdmin {
+      tipo mensaje generadoEn
+      usuario {
+        id nombreCompleto correo tipo suspendido
+        puntosReputacion estadoCuenta fechaRegistro
+      }
+    }
+  }
+`;
 
 function GestionUsuarios() {
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
@@ -20,23 +37,49 @@ function GestionUsuarios() {
   const [aviso, setAviso] = useState("");
   const [usuarioEnAccion, setUsuarioEnAccion] = useState<string | null>(null);
 
+  // La suscripción se abre una sola vez; este ref le da siempre la página
+  // visible en el momento del evento.
+  const paginaRef = useRef(pagina);
   useEffect(() => {
-    setCargando(true);
-    setError("");
-    fetchUsuarios(pagina, USUARIOS_POR_PAGINA)
-      .then((respuesta) => {
-        setUsuarios(respuesta.usuarios);
-        setTotal(respuesta.total);
-        setTotalPaginas(respuesta.totalPaginas);
-      })
-      .catch((err) =>
-        setError(
-          (axios.isAxiosError(err) && err.response?.data?.message) ||
-            "No pudimos cargar los usuarios",
-        ),
-      )
-      .finally(() => setCargando(false));
+    paginaRef.current = pagina;
   }, [pagina]);
+
+  const cargar = useCallback(async (paginaActual: number, silencioso = false) => {
+    if (!silencioso) setCargando(true);
+    setError("");
+    try {
+      const respuesta = await fetchUsuarios(paginaActual, USUARIOS_POR_PAGINA);
+      setUsuarios(respuesta.usuarios);
+      setTotal(respuesta.total);
+      setTotalPaginas(respuesta.totalPaginas);
+    } catch (err) {
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          "No pudimos cargar los usuarios",
+      );
+    } finally {
+      if (!silencioso) setCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargar(pagina);
+  }, [cargar, pagina]);
+
+  // Fase 4: registros, suspensiones, reactivaciones, puntos y cancelaciones
+  // llegan por GraphQL Subscription y la tabla se refresca sin recargar.
+  useEffect(() => {
+    return suscribirse<EventoUsuario>(
+      CONSULTA_USUARIOS,
+      "usuariosAdmin",
+      (evento) => {
+        setAviso(evento.mensaje);
+        cargar(paginaRef.current, true);
+      },
+      (err) =>
+        console.warn("Suscripción de usuarios no disponible:", err),
+    );
+  }, [cargar]);
 
   async function cambiarSuspension(usuario: UsuarioAdmin) {
     setError("");

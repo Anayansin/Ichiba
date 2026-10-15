@@ -13,6 +13,14 @@ import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
+import {
+  CANAL_LISTA_NEGRA,
+  CANAL_REPORTES_PENDIENTES,
+  CANAL_RESUMEN_ADMIN,
+  CANAL_USUARIOS_ADMIN,
+  suscribirseAlCanal,
+} from "./suscripciones.js";
+import { calcularResumenAdmin } from "../services/resumenAdminService.js";
 import type { ContextoGraphQL } from "./contexto.js";
 
 type ArgumentosProducto = {
@@ -370,6 +378,27 @@ export const resolutoresGraphQL = {
       });
       const mensajeGuardado = await mensaje.save();
       return mensajeGuardado;
+    },
+  },
+  // Fase 4 — BackOffice en vivo: cada suscripción entrega un evento del canal
+  // correspondiente. `resumenAdmin` recalcula el resumen completo y fresco en
+  // cada emisión; los demás canales llevan el payload ya armado.
+  Subscription: {
+    resumenAdmin: {
+      subscribe: () => suscribirseAlCanal(CANAL_RESUMEN_ADMIN),
+      resolve: () => calcularResumenAdmin(),
+    },
+    reportesPendientes: {
+      subscribe: () => suscribirseAlCanal(CANAL_REPORTES_PENDIENTES),
+      resolve: (evento: unknown) => evento,
+    },
+    usuariosAdmin: {
+      subscribe: () => suscribirseAlCanal(CANAL_USUARIOS_ADMIN),
+      resolve: (evento: unknown) => evento,
+    },
+    listaNegraActualizada: {
+      subscribe: () => suscribirseAlCanal(CANAL_LISTA_NEGRA),
+      resolve: (evento: unknown) => evento,
     },
   },
 };

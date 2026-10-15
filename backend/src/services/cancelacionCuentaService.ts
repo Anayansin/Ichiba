@@ -13,6 +13,12 @@ import {
 import { agregarAListaNegra } from "./listaNegraService.js";
 import { puntosDeCategoria } from "../configuracion/categoriasReporte.js";
 import {
+  publicarEventoUsuario,
+  publicarListaNegraActualizada,
+  publicarResumenAdmin,
+} from "../graphql/suscripciones.js";
+import { resumirUsuario } from "./resumenAdminService.js";
+import {
   enviarCorreoCuentaCancelada,
   enviarCorreoProductoNoDisponible,
 } from "./emailService.js";
@@ -212,7 +218,67 @@ export async function acumularPuntosDeReporte(
     cancelacion = await cancelarCuentaPorPuntos(vendedorId);
   }
 
+  // Fase 4: el BackOffice (gestión de usuarios y dashboard) se entera al
+  // instante de los puntos nuevos o de la cancelación permanente.
+  await publicarCambioDeReputacion(
+    vendedorId,
+    puntosReputacion,
+    cancelacion,
+    vendedor,
+  );
+  publicarResumenAdmin();
+
   return { puntos, puntosReputacion, cancelacion };
+}
+
+/**
+ * Fase 4: publica el cambio de reputación de un vendedor en la suscripción
+ * `usuariosAdmin`. Usa el espejo de MongoDB (la fuente del panel) y cae a los
+ * datos de PostgreSQL si el espejo no existe.
+ */
+async function publicarCambioDeReputacion(
+  vendedorId: number,
+  puntosReputacion: number,
+  cancelacion: ResultadoCancelacion | null,
+  vendedor: {
+    nombreCompleto?: string | null;
+    correo?: string | null;
+    tipo?: string | null;
+    estadoCuenta?: string | null;
+    createdAt?: Date | null;
+  } | null,
+) {
+  try {
+    const espejo = await Usuario.findOne({ usuarioId: vendedorId }).lean();
+    const resumen = espejo
+      ? resumirUsuario(espejo)
+      : {
+          id: String(vendedorId),
+          nombreCompleto: String(vendedor?.nombreCompleto ?? ""),
+          correo: String(vendedor?.correo ?? ""),
+          tipo: String(vendedor?.tipo ?? "vendedor"),
+          suspendido: false,
+          puntosReputacion,
+          estadoCuenta: cancelacion
+            ? "cancelada"
+            : String(vendedor?.estadoCuenta ?? "activa"),
+          fechaRegistro: vendedor?.createdAt ? new Date(vendedor.createdAt) : null,
+        };
+
+    const nombre = resumen.nombreCompleto || `#${vendedorId}`;
+    await publicarEventoUsuario(
+      cancelacion ? "cancelada" : "puntos",
+      cancelacion
+        ? `La cuenta de ${nombre} fue cancelada de forma permanente (${puntosReputacion} puntos)`
+        : `${nombre} acumula ${puntosReputacion}/${PUNTOS_CANCELACION} puntos de cancelación`,
+      resumen,
+    );
+  } catch (error) {
+    console.error(
+      "[cancelacion] No se pudo publicar el cambio de reputación:",
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 /**
@@ -315,6 +381,12 @@ export async function cancelarCuentaPorPuntos(
       );
     }
   }
+
+  // Fase 4: la lista negra del BackOffice se actualiza al instante.
+  await publicarListaNegraActualizada(
+    "agregada",
+    "La cuenta cancelada se agregó a la lista negra",
+  );
 
   // 4. Publicaciones fuera del catálogo: ya no recibe clientes (RQF12).
   await Producto.updateMany(
@@ -444,6 +516,16 @@ export async function purgarCuentaCancelada(
   console.log(
     `[cancelacion] Cuenta ${vendedorId} purgada: datos personales eliminados y RFC/INE conservados en la lista negra`,
   );
+
+  // Fase 4: el BackOffice refresca la gestión de usuarios (la cuenta purgada
+  // desaparece del espejo) y el dashboard.
+  await publicarEventoUsuario(
+    "purgada",
+    `Se purgó por completo la cuenta cancelada #${vendedorId}`,
+    null,
+  );
+  publicarResumenAdmin();
+
   return true;
 }
 

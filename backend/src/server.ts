@@ -27,9 +27,11 @@ import notificacionRoutes from "./routes/notificacionRoutes.js";
 import informeRoutes from "./routes/informeRoutes.js";
 import { ApolloServer as ServidorApollo } from "@apollo/server";
 import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
+import { makeExecutableSchema } from "@graphql-tools/schema";
 import { definicionesEsquema } from "./graphql/esquema.js";
 import { resolutoresGraphQL } from "./graphql/resolvers.js";
 import { extraerContextoGraphQL } from "./graphql/contexto.js";
+import { iniciarServidorDeSuscripciones } from "./graphql/servidorSuscripciones.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -152,9 +154,15 @@ app.use(
   },
 );
 
-const servidorApollo = new ServidorApollo({
+// Fase 4: el mismo esquema ejecutable alimenta Apollo (HTTP, en `/graphql`) y
+// las suscripciones en vivo (WebSocket, en la misma ruta).
+const esquemaGraphQL = makeExecutableSchema({
   typeDefs: definicionesEsquema,
   resolvers: resolutoresGraphQL,
+});
+
+const servidorApollo = new ServidorApollo({
+  schema: esquemaGraphQL,
 });
 
 await servidorApollo.start();
@@ -168,9 +176,10 @@ app.use(
 const PORT = process.env.PORT || 5000;
 
 coneccionDB().then(() => {
-  app.listen(PORT, () => {
+  const servidorHttp = app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
   });
+  iniciarServidorDeSuscripciones(servidorHttp, esquemaGraphQL);
 });
 
 iniciarJobRevisionHorarios();

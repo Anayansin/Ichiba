@@ -1,11 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import {
   fetchReportesPendientes,
   resolverReporte,
   type ReportePendiente,
 } from "../../services/adminService";
+import {
+  suscribirse,
+  type EventoReporte,
+} from "../../services/suscripcionesService";
 import "./RevisionReportes.css";
+
+/** Fase 4: la bandeja se refresca al instante cuando cambia cualquier reporte. */
+const CONSULTA_REPORTES = `
+  subscription ReportesEnVivo {
+    reportesPendientes { tipo mensaje pendientes generadoEn }
+  }
+`;
 
 function RevisionReportes() {
   const [reportes, setReportes] = useState<ReportePendiente[]>([]);
@@ -14,19 +25,38 @@ function RevisionReportes() {
   const [aviso, setAviso] = useState("");
   const [reporteEnAccion, setReporteEnAccion] = useState<number | null>(null);
 
-  useEffect(() => {
-    setCargando(true);
+  const cargar = useCallback(async (silencioso = false) => {
+    if (!silencioso) setCargando(true);
     setError("");
-    fetchReportesPendientes()
-      .then(setReportes)
-      .catch((err) =>
-        setError(
-          (axios.isAxiosError(err) && err.response?.data?.message) ||
-            "No pudimos cargar los reportes pendientes",
-        ),
-      )
-      .finally(() => setCargando(false));
+    try {
+      setReportes(await fetchReportesPendientes());
+    } catch (err) {
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          "No pudimos cargar los reportes pendientes",
+      );
+    } finally {
+      if (!silencioso) setCargando(false);
+    }
   }, []);
+
+  useEffect(() => {
+    cargar();
+
+    // Fase 4: un reporte nuevo (o resuelto por otro administrador) aparece
+    // sin recargar la página; el aviso indica cuántos quedan pendientes.
+    return suscribirse<EventoReporte>(
+      CONSULTA_REPORTES,
+      "reportesPendientes",
+      (evento) => {
+        setAviso(
+          `${evento.mensaje} · ${evento.pendientes} pendiente(s) por revisar`,
+        );
+        cargar(true);
+      },
+      (err) => console.warn("Suscripción de reportes no disponible:", err),
+    );
+  }, [cargar]);
 
   async function resolver(
     reporte: ReportePendiente,

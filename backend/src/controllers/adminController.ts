@@ -6,10 +6,7 @@ import { Mensaje } from "../models/Mensaje.js";
 import { Reporte } from "../models/Reporte.js";
 import { Venta } from "../models/Venta.js";
 import { Usuario } from "../models/usuario.js";
-import { Producto } from "../models/producto.js";
-import { Promocional } from "../models/Promocional.js";
 import { ListaNegra } from "../models/ListaNegra.js";
-import { relojZonaCentro } from "../utils/validarHorario.js";
 import {
   agregarAListaNegra,
   resumirEntrada,
@@ -20,43 +17,18 @@ import {
   acumularPuntosDeReporte,
   PUNTOS_CANCELACION,
 } from "../services/cancelacionCuentaService.js";
+import {
+  calcularResumenAdmin,
+  resumirUsuario,
+} from "../services/resumenAdminService.js";
+import {
+  publicarEventoUsuario,
+  publicarListaNegraActualizada,
+  publicarReportesPendientes,
+  publicarResumenAdmin,
+} from "../graphql/suscripciones.js";
 
 const USUARIOS_POR_PAGINA = 10;
-
-type UsuarioResumido = {
-  id: string;
-  nombreCompleto: string;
-  correo: string;
-  tipo: string;
-  suspendido: boolean;
-  /** RQNF10.1 / RQNF10.3: reputación por infracciones (8 = cancelación). */
-  puntosReputacion: number;
-  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
-  estadoCuenta: string;
-  fechaRegistro: Date | null;
-};
-
-function resumirUsuario(usuario: {
-  _id: unknown;
-  nombreCompleto?: string;
-  correo?: string;
-  tipo?: string;
-  suspendido?: boolean;
-  puntosReputacion?: number;
-  estadoCuenta?: string;
-  createdAt?: Date;
-}): UsuarioResumido {
-  return {
-    id: String(usuario._id),
-    nombreCompleto: usuario.nombreCompleto ?? "",
-    correo: usuario.correo ?? "",
-    tipo: usuario.tipo ?? "",
-    suspendido: usuario.suspendido === true,
-    puntosReputacion: Number(usuario.puntosReputacion ?? 0),
-    estadoCuenta: usuario.estadoCuenta ?? "activa",
-    fechaRegistro: usuario.createdAt ?? null,
-  };
-}
 
 export async function obtenerTodosLosUsuarios(req: Request, res: Response) {
   try {
@@ -124,6 +96,16 @@ async function cambiarSuspension(
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
+
+    // Fase 4: el BackOffice recibe el cambio al instante por suscripción.
+    await publicarEventoUsuario(
+      suspendido ? "suspendido" : "reactivado",
+      suspendido
+        ? `Usuario suspendido: ${usuario.nombreCompleto}`
+        : `Usuario reactivado: ${usuario.nombreCompleto}`,
+      resumirUsuario(usuario),
+    );
+    publicarResumenAdmin();
 
     res.json(resumirUsuario(usuario));
   } catch (error) {
@@ -246,6 +228,13 @@ export async function resolverReporte(req: Request, res: Response) {
         data: { estado: "rechazado" },
       });
 
+      // Fase 4: el BackOffice actualiza la bandeja de reportes al instante.
+      await publicarReportesPendientes(
+        "rechazado",
+        "Se rechazó un reporte de la bandeja",
+      );
+      publicarResumenAdmin();
+
       return res.json({ message: "Reporte rechazado", estado: "rechazado" });
     }
 
@@ -276,6 +265,13 @@ export async function resolverReporte(req: Request, res: Response) {
     });
 
     if (!vendedor) {
+      // Fase 4: aunque el sujeto no sea vendedor, la bandeja cambió.
+      await publicarReportesPendientes(
+        "resuelto",
+        "Se confirmó un reporte de la bandeja",
+      );
+      publicarResumenAdmin();
+
       return res.json({
         message: "Reporte confirmado correctamente",
         estado: "confirmado",
@@ -296,6 +292,14 @@ export async function resolverReporte(req: Request, res: Response) {
       reporte.categoria,
       reporte.tipoFalta,
     );
+
+    // Fase 4: la bandeja de reportes y el dashboard se refrescan al instante
+    // (los puntos del vendedor los publica `acumularPuntosDeReporte`).
+    await publicarReportesPendientes(
+      "resuelto",
+      "Se confirmó un reporte de la bandeja",
+    );
+    publicarResumenAdmin();
 
     res.json({
       message: resultadoPuntos.cancelacion
@@ -554,6 +558,13 @@ export async function agregarEntradaListaNegra(req: Request, res: Response) {
       origen: "manual",
     });
 
+    // Fase 4: la lista negra del BackOffice se actualiza al instante.
+    await publicarListaNegraActualizada(
+      "agregada",
+      `Registro agregado a la lista negra: ${entrada.rfc || entrada.curp || entrada.nombreCompleto}`,
+    );
+    publicarResumenAdmin();
+
     res.status(201).json(entrada);
   } catch (error: unknown) {
     const duplicado =
@@ -593,6 +604,13 @@ export async function quitarEntradaListaNegra(req: Request, res: Response) {
         .json({ message: "Registro de lista negra no encontrado" });
     }
 
+    // Fase 4: la lista negra del BackOffice se actualiza al instante.
+    await publicarListaNegraActualizada(
+      "quitada",
+      `Registro quitado de la lista negra: ${borrada.rfc || borrada.curp || borrada.nombreCompleto}`,
+    );
+    publicarResumenAdmin();
+
     res.json({ message: "Registro eliminado de la lista negra" });
   } catch (error) {
     console.error("Error real:", error);
@@ -603,161 +621,12 @@ export async function quitarEntradaListaNegra(req: Request, res: Response) {
 }
 
 /**
- * Dashboard del administrador: todas las cifras se calculan en el momento de
- * cada petición (sin caché ni snapshots) leyendo las fuentes vivas de cada
- * módulo — usuarios, catálogo y mensajes en MongoDB; ventas, reportes y
- * filas en PostgreSQL.
+ * Dashboard del administrador: el cálculo vive en `resumenAdminService`
+ * porque también lo usa la suscripción GraphQL `resumenAdmin` (Fase 4).
  */
-export async function obtenerResumenAdmin(req: Request, res: Response) {
+export async function obtenerResumenAdmin(_req: Request, res: Response) {
   try {
-    const ahora = new Date();
-    const desde30Dias = new Date(ahora.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const centro = relojZonaCentro(ahora);
-    const inicioMes = new Date(
-      Date.UTC(centro.getFullYear(), centro.getMonth(), 1, 6),
-    );
-
-    const [
-      usuariosTotal,
-      usuariosActivos,
-      usuariosSuspendidos,
-      usuariosCancelados,
-      usuariosAdministradores,
-      usuariosNuevos30Dias,
-      ultimosUsuarios,
-      productosTotal,
-      productosActivos,
-      promocionalesTotal,
-      promocionalesActivos,
-      mensajesTotal,
-      listaNegraTotal,
-      ventasTodas,
-      reportesPendientes,
-      reportesTotal,
-      filasActivas,
-    ] = await Promise.all([
-      Usuario.countDocuments(),
-      Usuario.countDocuments({ suspendido: { $ne: true } }),
-      Usuario.countDocuments({ suspendido: true }),
-      // RQNF10.3: cuentas canceladas de forma permanente (8 puntos).
-      clientePrisma.usuario.count({ where: { estadoCuenta: "cancelada" } }),
-      Usuario.countDocuments({ tipo: "admin" }),
-      Usuario.countDocuments({ createdAt: { $gte: desde30Dias } }),
-      Usuario.find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select("nombreCompleto correo tipo suspendido createdAt")
-        .lean(),
-      Producto.countDocuments(),
-      Producto.countDocuments({ activo: true }),
-      Promocional.countDocuments(),
-      Promocional.countDocuments({ activo: true }),
-      Mensaje.countDocuments(),
-      ListaNegra.countDocuments(),
-      // El cliente por contrato no expone agregados, límites de filas ni
-      // operadores `gte`: se leen las ventas y sumas/filtros se calculan en
-      // memoria sobre esa lectura.
-      clientePrisma.venta.findMany({ orderBy: { createdAt: "desc" } }),
-      clientePrisma.reporte.count({ where: { estado: "pendiente" } }),
-      clientePrisma.reporte.count(),
-      clientePrisma.cola.count({
-        where: { estado: { in: ["activa", "esperando_confirmacion"] } },
-      }),
-    ]);
-
-    // `createdAt` llega normalizado como Date; el filtro del mes (zona centro)
-    // se hace en memoria porque el cliente no soporta comparaciones de fecha.
-    const ventasDelMes = ventasTodas.filter(
-      (venta) => venta.createdAt >= inicioMes,
-    );
-    const ingresosTotales = ventasTodas.reduce(
-      (suma, venta) => suma + venta.monto,
-      0,
-    );
-    const ingresosMes = ventasDelMes.reduce(
-      (suma, venta) => suma + venta.monto,
-      0,
-    );
-
-    const ventasPorEstado = new Map<string, { total: number; ingresos: number }>();
-    for (const venta of ventasTodas) {
-      const grupo = ventasPorEstado.get(venta.estado) ?? {
-        total: 0,
-        ingresos: 0,
-      };
-      grupo.total += 1;
-      grupo.ingresos += venta.monto;
-      ventasPorEstado.set(venta.estado, grupo);
-    }
-
-    const ultimasVentas = ventasTodas.slice(0, 6);
-
-    // Nombres de los productos (MongoDB) y vendedores (PostgreSQL) que
-    // aparecen en las últimas ventas.
-    const productosUltimas = await Producto.find({
-      _id: { $in: ultimasVentas.map((venta) => venta.productoId) },
-    })
-      .select("nombre")
-      .lean();
-    const nombrePorProducto = new Map(
-      productosUltimas.map((producto) => [String(producto._id), producto.nombre]),
-    );
-    const vendedoresUltimas = new Map<number, string>();
-    for (const venta of ultimasVentas) {
-      if (vendedoresUltimas.has(venta.vendedorId)) continue;
-      const vendedor = await clientePrisma.usuario.findUnique({
-        where: { id: venta.vendedorId },
-        select: { nombreCompleto: true },
-      });
-      vendedoresUltimas.set(
-        venta.vendedorId,
-        vendedor?.nombreCompleto ?? `#${venta.vendedorId}`,
-      );
-    }
-
-    res.json({
-      generadoEn: ahora,
-      periodoMes: { desde: inicioMes },
-      usuarios: {
-        total: usuariosTotal,
-        activos: usuariosActivos,
-        suspendidos: usuariosSuspendidos,
-        cancelados: usuariosCancelados,
-        administradores: usuariosAdministradores,
-        nuevos30Dias: usuariosNuevos30Dias,
-      },
-      catalogo: {
-        productos: { total: productosTotal, activos: productosActivos },
-        promocionales: { total: promocionalesTotal, activos: promocionalesActivos },
-      },
-      ventas: {
-        total: ventasTodas.length,
-        ingresos: ingresosTotales,
-        mes: { total: ventasDelMes.length, ingresos: ingresosMes },
-        porEstado: Array.from(ventasPorEstado.entries()).map(
-          ([estado, grupo]) => ({
-            estado,
-            total: grupo.total,
-            ingresos: grupo.ingresos,
-          }),
-        ),
-        ultimas: ultimasVentas.map((venta) => ({
-          id: venta.id,
-          producto:
-            nombrePorProducto.get(String(venta.productoId)) ?? venta.productoId,
-          vendedor:
-            vendedoresUltimas.get(venta.vendedorId) ?? `#${venta.vendedorId}`,
-          monto: venta.monto,
-          estado: venta.estado,
-          fecha: venta.createdAt,
-        })),
-      },
-      reportes: { pendientes: reportesPendientes, total: reportesTotal },
-      filas: { activas: filasActivas },
-      mensajes: { total: mensajesTotal },
-      listaNegra: { total: listaNegraTotal },
-      ultimosUsuarios: ultimosUsuarios.map(resumirUsuario),
-    });
+    res.json(await calcularResumenAdmin());
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "No se pudo cargar el resumen" });

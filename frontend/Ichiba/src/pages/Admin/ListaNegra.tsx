@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   agregarEntradaListaNegra,
@@ -6,9 +6,20 @@ import {
   quitarEntradaListaNegra,
   type EntradaListaNegra,
 } from "../../services/adminService";
+import {
+  suscribirse,
+  type EventoListaNegra,
+} from "../../services/suscripcionesService";
 import "./ListaNegra.css";
 
 const ENTRADAS_POR_PAGINA = 20;
+
+/** Fase 4: la lista se refresca al instante cuando entra o sale un registro. */
+const CONSULTA_LISTA_NEGRA = `
+  subscription ListaNegraEnVivo {
+    listaNegraActualizada { tipo mensaje entradas generadoEn }
+  }
+`;
 
 const FORM_INICIAL = {
   rfc: "",
@@ -32,23 +43,55 @@ function ListaNegra() {
   const [formulario, setFormulario] = useState(FORM_INICIAL);
   const [enviando, setEnviando] = useState(false);
 
+  // La suscripción se abre una sola vez; este ref le da siempre la página
+  // visible en el momento del evento.
+  const paginaRef = useRef(pagina);
   useEffect(() => {
-    setCargando(true);
-    setError("");
-    fetchListaNegra(pagina, ENTRADAS_POR_PAGINA)
-      .then((respuesta) => {
+    paginaRef.current = pagina;
+  }, [pagina]);
+
+  const cargar = useCallback(
+    async (paginaActual: number, silencioso = false) => {
+      if (!silencioso) setCargando(true);
+      setError("");
+      try {
+        const respuesta = await fetchListaNegra(
+          paginaActual,
+          ENTRADAS_POR_PAGINA,
+        );
         setEntradas(respuesta.entradas);
         setTotal(respuesta.total);
         setTotalPaginas(respuesta.totalPaginas);
-      })
-      .catch((err) =>
+      } catch (err) {
         setError(
           (axios.isAxiosError(err) && err.response?.data?.message) ||
             "No pudimos cargar la lista negra",
-        ),
-      )
-      .finally(() => setCargando(false));
-  }, [pagina]);
+        );
+      } finally {
+        if (!silencioso) setCargando(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    cargar(pagina);
+  }, [cargar, pagina]);
+
+  // Fase 4: altas y bajas (incluidas las automáticas por cancelación de
+  // cuenta) llegan por GraphQL Subscription y la tabla se refresca sola.
+  useEffect(() => {
+    return suscribirse<EventoListaNegra>(
+      CONSULTA_LISTA_NEGRA,
+      "listaNegraActualizada",
+      (evento) => {
+        setAviso(`${evento.mensaje} · ${evento.entradas} registro(s)`);
+        cargar(paginaRef.current, true);
+      },
+      (err) =>
+        console.warn("Suscripción de lista negra no disponible:", err),
+    );
+  }, [cargar]);
 
   function cambiarCampo(
     campo: keyof typeof FORM_INICIAL,
@@ -85,10 +128,7 @@ function ListaNegra() {
       setFormulario(FORM_INICIAL);
       setAviso("Registro agregado a la lista negra");
       setPagina(1);
-      const respuesta = await fetchListaNegra(1, ENTRADAS_POR_PAGINA);
-      setEntradas(respuesta.entradas);
-      setTotal(respuesta.total);
-      setTotalPaginas(respuesta.totalPaginas);
+      await cargar(1, true);
     } catch (err) {
       setError(
         (axios.isAxiosError(err) && err.response?.data?.message) ||
