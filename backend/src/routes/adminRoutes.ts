@@ -10,11 +10,14 @@ import {
   obtenerListaNegra,
   agregarEntradaListaNegra,
   quitarEntradaListaNegra,
+  obtenerResumenAdmin,
 } from "../controllers/adminController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { esAdmin } from "../middleware/esAdmin.js";
 
 const router = Router();
+
+router.get("/resumen", verificarToken, esAdmin, obtenerResumenAdmin);
 
 router.get("/usuarios", verificarToken, esAdmin, obtenerTodosLosUsuarios);
 

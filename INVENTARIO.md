@@ -272,7 +272,7 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 | `/api/mensajes` | `mensajeRoutes.ts` | `GET /comprador/mis-ventas` · `GET|POST /comprador/:ventaId` · `GET /vendedor/mis-ventas` · `GET|POST /vendedor/:ventaId` |
 | `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `GET /:id/comentarios` · `POST /:id/comentarios` (con `x-comprador-id`) · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` — las fotos de alto y edición usan `subirFotosProducto` (solo .png/.jpeg/.jpg, RQNF9.2) |
 | `/api/reportes` | `reporteRoutes.ts` | `POST /` · `POST /comprador` · `GET /` (admin) · `PATCH /:id/confirmar` (admin) |
-| `/api/admin` | `adminRoutes.ts` | `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` |
+| `/api/admin` | `adminRoutes.ts` | `GET /resumen` · `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` |
 | `/api/notificaciones` | `notificacionRoutes.ts` | `POST /suscribir` |
 | `/api/suscripciones` | `suscripcionRoutes.ts` | `POST /` |
 | `/uploads` | estático | Fotos de productos/promocionales. **`/uploads/ine` devuelve 404 siempre** (bloqueo en `server.ts`) |
@@ -364,6 +364,7 @@ powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1  # bas
 | Rol | Correo | Contraseña |
 |---|---|---|
 | Admin | `admin@ichiba.test` | `IchibaAdmin123!` |
+| Admin del dashboard | `admin.dashboard@ichiba.test` | `IchibaDash123!` |
 | Vendedor demo | `vendedor.demo@ichiba.test` | `IchibaDemo123!` (cobra con PayPal) |
 | Vendedor MercadoPago | `vendedor.mp@ichiba.test` | `IchibaMP123!` (cobra con MercadoPago, crea `npm run seed:mp`) |
 | Comprador de prueba (INE de muestra) | `margarita.prueba@correo.test` | `NuevaClave123!` |

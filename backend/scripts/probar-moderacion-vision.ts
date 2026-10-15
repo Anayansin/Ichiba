@@ -814,6 +814,95 @@ try {
       `metodoPagoVendedor: ${jsonMP.metodoPagoVendedor}`,
     );
   }
+
+  // -------------------------------------------------------------------------
+  // Dashboard del administrador: el resumen se calcula en vivo en cada
+  // lectura y solo responde con sesión de administrador.
+  // -------------------------------------------------------------------------
+
+  // 36) Admin: GET /api/admin/resumen devuelve cifras numéricas
+  const loginAdmin = await fetch(
+    `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/usuarios/login`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        correo: "admin@ichiba.test",
+        password: "IchibaAdmin123!",
+      }),
+    },
+  );
+  const datosAdmin = (await loginAdmin.json()) as { token?: string };
+  if (!loginAdmin.ok || !datosAdmin.token) {
+    verificar(
+      "Dashboard admin: login de administrador disponible",
+      false,
+      JSON.stringify(datosAdmin),
+    );
+  } else {
+    const rResumen = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/admin/resumen`,
+      { headers: { Authorization: `Bearer ${datosAdmin.token}` } },
+    );
+    const resumen = (await rResumen.json()) as {
+      generadoEn?: string;
+      usuarios?: { total?: number; activos?: number };
+      ventas?: {
+        total?: number;
+        ingresos?: number;
+        mes?: { total?: number; ingresos?: number };
+        ultimas?: unknown[];
+      };
+      reportes?: { pendientes?: number; total?: number };
+      filas?: { activas?: number };
+    };
+    verificar(
+      "Dashboard admin: GET /api/admin/resumen devuelve cifras en vivo",
+      rResumen.ok &&
+        typeof resumen.generadoEn === "string" &&
+        typeof resumen.usuarios?.total === "number" &&
+        typeof resumen.usuarios?.activos === "number" &&
+        typeof resumen.ventas?.total === "number" &&
+        typeof resumen.ventas?.ingresos === "number" &&
+        typeof resumen.ventas?.mes?.total === "number" &&
+        typeof resumen.ventas?.mes?.ingresos === "number" &&
+        typeof resumen.reportes?.pendientes === "number" &&
+        typeof resumen.filas?.activas === "number" &&
+        Array.isArray(resumen.ventas?.ultimas),
+      `status ${rResumen.status}: ${JSON.stringify(resumen).slice(0, 300)}`,
+    );
+
+    // 37) El resumen refleja el estado real de la base (hay ventas del
+    // vendedor demo, ambas de este mes, y usuarios registrados).
+    verificar(
+      "Dashboard admin: las cifras coinciden con datos reales",
+      (resumen.usuarios?.total ?? 0) >= 3 &&
+        (resumen.ventas?.total ?? 0) >= 1 &&
+        (resumen.ventas?.mes?.total ?? 0) >= 1,
+      `usuarios=${resumen.usuarios?.total} ventas=${resumen.ventas?.total} mes=${resumen.ventas?.mes?.total}`,
+    );
+  }
+
+  // 38) Un vendedor no puede leer el resumen (403)
+  const rResumenVendedor = await fetch(
+    `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/admin/resumen`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  verificar(
+    "Dashboard admin: un vendedor recibe 403",
+    rResumenVendedor.status === 403,
+    `status ${rResumenVendedor.status}`,
+  );
+
+  // 39) Sin token → 401
+  const rResumenSinToken = await fetch(
+    `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/admin/resumen`,
+  );
+  verificar(
+    "Dashboard admin: sin token se recibe 401",
+    rResumenSinToken.status === 401,
+    `status ${rResumenSinToken.status}`,
+  );
 } finally {
   // Limpieza: borrar productos y promocionales creados (y sus archivos) y
   // apagar todo

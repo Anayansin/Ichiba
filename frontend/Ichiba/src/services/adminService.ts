@@ -153,3 +153,47 @@ export async function quitarEntradaListaNegra(
   const response = await api.delete(`/admin/lista-negra/${id}`);
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard del administrador: cifras en vivo (se recalculan en cada lectura).
+// ---------------------------------------------------------------------------
+
+export type ResumenAdmin = {
+  generadoEn: string;
+  periodoMes: { desde: string };
+  usuarios: {
+    total: number;
+    activos: number;
+    suspendidos: number;
+    administradores: number;
+    nuevos30Dias: number;
+  };
+  catalogo: {
+    productos: { total: number; activos: number };
+    promocionales: { total: number; activos: number };
+  };
+  ventas: {
+    total: number;
+    ingresos: number;
+    mes: { total: number; ingresos: number };
+    porEstado: { estado: string; total: number; ingresos: number }[];
+    ultimas: {
+      id: number;
+      producto: string;
+      vendedor: string;
+      monto: number;
+      estado: string;
+      fecha: string;
+    }[];
+  };
+  reportes: { pendientes: number; total: number };
+  filas: { activas: number };
+  mensajes: { total: number };
+  listaNegra: { total: number };
+  ultimosUsuarios: UsuarioAdmin[];
+};
+
+export async function fetchResumenAdmin(): Promise<ResumenAdmin> {
+  const response = await api.get("/admin/resumen");
+  return response.data;
+}

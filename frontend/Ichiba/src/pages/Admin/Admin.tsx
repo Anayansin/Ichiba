@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import GestionUsuarios from "./GestionUsuarios";
 import ListaNegra from "./ListaNegra";
 import RevisionReportes from "./RevisionReportes";
 import Trazabilidad from "./Trazabilidad";
+import Dashboard from "./Dashboard";
 import "./Admin.css";
 
 const SECCIONES = [
@@ -51,15 +52,7 @@ function Admin() {
         {seccionActiva === "reportes" && <RevisionReportes />}
         {seccionActiva === "lista-negra" && <ListaNegra />}
         {seccionActiva === "trazabilidad" && <Trazabilidad />}
-        {seccionActiva === "inicio" && (
-          <p className="admin__seccion">
-            Usa el menú de arriba para gestionar los usuarios de la plataforma,
-            revisar los reportes pendientes o ver el historial combinado de
-            transacciones. También puedes abrir el{" "}
-            <Link to="/admin/reportes">historial de reportes</Link> para ver su
-            estado.
-          </p>
-        )}
+        {seccionActiva === "inicio" && <Dashboard />}
       </div>
     </div>
   );
