@@ -5,8 +5,10 @@ import { InformeGlobal } from "../models/InformeGlobal.js";
 import {
   esPeriodoValido,
   generarInformesMensuales,
+  listarInformesGlobales as listarInformesGlobalesServicio,
   periodoAnterior,
   periodoDeFecha,
+  resumirInformeGlobal,
 } from "../services/informesService.js";
 import {
   pdfDeInformeVendedor,
@@ -109,36 +111,12 @@ export async function descargarInformeDelVendedor(
   }
 }
 
-function resumirInformeGlobal(informe: Record<string, any>) {
-  return {
-    periodo: informe.periodo,
-    generadoEn: informe.generadoEn ?? null,
-    categoriaMasVendida: informe.categoriaMasVendida
-      ? {
-          categoria: String(informe.categoriaMasVendida.categoria ?? ""),
-          ventas: Number(informe.categoriaMasVendida.ventas ?? 0),
-        }
-      : null,
-    empate: informe.empate === true,
-    porCategoria: (informe.porCategoria ?? []).map(
-      (categoria: Record<string, any>) => ({
-        categoria: String(categoria.categoria ?? ""),
-        ventas: Number(categoria.ventas ?? 0),
-        filasIniciadas: Number(categoria.filasIniciadas ?? 0),
-        filasAbandonadas: Number(categoria.filasAbandonadas ?? 0),
-        tasaAbandono: Number(categoria.tasaAbandono ?? 0),
-      }),
-    ),
-  };
-}
-
 export async function listarInformesGlobales(
   _req: RequestConUsuario,
   res: Response,
 ) {
   try {
-    const informes = await InformeGlobal.find().sort({ periodo: -1 }).lean();
-    res.json({ informes: informes.map(resumirInformeGlobal) });
+    res.json({ informes: await listarInformesGlobalesServicio() });
   } catch (error) {
     console.error("Error real:", error);
     res

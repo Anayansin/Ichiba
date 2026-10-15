@@ -1,634 +1,154 @@
 import { Request, Response } from "express";
-import mongoose from "mongoose";
-import clientePrisma from "../configuracion/prisma.js";
-import { Cola } from "../models/Cola.js";
-import { Mensaje } from "../models/Mensaje.js";
-import { Reporte } from "../models/Reporte.js";
-import { Venta } from "../models/Venta.js";
-import { Usuario } from "../models/usuario.js";
-import { ListaNegra } from "../models/ListaNegra.js";
 import {
-  agregarAListaNegra,
-  resumirEntrada,
-} from "../services/listaNegraService.js";
-import { aplicarFaltaConfirmada } from "./reporteController.js";
-import { puntosDeCategoria } from "../configuracion/categoriasReporte.js";
-import {
-  acumularPuntosDeReporte,
-  PUNTOS_CANCELACION,
-} from "../services/cancelacionCuentaService.js";
-import {
-  calcularResumenAdmin,
-  resumirUsuario,
-} from "../services/resumenAdminService.js";
-import {
-  publicarEventoUsuario,
-  publicarListaNegraActualizada,
-  publicarReportesPendientes,
-  publicarResumenAdmin,
-} from "../graphql/suscripciones.js";
+  ErrorBackoffice,
+  agregarEntradaListaNegraAdmin,
+  cambiarSuspensionUsuarioAdmin,
+  historialTransaccionesAdmin,
+  listarListaNegraAdmin,
+  listarReportesPendientesAdmin,
+  listarUsuariosAdmin,
+  mensajesDeVentaAdmin,
+  obtenerResumenAdmin as obtenerResumenAdminServicio,
+  quitarEntradaListaNegraAdmin,
+  resolverReporteAdmin,
+} from "../services/backofficeService.js";
 
-const USUARIOS_POR_PAGINA = 10;
+/**
+ * Endpoints REST del BackOffice (`/api/admin/*`).
+ *
+ * Toda la lógica vive en `backofficeService` porque la comparten los endpoints
+ * REST, las suscripciones GraphQL y el servidor MCP. Aquí solo se traduce la
+ * petición HTTP a la llamada del servicio y sus errores al código de estado.
+ */
+
+function responderError(
+  res: Response,
+  error: unknown,
+  mensajeGenerico: string,
+) {
+  if (error instanceof ErrorBackoffice) {
+    return res.status(error.estado).json({ message: error.message });
+  }
+
+  console.error("Error real:", error);
+  res.status(500).json({ message: mensajeGenerico });
+}
 
 export async function obtenerTodosLosUsuarios(req: Request, res: Response) {
   try {
-    const pagina = Math.max(Number(req.query.pagina) || 1, 1);
-    const porPagina = Math.max(
-      Number(req.query.porPagina) || USUARIOS_POR_PAGINA,
-      1,
-    );
-
-    const [usuarios, total] = await Promise.all([
-      Usuario.find()
-        .select(
-          "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt",
-        )
-        .sort({ createdAt: -1 })
-        .skip((pagina - 1) * porPagina)
-        .limit(porPagina)
-        .lean(),
-      Usuario.countDocuments(),
-    ]);
-
-    res.json({
-      usuarios: usuarios.map(resumirUsuario),
-      pagina,
-      porPagina,
-      total,
-      totalPaginas: Math.max(Math.ceil(total / porPagina), 1),
+    const resultado = await listarUsuariosAdmin({
+      pagina: Number(req.query.pagina),
+      porPagina: Number(req.query.porPagina),
     });
+    res.json(resultado);
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al obtener los usuarios" });
-  }
-}
-
-async function cambiarSuspension(
-  req: Request,
-  res: Response,
-  suspendido: boolean,
-) {
-  try {
-    const id = req.params.id;
-
-    if (!id || !mongoose.isValidObjectId(id)) {
-      return res
-        .status(400)
-        .json({ message: "Indica el usuario que quieres modificar" });
-    }
-
-    // RQNF10.3 / RQF12: la cancelación por 8 puntos es permanente; no se
-    // suspende ni se reactiva manualmente.
-    const existente = await Usuario.findById(id).select("estadoCuenta").lean();
-    if (existente && existente.estadoCuenta === "cancelada") {
-      return res.status(400).json({
-        message:
-          "La cuenta fue cancelada de forma permanente por acumular 8 puntos (RQNF10.3)",
-      });
-    }
-
-    const usuario = await Usuario.findByIdAndUpdate(
-      id,
-      { suspendido },
-      { new: true },
-    );
-
-    if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
-
-    // Fase 4: el BackOffice recibe el cambio al instante por suscripción.
-    await publicarEventoUsuario(
-      suspendido ? "suspendido" : "reactivado",
-      suspendido
-        ? `Usuario suspendido: ${usuario.nombreCompleto}`
-        : `Usuario reactivado: ${usuario.nombreCompleto}`,
-      resumirUsuario(usuario),
-    );
-    publicarResumenAdmin();
-
-    res.json(resumirUsuario(usuario));
-  } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al actualizar el usuario" });
+    responderError(res, error, "Error al obtener los usuarios");
   }
 }
 
 export async function suspenderUsuario(req: Request, res: Response) {
-  await cambiarSuspension(req, res, true);
+  try {
+    res.json(await cambiarSuspensionUsuarioAdmin(String(req.params.id), true));
+  } catch (error) {
+    responderError(res, error, "Error al actualizar el usuario");
+  }
 }
 
 export async function reactivarUsuario(req: Request, res: Response) {
-  await cambiarSuspension(req, res, false);
+  try {
+    res.json(await cambiarSuspensionUsuarioAdmin(String(req.params.id), false));
+  } catch (error) {
+    responderError(res, error, "Error al actualizar el usuario");
+  }
 }
 
-export async function obtenerReportesPendientes(req: Request, res: Response) {
+export async function obtenerReportesPendientes(_req: Request, res: Response) {
   try {
-    const reportes = await clientePrisma.reporte.findMany({
-      where: { estado: "pendiente" },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const vendedores: Record<
-      string,
-      { nombre: string; puntosReputacion: number; estadoCuenta: string }
-    > = {};
-    for (const reporte of reportes) {
-      const idVendedor = String(reporte.vendedorId);
-      if (vendedores[idVendedor]) continue;
-
-      const vendedor = await clientePrisma.usuario.findUnique({
-        where: { id: Number(reporte.vendedorId) },
-        select: {
-          nombreCompleto: true,
-          puntosReputacion: true,
-          estadoCuenta: true,
-        },
-      });
-      vendedores[idVendedor] = vendedor
-        ? {
-            nombre: vendedor.nombreCompleto,
-            puntosReputacion: Number(vendedor.puntosReputacion ?? 0),
-            estadoCuenta: vendedor.estadoCuenta ?? "activa",
-          }
-        : {
-            nombre: "Vendedor no encontrado",
-            puntosReputacion: 0,
-            estadoCuenta: "activa",
-          };
-    }
-
-    res.json(
-      reportes.map((reporte) => {
-        const vendedor = vendedores[String(reporte.vendedorId)];
-        return {
-          id: reporte.id,
-          categoria: reporte.categoria,
-          categoriaNombre: reporte.categoriaNombre,
-          elemento: reporte.elemento,
-          tipoFalta: reporte.tipoFalta,
-          detalle: reporte.detalle ?? null,
-          estado: reporte.estado,
-          sujetoTipo: reporte.sujetoTipo,
-          reportadoPorTipo: reporte.reportadoPorTipo,
-          vendedorNombre: vendedor.nombre,
-          // RQNF10.1 / RQNF10.3: cuántos puntos suma el reporte al
-          // confirmarse y cuántos lleva acumulados el vendedor (8 = cancelación).
-          puntos: puntosDeCategoria(reporte.categoria, reporte.tipoFalta),
-          puntosReputacion: vendedor.puntosReputacion,
-          puntosCancelacion: PUNTOS_CANCELACION,
-          estadoCuenta: vendedor.estadoCuenta,
-          fecha: reporte.createdAt,
-        };
-      }),
-    );
+    res.json(await listarReportesPendientesAdmin());
   } catch (error) {
-    console.error("Error real:", error);
-    res
-      .status(500)
-      .json({ message: "Error al obtener los reportes pendientes" });
+    responderError(res, error, "Error al obtener los reportes pendientes");
   }
 }
 
 export async function resolverReporte(req: Request, res: Response) {
   try {
-    const idReporte = req.params.id;
-    const resultado =
-      typeof req.body?.resultado === "string" ? req.body.resultado : "";
-
-    if (!idReporte || isNaN(Number(idReporte))) {
-      return res
-        .status(400)
-        .json({ message: "Indica el reporte que quieres resolver" });
-    }
-
-    if (resultado !== "confirmado" && resultado !== "rechazado") {
-      return res
-        .status(400)
-        .json({ message: "El resultado debe ser confirmado o rechazado" });
-    }
-
-    const reporte = await clientePrisma.reporte.findUnique({
-      where: { id: Number(idReporte) },
-    });
-
-    if (!reporte) {
-      return res.status(404).json({ message: "Reporte no encontrado" });
-    }
-
-    if (reporte.estado !== "pendiente") {
-      return res
-        .status(400)
-        .json({ message: "Este reporte ya fue resuelto" });
-    }
-
-    if (resultado === "rechazado") {
-      await clientePrisma.reporte.update({
-        where: { id: reporte.id },
-        data: { estado: "rechazado" },
-      });
-
-      // Fase 4: el BackOffice actualiza la bandeja de reportes al instante.
-      await publicarReportesPendientes(
-        "rechazado",
-        "Se rechazó un reporte de la bandeja",
-      );
-      publicarResumenAdmin();
-
-      return res.json({ message: "Reporte rechazado", estado: "rechazado" });
-    }
-
-    const sujetoEsVendedor =
-      reporte.tipoReportado === "vendedor" || reporte.sujetoTipo === "usuario";
-    const idVendedorAcusado = Number(reporte.sujetoId);
-    let vendedor: { faltasLeves: number } | null = null;
-
-    if (sujetoEsVendedor) {
-      if (!Number.isFinite(idVendedorAcusado)) {
-        return res
-          .status(400)
-          .json({ message: "El vendedor de este reporte no es válido" });
-      }
-
-      vendedor = await clientePrisma.usuario.findUnique({
-        where: { id: idVendedorAcusado },
-      });
-
-      if (!vendedor) {
-        return res.status(404).json({ message: "Vendedor no encontrado" });
-      }
-    }
-
-    await clientePrisma.reporte.update({
-      where: { id: reporte.id },
-      data: { estado: "confirmado" },
-    });
-
-    if (!vendedor) {
-      // Fase 4: aunque el sujeto no sea vendedor, la bandeja cambió.
-      await publicarReportesPendientes(
-        "resuelto",
-        "Se confirmó un reporte de la bandeja",
-      );
-      publicarResumenAdmin();
-
-      return res.json({
-        message: "Reporte confirmado correctamente",
-        estado: "confirmado",
-      });
-    }
-
-    const faltas = await aplicarFaltaConfirmada(
-      idVendedorAcusado,
-      vendedor.faltasLeves,
-    );
-
-    // RQNF10.1 / RQNF10.3: los puntos del reporte se suman a la reputación al
-    // confirmarse y, al llegar a 8, la cuenta se cancela de forma permanente
-    // con correo al vendedor, lista negra, publicaciones fuera y purga
-    // posterior (RQNF10.5 / RQNF10.6 / RQNF10.7).
-    const resultadoPuntos = await acumularPuntosDeReporte(
-      idVendedorAcusado,
-      reporte.categoria,
-      reporte.tipoFalta,
-    );
-
-    // Fase 4: la bandeja de reportes y el dashboard se refrescan al instante
-    // (los puntos del vendedor los publica `acumularPuntosDeReporte`).
-    await publicarReportesPendientes(
-      "resuelto",
-      "Se confirmó un reporte de la bandeja",
-    );
-    publicarResumenAdmin();
-
-    res.json({
-      message: resultadoPuntos.cancelacion
-        ? `Reporte confirmado: el vendedor alcanzó ${PUNTOS_CANCELACION} puntos y su cuenta fue cancelada de forma permanente`
-        : "Reporte confirmado correctamente",
-      estado: "confirmado",
-      faltasLeves: faltas.faltasLeves,
-      faltaGraveRegistrada: faltas.faltaGraveRegistrada,
-      puntos: resultadoPuntos.puntos,
-      puntosReputacion: resultadoPuntos.puntosReputacion,
-      cuentaCancelada: Boolean(resultadoPuntos.cancelacion),
-    });
+    res.json(await resolverReporteAdmin(req.params.id, req.body?.resultado));
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al resolver el reporte" });
+    responderError(res, error, "Error al resolver el reporte");
   }
-}
-
-const LIMITE_HISTORIAL = 100;
-const PRODUCTO_INEXISTENTE = "Producto no encontrado";
-const VENDEDOR_INEXISTENTE = "Vendedor no encontrado";
-
-type EntradaHistorial = {
-  id: string;
-  tipo: "fila" | "venta" | "reporte";
-  fecha: Date;
-  estado: string;
-  productoNombre: string;
-  vendedorNombre: string;
-  monto: number | null;
-  detalle: string;
-};
-
-function resolverProducto(...candidatos: unknown[]) {
-  for (const candidato of candidatos) {
-    const producto = candidato as { nombre?: string; vendedor?: string } | null;
-    if (!producto?.nombre) continue;
-
-    return {
-      nombre: producto.nombre,
-      vendedor: producto.vendedor ?? VENDEDOR_INEXISTENTE,
-    };
-  }
-
-  return { nombre: PRODUCTO_INEXISTENTE, vendedor: VENDEDOR_INEXISTENTE };
-}
-
-function fechaDeDocumento(createdAt?: Date | string) {
-  return createdAt ? new Date(createdAt) : new Date(0);
-}
-
-function entradaDeCola(cola: unknown): EntradaHistorial {
-  const datos = cola as {
-    _id: unknown;
-    createdAt?: Date | string;
-    posicion?: number;
-    estado?: string;
-    productoId?: unknown;
-  };
-  const producto = resolverProducto(datos.productoId);
-
-  return {
-    id: String(datos._id),
-    tipo: "fila",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "activa",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: null,
-    detalle: `Posición ${datos.posicion ?? "-"}`,
-  };
-}
-
-function entradaDeVenta(venta: unknown): EntradaHistorial {
-  const datos = venta as {
-    _id: unknown;
-    createdAt?: Date | string;
-    estado?: string;
-    monto?: number;
-    paypalOrderId?: string;
-    productoId?: unknown;
-  };
-  const producto = resolverProducto(datos.productoId);
-
-  return {
-    id: String(datos._id),
-    tipo: "venta",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "completada",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: typeof datos.monto === "number" ? datos.monto : null,
-    detalle: datos.paypalOrderId
-      ? `Referencia ${datos.paypalOrderId}`
-      : "Sin referencia",
-  };
-}
-
-function entradaDeReporte(reporte: unknown): EntradaHistorial {
-  const datos = reporte as {
-    _id: unknown;
-    createdAt?: Date | string;
-    estado?: string;
-    categoria?: string;
-    categoriaNombre?: string;
-    tipoFalta?: string;
-    productoId?: unknown;
-    ventaId?: unknown;
-  };
-  const venta = datos.ventaId as { productoId?: unknown } | null | undefined;
-  const producto = resolverProducto(datos.productoId, venta?.productoId);
-  const categoria =
-    datos.categoriaNombre ?? datos.categoria ?? "Reporte sin categoría";
-
-  return {
-    id: String(datos._id),
-    tipo: "reporte",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "pendiente",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: null,
-    detalle: datos.tipoFalta
-      ? `${categoria} (falta ${datos.tipoFalta})`
-      : categoria,
-  };
 }
 
 export async function obtenerHistorialTransacciones(
-  req: Request,
+  _req: Request,
   res: Response,
 ) {
   try {
-    const [colas, ventas, reportes] = await Promise.all([
-      Cola.find()
-        .sort({ createdAt: -1 })
-        .limit(LIMITE_HISTORIAL)
-        .populate("productoId", "nombre vendedor"),
-      Venta.find()
-        .sort({ createdAt: -1 })
-        .limit(LIMITE_HISTORIAL)
-        .populate("productoId", "nombre vendedor"),
-      Reporte.find()
-        .sort({ createdAt: -1 })
-        .limit(LIMITE_HISTORIAL)
-        .populate("productoId", "nombre vendedor")
-        .populate({
-          path: "ventaId",
-          select: "productoId",
-          populate: { path: "productoId", select: "nombre vendedor" },
-        }),
-    ]);
-
-    const historial: EntradaHistorial[] = [
-      ...colas.map(entradaDeCola),
-      ...ventas.map(entradaDeVenta),
-      ...reportes.map(entradaDeReporte),
-    ];
-
-    historial.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
-
-    res.json(historial);
+    res.json(await historialTransaccionesAdmin());
   } catch (error) {
-    console.error("Error real:", error);
-    res
-      .status(500)
-      .json({ message: "Error al obtener el historial de transacciones" });
+    responderError(
+      res,
+      error,
+      "Error al obtener el historial de transacciones",
+    );
   }
 }
 
 export async function obtenerMensajesDeVenta(req: Request, res: Response) {
   try {
-    const ventaId = req.params.ventaId;
-
-    if (!ventaId || !mongoose.isValidObjectId(ventaId)) {
-      return res
-        .status(400)
-        .json({ message: "Indica la venta de la conversación" });
-    }
-
-    const venta = await Venta.findById(ventaId);
-    if (!venta) {
-      return res.status(404).json({ message: "Venta no encontrada" });
-    }
-
-    const mensajes = await Mensaje.find({ ventaId }).sort({ createdAt: 1 });
-
-    res.json(mensajes);
+    res.json(await mensajesDeVentaAdmin(String(req.params.ventaId)));
   } catch (error) {
-    console.error("Error real:", error);
-    res
-      .status(500)
-      .json({ message: "Error al obtener los mensajes de la venta" });
+    responderError(res, error, "Error al obtener los mensajes de la venta");
   }
 }
 
-export const ENTRADAS_POR_PAGINA = 20;
-
 export async function obtenerListaNegra(req: Request, res: Response) {
   try {
-    const pagina = Math.max(Number(req.query.pagina) || 1, 1);
-    const porPagina = Math.max(
-      Number(req.query.porPagina) || ENTRADAS_POR_PAGINA,
-      1,
+    res.json(
+      await listarListaNegraAdmin({
+        pagina: Number(req.query.pagina),
+        porPagina: Number(req.query.porPagina),
+      }),
     );
-
-    const [entradas, total] = await Promise.all([
-      ListaNegra.find()
-        .sort({ createdAt: -1 })
-        .skip((pagina - 1) * porPagina)
-        .limit(porPagina)
-        .lean(),
-      ListaNegra.countDocuments(),
-    ]);
-
-    res.json({
-      entradas: entradas.map(resumirEntrada),
-      pagina,
-      porPagina,
-      total,
-      totalPaginas: Math.max(Math.ceil(total / porPagina), 1),
-    });
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al obtener la lista negra" });
+    responderError(res, error, "Error al obtener la lista negra");
   }
 }
 
 export async function agregarEntradaListaNegra(req: Request, res: Response) {
   try {
-    const { rfc, curp, ineCodigoReverso, correo, nombreCompleto, motivo } =
-      req.body;
-
-    if (!motivo || typeof motivo !== "string" || !motivo.trim()) {
-      return res
-        .status(400)
-        .json({ message: "Indica el motivo por el que se agrega a la lista negra" });
-    }
-
-    const hayIdentificacion = Boolean(
-      (rfc && rfc.trim()) || (curp && curp.trim()),
-    );
-    if (!hayIdentificacion) {
-      return res.status(400).json({
-        message: "Indica al menos el RFC o la CURP de la persona",
-      });
-    }
-
-    const entrada = await agregarAListaNegra({
-      rfc,
-      curp,
-      ineCodigoReverso,
-      correo,
-      nombreCompleto,
-      motivo,
-      origen: "manual",
-    });
-
-    // Fase 4: la lista negra del BackOffice se actualiza al instante.
-    await publicarListaNegraActualizada(
-      "agregada",
-      `Registro agregado a la lista negra: ${entrada.rfc || entrada.curp || entrada.nombreCompleto}`,
-    );
-    publicarResumenAdmin();
-
+    const entrada = await agregarEntradaListaNegraAdmin(req.body ?? {});
     res.status(201).json(entrada);
-  } catch (error: unknown) {
-    const duplicado =
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: number }).code === 11000;
-
-    if (duplicado) {
-      return res.status(409).json({
-        message: "Ese RFC o CURP ya está en la lista negra",
-      });
-    }
-
-    console.error("Error real:", error);
-    res
-      .status(500)
-      .json({ message: "No se pudo agregar el registro a la lista negra" });
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      "No se pudo agregar el registro a la lista negra",
+    );
   }
 }
 
 export async function quitarEntradaListaNegra(req: Request, res: Response) {
   try {
-    const id = req.params.id;
-
-    if (!id || !mongoose.isValidObjectId(id)) {
-      return res
-        .status(400)
-        .json({ message: "Indica el registro que quieres quitar" });
-    }
-
-    const borrada = await ListaNegra.findByIdAndDelete(id);
-
-    if (!borrada) {
-      return res
-        .status(404)
-        .json({ message: "Registro de lista negra no encontrado" });
-    }
-
-    // Fase 4: la lista negra del BackOffice se actualiza al instante.
-    await publicarListaNegraActualizada(
-      "quitada",
-      `Registro quitado de la lista negra: ${borrada.rfc || borrada.curp || borrada.nombreCompleto}`,
-    );
-    publicarResumenAdmin();
-
+    await quitarEntradaListaNegraAdmin(String(req.params.id));
     res.json({ message: "Registro eliminado de la lista negra" });
   } catch (error) {
-    console.error("Error real:", error);
-    res
-      .status(500)
-      .json({ message: "No se pudo eliminar el registro de la lista negra" });
+    responderError(
+      res,
+      error,
+      "No se pudo eliminar el registro de la lista negra",
+    );
   }
 }
 
 /**
  * Dashboard del administrador: el cálculo vive en `resumenAdminService`
- * porque también lo usa la suscripción GraphQL `resumenAdmin` (Fase 4).
+ * porque también lo usa la suscripción GraphQL `resumenAdmin` (Fase 4) y la
+ * herramienta MCP `resumen_backoffice`.
  */
 export async function obtenerResumenAdmin(_req: Request, res: Response) {
   try {
-    res.json(await calcularResumenAdmin());
+    res.json(await obtenerResumenAdminServicio());
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "No se pudo cargar el resumen" });
+    responderError(res, error, "No se pudo cargar el resumen");
   }
 }

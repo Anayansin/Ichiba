@@ -11,6 +11,7 @@
     "seed": "node --harmony-temporal --import tsx scripts/seed.ts",
     "seed:mp": "node --harmony-temporal --import tsx scripts/seed-mercadopago.ts",
     "admin": "node --harmony-temporal --import tsx scripts/crear-admin.ts",
+    "mcp": "node --harmony-temporal --import tsx src/mcp/arranqueStdio.ts",
     "correo-test": "node --harmony-temporal --import tsx scripts/probar-correo.ts",
     "contract:emit": "prisma contract emit"
   },
@@ -31,6 +32,7 @@
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
     "@graphql-tools/schema": "^10.1.5",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@prisma/client": "^7.10.0",
     "@prisma/orm-postgres": "^8.0.0-rc.13",
     "bcryptjs": "^3.0.3",
@@ -50,7 +52,8 @@
     "tesseract.js": "^7.0.0",
     "tsx": "^4.19.0",
     "twilio": "^6.0.2",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

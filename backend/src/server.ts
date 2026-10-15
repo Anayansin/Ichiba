@@ -25,6 +25,7 @@ import reporteRoutes from "./routes/reporteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
 import informeRoutes from "./routes/informeRoutes.js";
+import { rutasMcp } from "./mcp/rutasMcp.js";
 import { ApolloServer as ServidorApollo } from "@apollo/server";
 import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
 import { makeExecutableSchema } from "@graphql-tools/schema";
@@ -128,6 +129,10 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
 app.use("/api/informes", informeRoutes);
+
+// Fase 5: servidor MCP (Streamable HTTP) para asistentes de IA del BackOffice.
+// Solo administradores con token; el modo stdio vive en `src/mcp/arranqueStdio.ts`.
+app.use("/mcp", rutasMcp);
 
 // Los errores de Multer (archivo muy pesado o tipo no permitido) deben
 // responder JSON y no el HTML del manejador por defecto de Express.

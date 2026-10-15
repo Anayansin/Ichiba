@@ -15,6 +15,7 @@ import {
   acumularPuntosDeReporte,
   PUNTOS_CANCELACION,
 } from "../services/cancelacionCuentaService.js";
+import { aplicarFaltaConfirmada } from "../services/backofficeService.js";
 import {
   publicarReportesPendientes,
   publicarResumenAdmin,
@@ -385,27 +386,6 @@ export async function crearReporteComprador(
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al enviar el reporte" });
   }
-}
-
-export async function aplicarFaltaConfirmada(
-  idVendedor: number,
-  faltasActuales: number,
-) {
-  const faltasAcumuladas = faltasActuales + 1;
-  const alcanzoMultiploDeTres = faltasAcumuladas % 3 === 0;
-
-  await clientePrisma.usuario.update({
-    where: { id: idVendedor },
-    data: {
-      faltasLeves: alcanzoMultiploDeTres ? 0 : faltasAcumuladas,
-      totalReportes: alcanzoMultiploDeTres ? { increment: 1 } : undefined,
-    },
-  });
-
-  return {
-    faltasLeves: alcanzoMultiploDeTres ? 0 : faltasAcumuladas,
-    faltaGraveRegistrada: alcanzoMultiploDeTres,
-  };
 }
 
 export async function listarReportes(req: Request, res: Response) {

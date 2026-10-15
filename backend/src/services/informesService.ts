@@ -473,6 +473,40 @@ async function generarInformeGlobalDelMes(
 }
 
 // ---------------------------------------------------------------------------
+// Consulta de informes globales (RQF14 / RQNF13.3)
+// ---------------------------------------------------------------------------
+
+/** Formato de salida compartido entre el REST del BackOffice y el MCP. */
+export function resumirInformeGlobal(informe: Record<string, any>) {
+  return {
+    periodo: informe.periodo,
+    generadoEn: informe.generadoEn ?? null,
+    categoriaMasVendida: informe.categoriaMasVendida
+      ? {
+          categoria: String(informe.categoriaMasVendida.categoria ?? ""),
+          ventas: Number(informe.categoriaMasVendida.ventas ?? 0),
+        }
+      : null,
+    empate: informe.empate === true,
+    porCategoria: (informe.porCategoria ?? []).map(
+      (categoria: Record<string, any>) => ({
+        categoria: String(categoria.categoria ?? ""),
+        ventas: Number(categoria.ventas ?? 0),
+        filasIniciadas: Number(categoria.filasIniciadas ?? 0),
+        filasAbandonadas: Number(categoria.filasAbandonadas ?? 0),
+        tasaAbandono: Number(categoria.tasaAbandono ?? 0),
+      }),
+    ),
+  };
+}
+
+/** RQF14: historial completo de informes globales, del más reciente al más antiguo. */
+export async function listarInformesGlobales() {
+  const informes = await InformeGlobal.find().sort({ periodo: -1 }).lean();
+  return informes.map(resumirInformeGlobal);
+}
+
+// ---------------------------------------------------------------------------
 // RQNF14.1: purga de reportes e informes con 13 meses de antigüedad
 // ---------------------------------------------------------------------------
 
