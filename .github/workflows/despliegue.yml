@@ -1,0 +1,109 @@
+name: Despliegue continuo
+
+# CI/CD de Ichiba — parte de despliegue.
+#
+# Solo se ejecuta cuando "Integración continua" terminó en verde sobre la rama
+# main (o a mano con «Run workflow»). Despliega:
+#   - Backend (Node + PostgreSQL + MongoDB) en Railway.
+#   - Tienda (React + Vite, servicios de vercel.json) en Vercel.
+#   - Portal Astro en Vercel, solo si se configura VERCEL_PROJECT_ID_ASTRO.
+#
+# Secretos y variables que se configuran en GitHub
+# (Settings → Secrets and variables → Actions):
+#   Secret  RAILWAY_TOKEN       → token de proyecto de Railway.
+#   Variable RAILWAY_SERVICE    → nombre del servicio de Railway (por defecto "backend").
+#   Secret  VERCEL_TOKEN        → token personal de Vercel.
+#   Variable VERCEL_ORG_ID      → id del equipo/persona de Vercel.
+#   Variable VERCEL_PROJECT_ID  → id del proyecto de Vercel de la tienda.
+#   Variable VERCEL_PROJECT_ID_ASTRO → (opcional) id del proyecto del portal Astro.
+# Los pasos de cada plataforma se saltan solos (con aviso) mientras falten sus
+# credenciales, así el pipeline queda en verde hasta que se configuren.
+
+on:
+  workflow_run:
+    workflows: ["Integración continua"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: despliegue-main
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    name: Backend — Railway
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICIO_RAILWAY: ${{ vars.RAILWAY_SERVICE }}
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar la CLI de Railway
+        if: env.RAILWAY_TOKEN != ''
+        run: npm install -g @railway/cli
+
+      - name: Desplegar el backend en Railway
+        if: env.RAILWAY_TOKEN != ''
+        working-directory: backend
+        run: railway up --service "${SERVICIO_RAILWAY:-backend}" --detach
+
+      - name: Aviso si falta el token de Railway
+        if: env.RAILWAY_TOKEN == ''
+        run: 'echo "::warning::No se desplegó el backend: falta el secreto RAILWAY_TOKEN (ver DOCUMENTACION.md, sección CI/CD)."'
+
+  frontend:
+    name: Frontend — Vercel
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_PROJECT_ID_ASTRO: ${{ vars.VERCEL_PROJECT_ID_ASTRO }}
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar la CLI de Vercel
+        if: env.VERCEL_TOKEN != ''
+        run: npm install -g vercel@latest
+
+      - name: Desplegar la tienda en Vercel
+        if: env.VERCEL_TOKEN != '' && env.VERCEL_PROJECT_ID != ''
+        run: vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: Desplegar el portal Astro en Vercel (opcional)
+        if: env.VERCEL_TOKEN != '' && env.VERCEL_PROJECT_ID_ASTRO != ''
+        working-directory: front-astro
+        env:
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID_ASTRO }}
+        run: vercel deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: Aviso si falta el token de Vercel
+        if: env.VERCEL_TOKEN == ''
+        run: 'echo "::warning::No se desplegó el frontend: falta el secreto VERCEL_TOKEN (ver DOCUMENTACION.md, sección CI/CD)."'

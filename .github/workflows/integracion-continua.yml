@@ -1,0 +1,124 @@
+name: Integración continua
+
+# CI/CD de Ichiba — parte de integración.
+#
+# Se ejecuta en cada push a main y en cada pull request:
+#  1. Backend: levanta PostgreSQL y MongoDB de prueba, aplica las migraciones,
+#     revisa los tipos y corre las 5 suites E2E (escrow, puntos/cancelación,
+#     informes, suscripciones GraphQL y servidor MCP).
+#  2. Frontend: compila la tienda (React + Vite) y el portal (Astro).
+#
+# El despliegue automático vive en `despliegue.yml` y solo arranca cuando este
+# workflow termina en verde sobre la rama main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: integracion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — tipos y suites E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ichiba_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ichiba_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval \"db.runCommand({ ping: 1 }).ok\""
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias del backend
+        run: npm ci
+
+      - name: Crear el .env de pruebas
+        run: |
+          cat > .env <<'FIN'
+          DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/ichiba_ci"
+          MONGO_URI="mongodb://127.0.0.1:27017/ichiba_ci"
+          JWT_SECRET="clave-solo-para-las-pruebas-de-integracion-continua"
+          FRONTEND_URL="http://localhost:5173"
+          GMAIL_USER=""
+          GMAIL_APP_PASSWORD=""
+          FIN
+
+      - name: Aplicar las migraciones de PostgreSQL
+        run: npx prisma db migrate
+
+      - name: Verificación de tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: "Suite Fase 1: escrow (56 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-escrow.ts
+
+      - name: "Suite Fase 2: puntos y cancelación (48 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-puntos-cancelacion.ts
+
+      - name: "Suite Fase 3: informes mensuales (26 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-informes.ts
+
+      - name: "Suite Fase 4: suscripciones GraphQL (11 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-suscripciones.ts
+
+      - name: "Suite Fase 5: servidor MCP (22 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-mcp.ts
+
+  frontend:
+    name: Frontend — compilación
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Compilar la tienda (React + Vite)
+        working-directory: frontend/Ichiba
+        run: |
+          npm ci
+          npm run build
+
+      - name: Compilar el portal (Astro)
+        working-directory: front-astro
+        run: |
+          npm ci
+          npm run compilar
