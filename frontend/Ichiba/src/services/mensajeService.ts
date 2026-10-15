@@ -15,6 +15,20 @@ export type VentaConProducto = {
   productoId: { _id: string; nombre: string; imagenes: string[] };
   monto: number;
   createdAt: string;
+  /** Estado del escrow (RQNF4). El chat solo escribe en `en_entrega`. */
+  estado?:
+    | "pendiente_comprobante"
+    | "pendiente_confirmacion"
+    | "en_entrega"
+    | "completada"
+    | "reembolsada"
+    | "cancelada";
+  /** RQNF24.4: código de entrega del comprador (visible tras confirmar). */
+  codigoEntrega?: string | null;
+  canceladoMotivo?: string | null;
+  entregaLimite?: string | null;
+  /** Id de la venta en PostgreSQL (para enlazar al flujo del comprobante). */
+  ventaIdPg?: number | null;
 };
 
 export async function fetchMisVentasComprador(): Promise<VentaConProducto[]> {

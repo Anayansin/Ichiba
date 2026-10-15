@@ -24,6 +24,9 @@ export const ESTADOS_VENTA = [
 
 const ventaSchema = new Schema(
   {
+    // Id de la venta en PostgreSQL (fuente de verdad del escrow). Permite
+    // enlazar desde el chat con la página del comprobante y el detalle.
+    ventaIdPg: { type: Number },
     productoId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     vendedorId: { type: String, ref: "Usuario", required: true },
     compradorId: { type: String, required: true },

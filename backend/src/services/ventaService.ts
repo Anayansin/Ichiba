@@ -116,6 +116,7 @@ export async function registrarVentaExitosa(
         compradorId,
         monto,
         estado: String(ventaPg?.estado ?? "pendiente_comprobante"),
+        ...(ventaPg ? { ventaIdPg: Number(ventaPg.id) } : {}),
         ...(ventaPg?.codigoPago ? { codigoPago: ventaPg.codigoPago } : {}),
       },
     },

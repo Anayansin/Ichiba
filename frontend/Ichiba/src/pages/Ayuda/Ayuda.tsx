@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import PreguntasFrecuentes from "../PreguntasFrecuentes/PreguntasFrecuentes";
 import ComoFunciona from "../ComoFunciona/ComoFunciona";
 import PoliticasDePrivacidad from "../PoliticasDePrivacidad/PoliticasDePrivacidad";
@@ -15,7 +16,13 @@ const SECCIONES = [
 ];
 
 function Ayuda() {
-  const [seccionActiva, setSeccionActiva] = useState("faq");
+  const [parametros] = useSearchParams();
+  const seccionDelEnlace = parametros.get("seccion");
+  const [seccionActiva, setSeccionActiva] = useState(
+    SECCIONES.some((seccion) => seccion.id === seccionDelEnlace)
+      ? (seccionDelEnlace as string)
+      : "faq",
+  );
 
   return (
     <div className="ayuda">

@@ -20,6 +20,17 @@ import {
   eliminarPromocional,
   type Promocional,
 } from "../../services/promocionalService";
+import {
+  confirmarComprobanteDeVenta,
+  fetchImagenComprobante,
+  fetchVentasDelVendedor,
+  rechazarComprobanteDeVenta,
+  registrarEntregaDeVenta,
+  type ResumenVentasDelVendedor,
+  type VentaDelVendedor,
+} from "../../services/pagoService";
+import EtiquetaEstadoVenta from "../../components/EtiquetaEstadoVenta/EtiquetaEstadoVenta";
+import { fechaLimiteTexto } from "../../utils/estadoVenta";
 import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
@@ -44,6 +55,42 @@ function PanelVendedor() {
   const [avisoPaypal, setAvisoPaypal] = useState("");
   const [parametros, setParametros] = useSearchParams();
 
+  // RQF30/RQF31/RQF33: ventas del escrow (comprobantes por revisar, entregas
+  // en curso e historial).
+  const [ventasData, setVentasData] = useState<ResumenVentasDelVendedor | null>(
+    null,
+  );
+  const [imagenesComprobantes, setImagenesComprobantes] = useState<
+    Record<number, string>
+  >({});
+  const [motivosRechazo, setMotivosRechazo] = useState<Record<number, string>>(
+    {},
+  );
+  const [codigosEntrega, setCodigosEntrega] = useState<Record<number, string>>(
+    {},
+  );
+  const [accionVentaEnCurso, setAccionVentaEnCurso] = useState<number | null>(
+    null,
+  );
+  const [errorVentas, setErrorVentas] = useState("");
+
+  function cargarImagenesDeComprobantes(data: ResumenVentasDelVendedor | null) {
+    if (!data) return;
+    for (const venta of data.ventas) {
+      if (!venta.comprobante) continue;
+      fetchImagenComprobante(venta.ventaId)
+        .then((url) =>
+          setImagenesComprobantes((anteriores) => ({
+            ...anteriores,
+            [venta.ventaId]: url,
+          })),
+        )
+        .catch(() => {
+          // La imagen se muestra como "no disponible"; no rompe el panel.
+        });
+    }
+  }
+
   function cargarDatos() {
     setCargando(true);
 
@@ -55,11 +102,18 @@ function PanelVendedor() {
         console.error("Error al cargar promocionales:", error);
         return [];
       }),
+      // Un fallo en ventas tampoco debe impedir cargar el panel
+      fetchVentasDelVendedor().catch((error) => {
+        console.error("Error al cargar las ventas:", error);
+        return null;
+      }),
     ])
-      .then(([datosPerfil, productos, promocionales]) => {
+      .then(([datosPerfil, productos, promocionales, datosVentas]) => {
         setPerfil(datosPerfil);
         setMisProductos(productos);
         setMisPromocionales(promocionales);
+        setVentasData(datosVentas);
+        cargarImagenesDeComprobantes(datosVentas);
       })
       .catch((error) => {
         console.error("Error al cargar el panel:", error);
@@ -129,6 +183,20 @@ function PanelVendedor() {
   const productosInactivos = misProductos.filter((p) => !p.activo);
   const promocionalesActivos = misPromocionales.filter((p) => p.activo);
   const promocionalesInactivos = misPromocionales.filter((p) => !p.activo);
+  const ventasPorRevisar =
+    ventasData?.ventas.filter((v) => v.estado === "pendiente_confirmacion") ??
+    [];
+  const ventasEnEntrega =
+    ventasData?.ventas.filter((v) => v.estado === "en_entrega") ?? [];
+  const ventasHistorial =
+    ventasData?.ventas
+      .filter(
+        (v) =>
+          v.estado === "completada" ||
+          v.estado === "cancelada" ||
+          v.estado === "reembolsada",
+      )
+      .slice(0, 10) ?? [];
 
   async function ejecutar(accion: () => Promise<unknown>) {
     try {
@@ -181,8 +249,231 @@ function PanelVendedor() {
     }
   }
 
-  function renderProducto(producto: Producto) {
+  // --- RQF31/RQF33: acciones sobre las ventas del escrow -------------------
+
+  async function handleConfirmarComprobante(ventaId: number) {
+    setAccionVentaEnCurso(ventaId);
+    setErrorVentas("");
+    try {
+      await confirmarComprobanteDeVenta(ventaId);
+      cargarDatos();
+    } catch (err) {
+      setErrorVentas(
+        mensajeDeError(err) || "No se pudo confirmar el comprobante",
+      );
+    } finally {
+      setAccionVentaEnCurso(null);
+    }
+  }
+
+  async function handleRechazarComprobante(ventaId: number) {
+    const motivo = (motivosRechazo[ventaId] ?? "").trim();
+    if (motivo.length < 4) {
+      setErrorVentas(
+        "Escribe el motivo del rechazo (mínimo 4 caracteres): se le mostrará al comprador.",
+      );
+      return;
+    }
+
+    const confirmado = window.confirm(
+      "¿Rechazar este comprobante? Se reembolsará al comprador y el turno pasará al siguiente en la fila.",
+    );
+    if (!confirmado) return;
+
+    setAccionVentaEnCurso(ventaId);
+    setErrorVentas("");
+    try {
+      await rechazarComprobanteDeVenta(ventaId, motivo);
+      setMotivosRechazo((anteriores) => ({ ...anteriores, [ventaId]: "" }));
+      cargarDatos();
+    } catch (err) {
+      setErrorVentas(
+        mensajeDeError(err) || "No se pudo rechazar el comprobante",
+      );
+    } finally {
+      setAccionVentaEnCurso(null);
+    }
+  }
+
+  async function handleRegistrarEntrega(ventaId: number) {
+    const codigo = (codigosEntrega[ventaId] ?? "").trim();
+    if (!/^\d{4}$/.test(codigo)) {
+      setErrorVentas(
+        "El código de confirmación de entrega tiene 4 dígitos; pídelo al comprador.",
+      );
+      return;
+    }
+
+    setAccionVentaEnCurso(ventaId);
+    setErrorVentas("");
+    try {
+      await registrarEntregaDeVenta(ventaId, codigo);
+      setCodigosEntrega((anteriores) => ({ ...anteriores, [ventaId]: "" }));
+      cargarDatos();
+    } catch (err) {
+      setErrorVentas(
+        mensajeDeError(err) || "No se pudo registrar la entrega",
+      );
+    } finally {
+      setAccionVentaEnCurso(null);
+    }
+  }
+
+  function renderVentaPorRevisar(venta: VentaDelVendedor) {
+    const imagen = imagenesComprobantes[venta.ventaId];
     return (
+      <div key={venta.ventaId} className="panel-vendedor__venta">
+        <div className="panel-vendedor__venta-info">
+          <p className="panel-vendedor__venta-nombre">
+            {venta.producto?.nombre ?? "Producto"}
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            ${venta.monto.toFixed(2)} · Comprador:{" "}
+            {venta.compradorId.slice(0, 8)}…
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            Referencia del pago: {venta.comprobante?.referencia ?? "—"}
+          </p>
+          {venta.fechas.confirmacionLimite && (
+            <p className="panel-vendedor__venta-plazo">
+              ⏰ Confírmalo o recházalo antes de:{" "}
+              {fechaLimiteTexto(venta.fechas.confirmacionLimite)}
+            </p>
+          )}
+          {venta.comprobante &&
+            (imagen ? (
+              <img
+                className="panel-vendedor__comprobante"
+                src={imagen}
+                alt="Comprobante de pago del comprador"
+              />
+            ) : (
+              <p className="panel-vendedor__venta-detalle">
+                Cargando la imagen del comprobante…
+              </p>
+            ))}
+        </div>
+
+        <div className="panel-vendedor__venta-acciones">
+          <button
+            type="button"
+            className="panel-vendedor__confirmar-btn"
+            onClick={() => handleConfirmarComprobante(venta.ventaId)}
+            disabled={accionVentaEnCurso === venta.ventaId}
+          >
+            {accionVentaEnCurso === venta.ventaId
+              ? "Procesando..."
+              : "✓ Confirmar comprobante"}
+          </button>
+
+          <textarea
+            className="panel-vendedor__motivo-rechazo"
+            rows={2}
+            maxLength={300}
+            placeholder="Motivo del rechazo (se lo mostramos al comprador)"
+            value={motivosRechazo[venta.ventaId] ?? ""}
+            onChange={(e) =>
+              setMotivosRechazo((anteriores) => ({
+                ...anteriores,
+                [venta.ventaId]: e.target.value,
+              }))
+            }
+          />
+          <button
+            type="button"
+            className="panel-vendedor__rechazar-btn"
+            onClick={() => handleRechazarComprobante(venta.ventaId)}
+            disabled={accionVentaEnCurso === venta.ventaId}
+          >
+            ✕ Rechazar y reembolsar
+          </button>
+          <p className="panel-vendedor__venta-nota">
+            Si rechazas, el comprador recibe su reembolso de inmediato y el
+            turno pasa al siguiente en la fila.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderVentaEnEntrega(venta: VentaDelVendedor) {
+    return (
+      <div key={venta.ventaId} className="panel-vendedor__venta">
+        <div className="panel-vendedor__venta-info">
+          <p className="panel-vendedor__venta-nombre">
+            {venta.producto?.nombre ?? "Producto"}
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            ${venta.monto.toFixed(2)} · Comprador:{" "}
+            {venta.compradorId.slice(0, 8)}…
+          </p>
+          {venta.fechas.entregaLimite && (
+            <p className="panel-vendedor__venta-plazo">
+              ⏰ Registra la entrega antes de:{" "}
+              {fechaLimiteTexto(venta.fechas.entregaLimite)}
+            </p>
+          )}
+        </div>
+
+        <div className="panel-vendedor__venta-acciones">
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            className="panel-vendedor__codigo-entrega"
+            placeholder="Código de 4 dígitos"
+            value={codigosEntrega[venta.ventaId] ?? ""}
+            onChange={(e) =>
+              setCodigosEntrega((anteriores) => ({
+                ...anteriores,
+                [venta.ventaId]: e.target.value.replace(/\D/g, ""),
+              }))
+            }
+          />
+          <button
+            type="button"
+            className="panel-vendedor__confirmar-btn"
+            onClick={() => handleRegistrarEntrega(venta.ventaId)}
+            disabled={accionVentaEnCurso === venta.ventaId}
+          >
+            {accionVentaEnCurso === venta.ventaId
+              ? "Procesando..."
+              : "📦 Registrar entrega y liberar el dinero"}
+          </button>
+          <p className="panel-vendedor__venta-nota">
+            Al entregar el producto, pídele al comprador su código de
+            confirmación. Con el código correcto se libera el dinero retenido.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderHistorial(venta: VentaDelVendedor) {
+    return (
+      <div key={venta.ventaId} className="panel-vendedor__historial-fila">
+        <div>
+          <p className="panel-vendedor__venta-nombre">
+            {venta.producto?.nombre ?? "Producto"}
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            ${venta.monto.toFixed(2)}
+            {venta.fechas.entregadoEn
+              ? ` · Entregada el ${fechaLimiteTexto(venta.fechas.entregadoEn)}`
+              : ""}
+          </p>
+          {venta.canceladoMotivo && (
+            <p className="panel-vendedor__venta-detalle">
+              Motivo: {venta.canceladoMotivo}
+            </p>
+          )}
+        </div>
+        <EtiquetaEstadoVenta estado={venta.estado} rol="vendedor" />
+      </div>
+    );
+  }
+
+  function renderProducto(producto: Producto) {    return (
       <div key={producto._id} className="panel-vendedor__producto-fila">
         <Link
           to={`/producto/${producto._id}`}
@@ -324,6 +615,74 @@ function PanelVendedor() {
         >
           Reportar a un comprador
         </Link>
+      </div>
+
+      <div className="panel-vendedor__ventas">
+        <h2>Ventas y entregas</h2>
+
+        {ventasData && (
+          <div className="panel-vendedor__stats">
+            <div className="panel-vendedor__stat-card">
+              <span className="panel-vendedor__stat-numero">
+                {ventasData.resumen.porRevisar}
+              </span>
+              <span className="panel-vendedor__stat-label">
+                Comprobantes por revisar
+              </span>
+            </div>
+            <div className="panel-vendedor__stat-card">
+              <span className="panel-vendedor__stat-numero">
+                {ventasData.resumen.enEntrega}
+              </span>
+              <span className="panel-vendedor__stat-label">
+                Entregas en curso
+              </span>
+            </div>
+            <div className="panel-vendedor__stat-card">
+              <span className="panel-vendedor__stat-numero">
+                {ventasData.resumen.completadas}
+              </span>
+              <span className="panel-vendedor__stat-label">Completadas</span>
+            </div>
+          </div>
+        )}
+
+        {errorVentas && <p className="panel-vendedor__error">{errorVentas}</p>}
+
+        <h3 className="panel-vendedor__subtitulo">
+          Comprobantes por revisar
+        </h3>
+        {ventasPorRevisar.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes comprobantes esperando revisión.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-ventas">
+            {ventasPorRevisar.map(renderVentaPorRevisar)}
+          </div>
+        )}
+
+        <h3 className="panel-vendedor__subtitulo">Entregas en curso</h3>
+        {ventasEnEntrega.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes entregas en curso.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-ventas">
+            {ventasEnEntrega.map(renderVentaEnEntrega)}
+          </div>
+        )}
+
+        <h3 className="panel-vendedor__subtitulo">Historial reciente</h3>
+        {ventasHistorial.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            Aún no tienes ventas concluidas.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-ventas">
+            {ventasHistorial.map(renderHistorial)}
+          </div>
+        )}
       </div>
 
       <div className="panel-vendedor__preferencias">

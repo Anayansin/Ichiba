@@ -314,3 +314,147 @@
   padding: 0.6rem 0.8rem;
   font-size: 0.85rem;
 }
+
+/* RQF30/RQF31/RQF33: ventas del escrow en el panel del vendedor */
+.panel-vendedor__ventas {
+  margin-top: 2rem;
+}
+
+.panel-vendedor__ventas h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+}
+
+.panel-vendedor__lista-ventas {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-vendedor__venta {
+  display: flex;
+  gap: 1.5rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 1rem;
+  flex-wrap: wrap;
+}
+
+.panel-vendedor__venta-info {
+  flex: 1;
+  min-width: 240px;
+}
+
+.panel-vendedor__venta-nombre {
+  font-weight: 700;
+  margin: 0 0 0.2rem 0;
+  color: #1a1a1a;
+}
+
+.panel-vendedor__venta-detalle {
+  margin: 0 0 0.2rem 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.panel-vendedor__venta-plazo {
+  margin: 0.3rem 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.panel-vendedor__comprobante {
+  display: block;
+  margin-top: 0.6rem;
+  max-width: 220px;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e1e1e1;
+  background: #fff;
+}
+
+.panel-vendedor__venta-acciones {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.panel-vendedor__confirmar-btn {
+  background: #2e7d32;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel-vendedor__confirmar-btn:hover:not(:disabled) {
+  background: #256428;
+}
+
+.panel-vendedor__confirmar-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.panel-vendedor__rechazar-btn {
+  background: #ffffff;
+  color: #d90429;
+  border: 2px solid #d90429;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.panel-vendedor__rechazar-btn:hover:not(:disabled) {
+  background: #fdf0f1;
+}
+
+.panel-vendedor__rechazar-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.panel-vendedor__motivo-rechazo {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
+.panel-vendedor__codigo-entrega {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.4rem;
+  text-align: center;
+  max-width: 180px;
+}
+
+.panel-vendedor__venta-nota {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #777;
+}
+
+.panel-vendedor__historial-fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+}

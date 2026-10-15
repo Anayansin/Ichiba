@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   fetchMisVentasComprador,
@@ -18,6 +19,7 @@ import {
 } from "../../configuracion/categoriasReporte";
 import api, { URL_BACKEND } from "../../services/api";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
+import EtiquetaEstadoVenta from "../../components/EtiquetaEstadoVenta/EtiquetaEstadoVenta";
 import "./Chats.css";
 
 const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024; // 5 MB (límite del backend)
@@ -135,21 +137,64 @@ function Chats() {
         .catch((error) => console.error("Error al cargar mensajes:", error));
     }
 
+    // RQNF4: el estado del escrow puede cambiar (el vendedor confirma el
+    // comprobante o registra la entrega), así que también se refresca para
+    // habilitar o deshabilitar el chat sin recargar la página.
+    function actualizarVentas() {
+      fetchVentas()
+        .then((data) => setVentas(data))
+        .catch((error) => console.error("Error al refrescar compras:", error));
+    }
+
     cargarMensajes();
     setErrorChat("");
     setCalificacionError("");
-    const intervalo = setInterval(cargarMensajes, 5000);
+    const intervalo = setInterval(() => {
+      cargarMensajes();
+      actualizarVentas();
+    }, 5000);
     return () => clearInterval(intervalo);
-  }, [ventaActivaId, fetchMensajesFn, quitarImagen]);
+  }, [ventaActivaId, fetchMensajesFn, fetchVentas, quitarImagen]);
 
   const ventaActiva = ventas.find((venta) => venta._id === ventaActivaId);
+
+  // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe en `en_entrega`
+  // (mientras se revisa el comprobante queda bloqueado y al concluir o
+  // cancelarse la compra queda deshabilitado).
+  const chatHabilitado = ventaActiva?.estado === "en_entrega";
+
+  function motivoChatBloqueado(): string {
+    switch (ventaActiva?.estado) {
+      case "pendiente_comprobante":
+        return esVendedor
+          ? "El chat se abrirá cuando el comprador registre su comprobante de pago."
+          : "El chat se abrirá cuando registres tu comprobante de pago y el vendedor lo confirme.";
+      case "pendiente_confirmacion":
+        return esVendedor
+          ? "El chat está bloqueado hasta que revises y confirmes el comprobante de pago del comprador."
+          : "El chat está bloqueado hasta que el vendedor revise y confirme tu comprobante de pago.";
+      case "completada":
+        return "La transacción concluyó y los fondos fueron liberados: el chat quedó deshabilitado.";
+      case "cancelada":
+      case "reembolsada":
+        return `Esta compra fue cancelada${
+          ventaActiva?.canceladoMotivo
+            ? ` (${ventaActiva.canceladoMotivo})`
+            : ""
+        }: el chat quedó deshabilitado.`;
+      default:
+        return "El chat de esta compra todavía no está disponible.";
+    }
+  }
 
   const calificacionPropia = esVendedor
     ? ventaActiva?.calificacionVendedor
     : ventaActiva?.calificacionComprador;
 
+  // RQF27: la calificación se hace después de confirmada la entrega.
   const puedeCalificar =
     !!ventaActiva &&
+    ventaActiva.estado === "completada" &&
     !calificacionesEnviadas.includes(ventaActiva._id) &&
     typeof calificacionPropia !== "number";
 
@@ -280,7 +325,13 @@ function Chats() {
                 src={`${URL_BACKEND}${venta.productoId.imagenes[0]}`}
                 alt={venta.productoId.nombre}
               />
-              <span>{venta.productoId.nombre}</span>
+              <span>
+                {venta.productoId.nombre}
+                <EtiquetaEstadoVenta
+                  estado={venta.estado}
+                  rol={esVendedor ? "vendedor" : "comprador"}
+                />
+              </span>
             </button>
           ))
         )}
@@ -324,6 +375,14 @@ function Chats() {
               ))}
             </div>
 
+            {ventaActiva?.estado === "en_entrega" && (
+              <p className="chats__nota-entrega">
+                📦 Estás en la etapa de entrega: coordinen aquí el lugar, la
+                fecha y la hora. Al entregar el producto, dale tu código de
+                confirmación al vendedor para cerrar la transacción.
+              </p>
+            )}
+
             {puedeCalificar && (
               <div style={estiloPanelCalificacion}>
                 <span>
@@ -363,58 +422,84 @@ function Chats() {
               </div>
             )}
 
-            {errorChat && <p className="chats__error">{errorChat}</p>}
+            {chatHabilitado ? (
+              <>
+                {errorChat && <p className="chats__error">{errorChat}</p>}
 
-            {previewImagen && (
-              <div className="chats__adjunto-preview">
-                <img src={previewImagen} alt="Imagen por enviar" />
-                <button
-                  type="button"
-                  onClick={quitarImagen}
-                  aria-label="Quitar imagen adjunta"
-                >
-                  ✕
-                </button>
+                {previewImagen && (
+                  <div className="chats__adjunto-preview">
+                    <img src={previewImagen} alt="Imagen por enviar" />
+                    <button
+                      type="button"
+                      onClick={quitarImagen}
+                      aria-label="Quitar imagen adjunta"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                <form className="chat-formulario" onSubmit={handleEnviar}>
+                  <input
+                    ref={inputImagenRef}
+                    type="file"
+                    accept="image/jpeg, image/png, image/webp"
+                    onChange={handleSeleccionImagen}
+                    hidden
+                  />
+                  <button
+                    type="button"
+                    className="chat-boton-adjuntar"
+                    onClick={() => inputImagenRef.current?.click()}
+                    aria-label="Adjuntar imagen"
+                    title="Adjuntar imagen (jpg, png o webp, máximo 5 MB)"
+                  >
+                    📎
+                  </button>
+                  <input
+                    type="text"
+                    className="chat-input"
+                    placeholder={
+                      imagen
+                        ? "Añade un texto o envía la imagen..."
+                        : "Escribe un mensaje..."
+                    }
+                    value={texto}
+                    onChange={(e) => setTexto(e.target.value)}
+                    aria-label="Escribe un mensaje"
+                  />
+                  <button
+                    type="submit"
+                    className="chat-boton-enviar"
+                    disabled={!texto.trim() && !imagen}
+                  >
+                    Enviar
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="chats__bloqueado">
+                <p>🔒 {motivoChatBloqueado()}</p>
+
+                {ventaActiva?.estado === "pendiente_comprobante" &&
+                  !esVendedor &&
+                  ventaActiva.ventaIdPg && (
+                    <Link
+                      className="chats__bloqueado-enlace"
+                      to={`/pago-exitoso?venta=${ventaActiva.ventaIdPg}`}
+                    >
+                      Registrar mi comprobante de pago
+                    </Link>
+                  )}
+
+                {ventaActiva?.estado === "pendiente_confirmacion" &&
+                  esVendedor && (
+                    <Link className="chats__bloqueado-enlace" to="/panel-vendedor">
+                      Revisar el comprobante en mi panel
+                    </Link>
+                  )}
               </div>
             )}
-
-            <form className="chat-formulario" onSubmit={handleEnviar}>
-              <input
-                ref={inputImagenRef}
-                type="file"
-                accept="image/jpeg, image/png, image/webp"
-                onChange={handleSeleccionImagen}
-                hidden
-              />
-              <button
-                type="button"
-                className="chat-boton-adjuntar"
-                onClick={() => inputImagenRef.current?.click()}
-                aria-label="Adjuntar imagen"
-                title="Adjuntar imagen (jpg, png o webp, máximo 5 MB)"
-              >
-                📎
-              </button>
-              <input
-                type="text"
-                className="chat-input"
-                placeholder={
-                  imagen
-                    ? "Añade un texto o envía la imagen..."
-                    : "Escribe un mensaje..."
-                }
-                value={texto}
-                onChange={(e) => setTexto(e.target.value)}
-                aria-label="Escribe un mensaje"
-              />
-              <button
-                type="submit"
-                className="chat-boton-enviar"
-                disabled={!texto.trim() && !imagen}
-              >
-                Enviar
-              </button>
-            </form>
           </>
         )}
       </section>

@@ -375,6 +375,47 @@
   font-size: 0.85rem;
 }
 
+/* RQNF4: aviso de la etapa de entrega (código de confirmación) */
+.chats__nota-entrega {
+  margin: 0 1.2rem 0.6rem;
+  padding: 0.6rem 0.8rem;
+  background: #e8f0fe;
+  color: #1a56b0;
+  border: 1px solid #c6d8f7;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+/* RQNF24.2 / RQNF26 / RQNF29: el chat bloqueado muestra el motivo */
+.chats__bloqueado {
+  margin: 0 1.2rem 0.8rem;
+  padding: 0.9rem 1rem;
+  background: #f9f9f9;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chats__bloqueado p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #555;
+}
+
+.chats__bloqueado-enlace {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #d90429;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.chats__bloqueado-enlace:hover {
+  text-decoration: underline;
+}
+
 /* Modal de reporte */
 .chats__modal-fondo {
   position: fixed;

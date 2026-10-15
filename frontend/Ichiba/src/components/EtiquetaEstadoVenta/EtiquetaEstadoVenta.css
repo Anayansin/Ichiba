@@ -1,0 +1,28 @@
+.estado-venta {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.estado-venta--pendiente {
+  background: #fff4e5;
+  color: #8a5a00;
+}
+
+.estado-venta--activo {
+  background: #e8f0fe;
+  color: #1a56b0;
+}
+
+.estado-venta--completada {
+  background: #eafbea;
+  color: #2e7d32;
+}
+
+.estado-venta--cancelada {
+  background: #fdecec;
+  color: #b3001b;
+}

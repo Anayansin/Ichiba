@@ -9,7 +9,7 @@
 
 .mis-pedidos__item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   padding: 1rem;
   background-color: #f9f9f9;
@@ -26,6 +26,9 @@
 
 .mis-pedidos__info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .mis-pedidos__nombre {
@@ -36,7 +39,7 @@
 .mis-pedidos__fecha {
   font-size: 0.8rem;
   color: #888;
-  margin: 0.2rem 0;
+  margin: 0;
 }
 
 .mis-pedidos__monto {
@@ -50,4 +53,68 @@
   color: #d90429;
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+.mis-pedidos__acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+/* RQNF20: palabra clave del pago */
+.mis-pedidos__codigo {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.mis-pedidos__codigo strong {
+  letter-spacing: 0.2rem;
+  color: #d90429;
+}
+
+/* RQNF24.4: código de confirmación de entrega del comprador */
+.mis-pedidos__entrega {
+  margin-top: 0.3rem;
+  background: #e8f0fe;
+  border: 1px dashed #1a56b0;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+}
+
+.mis-pedidos__entrega-titulo {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #1a56b0;
+}
+
+.mis-pedidos__entrega-codigo {
+  margin: 0.2rem 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.5rem;
+  color: #1a56b0;
+}
+
+.mis-pedidos__entrega-nota {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #1a56b0;
+}
+
+/* Plazos y motivos del escrow */
+.mis-pedidos__plazo {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8a5a00;
+}
+
+.mis-pedidos__motivo {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #b3001b;
 }

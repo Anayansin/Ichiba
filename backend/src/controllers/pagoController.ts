@@ -1071,6 +1071,7 @@ export async function misComprasDelComprador(
           ventaMongoId: mapaEspejos.get(String(venta.paypalOrderId)) ?? null,
           estado: venta.estado,
           monto: Number(venta.monto),
+          creada: venta.createdAt ?? null,
           producto: producto
             ? { nombre: producto.nombre, imagenes: producto.imagenes ?? [] }
             : null,

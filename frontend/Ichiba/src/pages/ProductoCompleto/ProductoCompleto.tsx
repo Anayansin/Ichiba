@@ -41,6 +41,9 @@ function ProductoCompleto() {
   const [segundosRestantes, setSegundosRestantes] = useState<number | null>(
     null,
   );
+  // RQNF24.1: aviso de atención y enlace a la pasarela tras confirmar el pago.
+  const [avisoAtencion, setAvisoAtencion] = useState("");
+  const [enlacePago, setEnlacePago] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -136,14 +139,19 @@ function ProductoCompleto() {
   async function handlePagar() {
     if (!producto) return;
     try {
-      const { linkAprobacion } = await crearOrdenPago(producto._id);
+      const { linkAprobacion, avisoAtencion } = await crearOrdenPago(
+        producto._id,
+      );
       if (!linkAprobacion) {
         setMensajeFila(
           "La pasarela de pago no devolvió el enlace. Intenta de nuevo en unos segundos.",
         );
         return;
       }
-      window.location.href = linkAprobacion;
+      // RQNF24.1: antes de salir a la pasarela se advierte que la atención
+      // del vendedor será únicamente dentro de su bloque de horario vigente.
+      setAvisoAtencion(String(avisoAtencion ?? ""));
+      setEnlacePago(String(linkAprobacion));
     } catch (err) {
       setMensajeFila(mensajeDeError(err) || "Error al iniciar el pago");
     }
@@ -276,14 +284,48 @@ function ProductoCompleto() {
                   </strong>
                 </p>
               )}
-              <Boton
-                texto={
-                  producto.metodoPagoVendedor === "mercadopago"
-                    ? "Pagar con Mercado Pago"
-                    : "Pagar con PayPal"
-                }
-                onClick={handlePagar}
-              />
+              {enlacePago ? (
+                <div className="producto-completo__aviso-pago">
+                  <p className="producto-completo__aviso-pago-titulo">
+                    Antes de pagar, ten en cuenta:
+                  </p>
+                  <p className="producto-completo__aviso-pago-texto">
+                    {avisoAtencion ||
+                      "La atención del vendedor será únicamente dentro de su bloque de horario de atención vigente."}
+                  </p>
+                  <div className="producto-completo__aviso-pago-acciones">
+                    <Boton
+                      texto={
+                        producto.metodoPagoVendedor === "mercadopago"
+                          ? "Continuar a Mercado Pago"
+                          : "Continuar a PayPal"
+                      }
+                      onClick={() => {
+                        window.location.href = enlacePago;
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="producto-completo__cancelar-pago"
+                      onClick={() => {
+                        setEnlacePago("");
+                        setAvisoAtencion("");
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <Boton
+                  texto={
+                    producto.metodoPagoVendedor === "mercadopago"
+                      ? "Pagar con Mercado Pago"
+                      : "Pagar con PayPal"
+                  }
+                  onClick={handlePagar}
+                />
+              )}
             </div>
           ) : (
             <div className="producto-completo__esperando">

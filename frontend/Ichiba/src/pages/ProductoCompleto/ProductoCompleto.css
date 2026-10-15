@@ -208,3 +208,39 @@
   color: #d90429;
   font-variant-numeric: tabular-nums;
 }
+
+/* RQNF24.1: advertencia del bloque de atención antes de salir a la pasarela */
+.producto-completo__aviso-pago {
+  background-color: #fff4e5;
+  border: 1px solid #e69500;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+}
+
+.producto-completo__aviso-pago-titulo {
+  margin: 0 0 0.3rem 0;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.producto-completo__aviso-pago-texto {
+  margin: 0 0 0.8rem 0;
+  font-size: 0.88rem;
+  color: #8a5a00;
+}
+
+.producto-completo__aviso-pago-acciones {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.producto-completo__cancelar-pago {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
