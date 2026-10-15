@@ -58,7 +58,7 @@ para responder preguntas.
 | `prisma` 8 (RC) + `@prisma/client` 7 + `@prisma/orm-postgres` | Cliente de PostgreSQL (Prisma 8 con *contrato*) | `prisma.config.ts`, `src/configuracion/prisma.ts`, `src/prisma/db.ts` |
 | `bcryptjs` | Hash de contraseñas | `src/controllers/usuarioController.ts`, `scripts/*` |
 | `jsonwebtoken` | Tokens JWT de sesión | `src/middleware/auth.ts` |
-| `multer` 2 | Subida de imágenes | `src/middleware/upload.ts` (fotos de producto con filtro propio de solo png/jpeg/jpg, RQNF7.2; y el filtro general con webp que usan chat y promocionales) y `src/middleware/uploadIne.ts` (INE, dos campos) |
+| `multer` 2 | Subida de imágenes | `src/middleware/upload.ts` (fotos de producto y de promocional con filtro propio de solo png/jpeg/jpg, RQNF7.2 y RQNF9.2; y el filtro general con webp que usa el chat) y `src/middleware/uploadIne.ts` (INE, dos campos) |
 | `sharp` | Procesamiento de imágenes: dimensiones/nitidez y redimensionado | `src/services/imagenProductoService.ts`, `src/services/ineService.ts` |
 | `tesseract.js` | OCR local del reverso de la INE (lee la MRZ, solo dígitos y `<`) | `src/services/ineService.ts`. Usa `eng.traineddata`/`spa.traineddata` de la raíz de `backend/` |
 | `nodemailer` 9 | Envío de correos por Gmail SMTP | `src/services/emailService.ts` |
@@ -81,7 +81,7 @@ para responder preguntas.
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
 | `verificado.ts` → `requiereVerificado` | Exige correo verificado y horario confirmado del mes en curso (en GMT-6) para publicar y para editar el catálogo (crear, editar, archivar/activar y eliminar productos, RQNF6) |
-| `upload.ts` | Multer de productos con `subirFotosProducto` (≤ 5 MB, ≤ 6 imágenes, **solo .png/.jpeg/.jpg** por RQNF7.2, errores en JSON 400) y `upload`/`subirImagenUnica` general (acepta webp; lo usan chat y promocionales) |
+| `upload.ts` | Multer de publicaciones con `subirFotosProducto` (≤ 5 MB, ≤ 6 imágenes, **solo .png/.jpeg/.jpg** por RQNF7.2/RQNF9.2, errores en JSON 400; lo usan productos y promocionales) y `upload`/`subirImagenUnica` general (acepta webp; lo usa el chat) |
 | `uploadIne.ts` | Multer de la INE (frente y reverso) |
 
 ---
@@ -270,7 +270,7 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /:ventaId/calificar` |
 | `/api/colas` | `colaRoutes.ts` | `POST /entrar` · `GET /mias` · `GET /producto/:productoId/estado` · `PATCH /:id/salir` · `PATCH /:id/responder-confirmacion` |
 | `/api/mensajes` | `mensajeRoutes.ts` | `GET /comprador/mis-ventas` · `GET|POST /comprador/:ventaId` · `GET /vendedor/mis-ventas` · `GET|POST /vendedor/:ventaId` |
-| `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `GET /:id/comentarios` · `POST /:id/comentarios` (con `x-comprador-id`) · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` |
+| `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `GET /:id/comentarios` · `POST /:id/comentarios` (con `x-comprador-id`) · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` — las fotos de alto y edición usan `subirFotosProducto` (solo .png/.jpeg/.jpg, RQNF9.2) |
 | `/api/reportes` | `reporteRoutes.ts` | `POST /` · `POST /comprador` · `GET /` (admin) · `PATCH /:id/confirmar` (admin) |
 | `/api/admin` | `adminRoutes.ts` | `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` |
 | `/api/notificaciones` | `notificacionRoutes.ts` | `POST /suscribir` |
@@ -334,7 +334,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run contract:emit` | Regenera el contrato Prisma |
 | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` | Ver contenido de Mongo |
-| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7, RQNF8 y RQF8: formatos/dimensiones/validaciones de publicación (incluye categorías obligatorias), moderación con Cloud Vision vía mock y alertas de palabras no permitidas con corrección y reenvío (27 pruebas; levanta dos backends locales, con y sin llave) |
+| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7, RQNF8, RQF8 y RQF9: formatos/dimensiones/validaciones de publicación (categorías obligatorias, precios, campos vacíos), moderación con Cloud Vision vía mock y alertas de palabras no permitidas con corrección y reenvío (36 pruebas; levanta dos backends locales, con y sin llave) |
 
 ### npm (desde `frontend/Ichiba/`)
 

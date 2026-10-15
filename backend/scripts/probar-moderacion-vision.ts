@@ -486,7 +486,12 @@ try {
   }
 
   // 22) Promocional: palabra prohibida en el nombre → 400 + campo señalado
-  const subirPromo = (cambios: Record<string, string> = {}) => {
+  const subirPromo = (
+    cambios: Record<string, string> = {},
+    imagen:
+      | { ruta: string; nombre: string; tipo: string }
+      | null = { ruta: rutaJpg, nombre: "foto.jpg", tipo: "image/jpeg" },
+  ) => {
     const base: Record<string, string> = {
       nombre: "Terreno de mierda con vista",
       precio: "7000",
@@ -499,8 +504,16 @@ try {
       ...cambios,
     };
     const fd = new FormData();
-    for (const [campo, valor] of Object.entries(base)) fd.append(campo, valor);
-    fd.append("imagenes", new Blob([fs.readFileSync(rutaJpg)], { type: "image/jpeg" }), "foto.jpg");
+    for (const [campo, valor] of Object.entries(base)) {
+      if (valor !== "__omitir__") fd.append(campo, valor);
+    }
+    if (imagen) {
+      fd.append(
+        "imagenes",
+        new Blob([fs.readFileSync(imagen.ruta)], { type: imagen.tipo }),
+        imagen.nombre,
+      );
+    }
     return fetch(`http://127.0.0.1:${PUERTO_CON_LLAVE}/api/promocionales`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -620,6 +633,129 @@ try {
     "RQNF8.2 se guarda la categoría seleccionada (Coleccionables)",
     r.status === 201 && categoriaGuardada === "Coleccionables",
     `status ${r.status}, categoría guardada: "${categoriaGuardada}"`,
+  );
+
+  // -------------------------------------------------------------------------
+  // RQF9 / RQNF9.1, RQNF9.2, RQNF9.4 y RQNF9.5: publicación de promocionales.
+  // -------------------------------------------------------------------------
+
+  // 28) RQNF9.2: .webp rechazado también en promocionales
+  const rPromoWebp = await subirPromo(
+    { nombre: "Reloj de colección antiguo" },
+    { ruta: rutaWebp, nombre: "foto.webp", tipo: "image/webp" },
+  );
+  const textoPromoWebp = await rPromoWebp.text();
+  verificar(
+    "RQNF9.2 promocional rechaza .webp",
+    rPromoWebp.status === 400 && textoPromoWebp.includes(".jpg, .jpeg o .png"),
+    `status ${rPromoWebp.status}: ${textoPromoWebp}`,
+  );
+
+  // 29) RQNF9.2 + RQNF9.5: .png aceptado y precio mínimo $5,001 → 201
+  const rPromoPng = await subirPromo(
+    { nombre: "Reloj de colección antiguo", precio: "5001" },
+    { ruta: rutaPng, nombre: "foto.png", tipo: "image/png" },
+  );
+  const textoPromoPng = await rPromoPng.text();
+  if (rPromoPng.ok) {
+    try {
+      const promo = JSON.parse(textoPromoPng) as { _id: string; imagenes: string[] };
+      promocionalesCreados.push({ id: promo._id, imagenes: promo.imagenes });
+    } catch {
+      /* ignorar */
+    }
+  }
+  verificar(
+    "RQNF9.2/.5 promocional .png con precio mínimo $5,001 se crea",
+    rPromoPng.status === 201,
+    `status ${rPromoPng.status}: ${textoPromoPng}`,
+  );
+
+  // 30) RQNF9.5: $5,000 exactos no cumplen el mínimo → 400
+  const rPromoP5000 = await subirPromo(
+    { nombre: "Bicicleta de paseo restaurada", precio: "5000" },
+  );
+  const textoP5000 = await rPromoP5000.text();
+  verificar(
+    "RQNF9.5 precio de $5,000 se bloquea",
+    rPromoP5000.status === 400 && textoP5000.includes("mayor a $5,000"),
+    `status ${rPromoP5000.status}: ${textoP5000}`,
+  );
+
+  // 31) RQNF9.5: no hay precio máximo → un precio enorme sí se publica
+  const rPromoCara = await subirPromo({
+    nombre: "Bicicleta de paseo restaurada",
+    precio: "99999999.99",
+  });
+  const textoPromoCara = await rPromoCara.text();
+  if (rPromoCara.ok) {
+    try {
+      const promo = JSON.parse(textoPromoCara) as { _id: string; imagenes: string[] };
+      promocionalesCreados.push({ id: promo._id, imagenes: promo.imagenes });
+    } catch {
+      /* ignorar */
+    }
+  }
+  verificar(
+    "RQNF9.5 no hay precio máximo",
+    rPromoCara.status === 201,
+    `status ${rPromoCara.status}: ${textoPromoCara}`,
+  );
+
+  // 32) RQNF9.1: campos vacíos bloqueados (imágenes, nombre, descripción y
+  //     cobertura de envío)
+  const rPromoSinImagen = await subirPromo(
+    { nombre: "Mueble artesanal sólido" },
+    null,
+  );
+  const textoSinImagen = await rPromoSinImagen.text();
+  verificar(
+    "RQNF9.1 promocional sin imágenes se bloquea",
+    rPromoSinImagen.status === 400 &&
+      textoSinImagen.includes("al menos una imagen"),
+    `status ${rPromoSinImagen.status}: ${textoSinImagen}`,
+  );
+
+  const rPromoSinNombre = await subirPromo({ nombre: "" });
+  const textoSinNombre = await rPromoSinNombre.text();
+  verificar(
+    "RQNF9.1 promocional sin nombre se bloquea",
+    rPromoSinNombre.status === 400 &&
+      textoSinNombre.includes("El nombre del promocional"),
+    `status ${rPromoSinNombre.status}: ${textoSinNombre}`,
+  );
+
+  const rPromoSinDesc = await subirPromo({ descripcion: "" });
+  const textoSinDesc = await rPromoSinDesc.text();
+  verificar(
+    "RQNF9.1 promocional sin descripción se bloquea",
+    rPromoSinDesc.status === 400 &&
+      textoSinDesc.includes("La descripción del promocional"),
+    `status ${rPromoSinDesc.status}: ${textoSinDesc}`,
+  );
+
+  const rPromoSinCobertura = await subirPromo({ coberturaEnvio: "" });
+  const textoSinCobertura = await rPromoSinCobertura.text();
+  verificar(
+    "RQNF9.1 promocional sin cobertura de envío se bloquea",
+    rPromoSinCobertura.status === 400 &&
+      textoSinCobertura.includes("cobertura de envío es obligatoria"),
+    `status ${rPromoSinCobertura.status}: ${textoSinCobertura}`,
+  );
+
+  // 33) RQNF9.4: el filtro de palabras cubre todos los campos de texto del
+  //     promocional (aquí, cobertura de envío)
+  const rPromoCoberturaMala = await subirPromo({
+    nombre: "Mueble artesanal sólido",
+    coberturaEnvio: "Envío a todo el país, mierda gratis",
+  });
+  const textoCoberturaMala = await rPromoCoberturaMala.text();
+  verificar(
+    "RQNF9.4 alerta en el campo cobertura de envío",
+    rPromoCoberturaMala.status === 400 &&
+      textoCoberturaMala.includes("palabras no permitidas") &&
+      textoCoberturaMala.includes('"campo":"coberturaEnvio"'),
+    `status ${rPromoCoberturaMala.status}: ${textoCoberturaMala}`,
   );
 } finally {
   // Limpieza: borrar productos y promocionales creados (y sus archivos) y

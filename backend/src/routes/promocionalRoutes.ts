@@ -16,7 +16,7 @@ import { verificarToken } from "../middleware/auth.js";
 import { requiereVerificado } from "../middleware/verificado.js";
 import { requiereUsuarioSinSancion } from "../middleware/sancion.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
-import { upload } from "../middleware/upload.js";
+import { subirFotosProducto } from "../middleware/upload.js";
 
 const router = Router();
 
@@ -34,7 +34,9 @@ router.post(
   verificarToken,
   requiereVerificado,
   requiereUsuarioSinSancion,
-  upload.array("imagenes", 6),
+  // RQNF9.2: mismos formatos estrictos que las fotos de producto
+  // (.png, .jpeg y .jpg) para las fotografías del promocional.
+  subirFotosProducto("imagenes", 6),
   crearPromocional,
 );
 router.patch("/:id/estado", verificarToken, cambiarEstadoPromocional);
@@ -42,7 +44,7 @@ router.put(
   "/:id",
   verificarToken,
   requiereUsuarioSinSancion,
-  upload.array("imagenes", 6),
+  subirFotosProducto("imagenes", 6),
   actualizarPromocional,
 );
 router.delete("/:id", verificarToken, eliminarPromocional);
