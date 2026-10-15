@@ -41,12 +41,31 @@ function VendedorPerfil() {
         </div>
       )}
 
+      {/* RQNF10.3: cuenta cancelada de forma permanente por 8 puntos. */}
+      {perfil.usuario.estadoCuenta === "cancelada" && (
+        <div className="vendedor-perfil__aviso vendedor-perfil__aviso--cancelado">
+          <p>
+            Este vendedor fue cancelado de forma permanente por acumular 8
+            puntos de infracción: ya no puede publicar ni vender en Ichiba.
+          </p>
+        </div>
+      )}
+
       <div className="vendedor-perfil__stats">
         <div className="vendedor-perfil__stat-card">
           <span className="vendedor-perfil__stat-numero">
             {perfil.productos.length}
           </span>
           <span className="vendedor-perfil__stat-label">Productos activos</span>
+        </div>
+        {/* RQNF10.1: promedio de calificaciones de ventas completadas. */}
+        <div className="vendedor-perfil__stat-card">
+          <span className="vendedor-perfil__stat-numero">
+            {perfil.reputacion === null ? "—" : perfil.reputacion.toFixed(1)}
+          </span>
+          <span className="vendedor-perfil__stat-label">
+            Calificación promedio de compradores
+          </span>
         </div>
         <div className="vendedor-perfil__stat-card">
           <span className="vendedor-perfil__stat-numero">

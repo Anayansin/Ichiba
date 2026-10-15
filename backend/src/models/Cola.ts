@@ -14,6 +14,8 @@ const colaSchema = new Schema(
         "pagada",
         "reposo",
         "finalizada",
+        // RQNF10.7: fila cancelada por la cancelación de la cuenta del vendedor.
+        "cancelada",
       ],
       default: "activa",
     },

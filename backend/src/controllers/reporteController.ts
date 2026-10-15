@@ -11,6 +11,10 @@ import {
   categoriaReporte,
 } from "../configuracion/categoriasReporte.js";
 import { registrarFalta } from "../services/sancionService.js";
+import {
+  acumularPuntosDeReporte,
+  PUNTOS_CANCELACION,
+} from "../services/cancelacionCuentaService.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
 const LIMITE_DETALLE = 1000;
@@ -480,10 +484,23 @@ export async function confirmarReporte(req: Request, res: Response) {
       vendedor.faltasLeves,
     );
 
+    // RQNF10.1 / RQNF10.3: los puntos se suman al confirmar el reporte y al
+    // llegar a 8 se cancela la cuenta (RQNF10.5 / RQNF10.6 / RQNF10.7).
+    const resultadoPuntos = await acumularPuntosDeReporte(
+      idVendedor,
+      reporte.categoria,
+      reporte.tipoFalta,
+    );
+
     res.json({
-      message: "Reporte confirmado correctamente",
+      message: resultadoPuntos.cancelacion
+        ? `Reporte confirmado: el vendedor alcanzó ${PUNTOS_CANCELACION} puntos y su cuenta fue cancelada de forma permanente`
+        : "Reporte confirmado correctamente",
       faltasLeves: faltas.faltasLeves,
       faltaGraveRegistrada: faltas.faltaGraveRegistrada,
+      puntos: resultadoPuntos.puntos,
+      puntosReputacion: resultadoPuntos.puntosReputacion,
+      cuentaCancelada: Boolean(resultadoPuntos.cancelacion),
     });
   } catch (error) {
     console.error("Error real:", error);

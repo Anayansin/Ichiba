@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'1dbc5f25cc63c9da79c70436ecd83aaf54a7f177036f9ebd61614a4a64021ac5'>;
+  StorageHashBase<'1221e10be509fe8eb880c207d9cd1d982d1493bd4fce723f57412136a378ce66'>;
 export type ExecutionHash =
   ExecutionHashBase<'ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037'>;
 export type ProfileHash =
@@ -283,6 +283,7 @@ export type FieldOutputTypes = {
     };
     readonly usuario: {
       readonly aceptaTerminos: CodecTypes['pg/bool@1']['output'];
+      readonly canceladaEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly codigoCorreo: CodecTypes['pg/text@1']['output'] | null;
       readonly codigoCorreoExpira: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly codigoRecuperacion: CodecTypes['pg/text@1']['output'] | null;
@@ -291,8 +292,10 @@ export type FieldOutputTypes = {
       readonly correoVerificado: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly curp: CodecTypes['pg/text@1']['output'] | null;
+      readonly datosEliminadosEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly diasSinConfirmarHorario: CodecTypes['pg/int4@1']['output'];
       readonly direccion: CodecTypes['pg/text@1']['output'];
+      readonly estadoCuenta: CodecTypes['pg/text@1']['output'];
       readonly faltasLeves: CodecTypes['pg/int4@1']['output'];
       readonly horarioConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly horarios: CodecTypes['pg/json@1']['output'];
@@ -303,6 +306,7 @@ export type FieldOutputTypes = {
       readonly nombreCompleto: CodecTypes['pg/text@1']['output'];
       readonly password: CodecTypes['pg/text@1']['output'];
       readonly paypalEmail: CodecTypes['pg/text@1']['output'];
+      readonly puntosReputacion: CodecTypes['pg/float8@1']['output'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
       readonly rfc: CodecTypes['pg/text@1']['output'];
@@ -377,6 +381,7 @@ export type FieldInputTypes = {
     };
     readonly usuario: {
       readonly aceptaTerminos: CodecTypes['pg/bool@1']['input'];
+      readonly canceladaEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly codigoCorreo: CodecTypes['pg/text@1']['input'] | null;
       readonly codigoCorreoExpira: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly codigoRecuperacion: CodecTypes['pg/text@1']['input'] | null;
@@ -385,8 +390,10 @@ export type FieldInputTypes = {
       readonly correoVerificado: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly curp: CodecTypes['pg/text@1']['input'] | null;
+      readonly datosEliminadosEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly diasSinConfirmarHorario: CodecTypes['pg/int4@1']['input'];
       readonly direccion: CodecTypes['pg/text@1']['input'];
+      readonly estadoCuenta: CodecTypes['pg/text@1']['input'];
       readonly faltasLeves: CodecTypes['pg/int4@1']['input'];
       readonly horarioConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly horarios: CodecTypes['pg/json@1']['input'];
@@ -397,6 +404,7 @@ export type FieldInputTypes = {
       readonly nombreCompleto: CodecTypes['pg/text@1']['input'];
       readonly password: CodecTypes['pg/text@1']['input'];
       readonly paypalEmail: CodecTypes['pg/text@1']['input'];
+      readonly puntosReputacion: CodecTypes['pg/float8@1']['input'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['input'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['input'];
       readonly rfc: CodecTypes['pg/text@1']['input'];
@@ -471,6 +479,7 @@ export type StorageColumnTypes = {
     };
     readonly usuario: {
       readonly aceptaTerminos: CodecTypes['pg/bool@1']['output'];
+      readonly canceladaEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly codigoCorreo: CodecTypes['pg/text@1']['output'] | null;
       readonly codigoCorreoExpira: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly codigoRecuperacion: CodecTypes['pg/text@1']['output'] | null;
@@ -479,8 +488,10 @@ export type StorageColumnTypes = {
       readonly correoVerificado: CodecTypes['pg/bool@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
       readonly curp: CodecTypes['pg/text@1']['output'] | null;
+      readonly datosEliminadosEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly diasSinConfirmarHorario: CodecTypes['pg/int4@1']['output'];
       readonly direccion: CodecTypes['pg/text@1']['output'];
+      readonly estadoCuenta: CodecTypes['pg/text@1']['output'];
       readonly faltasLeves: CodecTypes['pg/int4@1']['output'];
       readonly horarioConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly horarios: CodecTypes['pg/json@1']['output'];
@@ -491,6 +502,7 @@ export type StorageColumnTypes = {
       readonly nombreCompleto: CodecTypes['pg/text@1']['output'];
       readonly password: CodecTypes['pg/text@1']['output'];
       readonly paypalEmail: CodecTypes['pg/text@1']['output'];
+      readonly puntosReputacion: CodecTypes['pg/float8@1']['output'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
       readonly rfc: CodecTypes['pg/text@1']['output'];
@@ -565,6 +577,7 @@ export type StorageColumnInputTypes = {
     };
     readonly usuario: {
       readonly aceptaTerminos: CodecTypes['pg/bool@1']['input'];
+      readonly canceladaEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly codigoCorreo: CodecTypes['pg/text@1']['input'] | null;
       readonly codigoCorreoExpira: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly codigoRecuperacion: CodecTypes['pg/text@1']['input'] | null;
@@ -573,8 +586,10 @@ export type StorageColumnInputTypes = {
       readonly correoVerificado: CodecTypes['pg/bool@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
       readonly curp: CodecTypes['pg/text@1']['input'] | null;
+      readonly datosEliminadosEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly diasSinConfirmarHorario: CodecTypes['pg/int4@1']['input'];
       readonly direccion: CodecTypes['pg/text@1']['input'];
+      readonly estadoCuenta: CodecTypes['pg/text@1']['input'];
       readonly faltasLeves: CodecTypes['pg/int4@1']['input'];
       readonly horarioConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly horarios: CodecTypes['pg/json@1']['input'];
@@ -585,6 +600,7 @@ export type StorageColumnInputTypes = {
       readonly nombreCompleto: CodecTypes['pg/text@1']['input'];
       readonly password: CodecTypes['pg/text@1']['input'];
       readonly paypalEmail: CodecTypes['pg/text@1']['input'];
+      readonly puntosReputacion: CodecTypes['pg/float8@1']['input'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['input'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['input'];
       readonly rfc: CodecTypes['pg/text@1']['input'];
@@ -662,6 +678,7 @@ export namespace Models {
   };
   export type public_usuario = {
     aceptaTerminos: CodecTypes['pg/bool@1']['output'];
+    canceladaEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     codigoCorreo: CodecTypes['pg/text@1']['output'] | null;
     codigoCorreoExpira: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     codigoRecuperacion: CodecTypes['pg/text@1']['output'] | null;
@@ -670,8 +687,10 @@ export namespace Models {
     correoVerificado: CodecTypes['pg/bool@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     curp: CodecTypes['pg/text@1']['output'] | null;
+    datosEliminadosEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     diasSinConfirmarHorario: CodecTypes['pg/int4@1']['output'];
     direccion: CodecTypes['pg/text@1']['output'];
+    estadoCuenta: CodecTypes['pg/text@1']['output'];
     faltasLeves: CodecTypes['pg/int4@1']['output'];
     horarioConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     horarios: CodecTypes['pg/json@1']['output'];
@@ -682,6 +701,7 @@ export namespace Models {
     nombreCompleto: CodecTypes['pg/text@1']['output'];
     password: CodecTypes['pg/text@1']['output'];
     paypalEmail: CodecTypes['pg/text@1']['output'];
+    puntosReputacion: CodecTypes['pg/float8@1']['output'];
     recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
     recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
     rfc: CodecTypes['pg/text@1']['output'];
@@ -953,6 +973,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/bool@1';
                   readonly nullable: false;
                 };
+                readonly canceladaEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
                 readonly codigoCorreo: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -998,6 +1023,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                 };
+                readonly datosEliminadosEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
                 readonly diasSinConfirmarHorario: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -1011,6 +1041,15 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly estadoCuenta: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'activa'>;
+                  };
                 };
                 readonly faltasLeves: {
                   readonly nativeType: 'int4';
@@ -1069,6 +1108,15 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly puntosReputacion: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0>;
+                  };
                 };
                 readonly recibirNotificacionesCriticas: {
                   readonly nativeType: 'bool';
@@ -1514,6 +1562,13 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
+              readonly canceladaEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
               readonly codigoCorreo: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1555,11 +1610,22 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly datosEliminadosEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
               readonly diasSinConfirmarHorario: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
               readonly direccion: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly estadoCuenta: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
@@ -1605,6 +1671,10 @@ type ContractBase = Omit<
               readonly paypalEmail: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly puntosReputacion: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
               };
               readonly recibirNotificacionesCriticas: {
                 readonly nullable: false;
@@ -1671,6 +1741,7 @@ type ContractBase = Omit<
               readonly namespaceId: 'public';
               readonly fields: {
                 readonly aceptaTerminos: { readonly column: 'aceptaTerminos' };
+                readonly canceladaEn: { readonly column: 'canceladaEn' };
                 readonly codigoCorreo: { readonly column: 'codigoCorreo' };
                 readonly codigoCorreoExpira: { readonly column: 'codigoCorreoExpira' };
                 readonly codigoRecuperacion: { readonly column: 'codigoRecuperacion' };
@@ -1679,8 +1750,10 @@ type ContractBase = Omit<
                 readonly correoVerificado: { readonly column: 'correoVerificado' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly curp: { readonly column: 'curp' };
+                readonly datosEliminadosEn: { readonly column: 'datosEliminadosEn' };
                 readonly diasSinConfirmarHorario: { readonly column: 'diasSinConfirmarHorario' };
                 readonly direccion: { readonly column: 'direccion' };
+                readonly estadoCuenta: { readonly column: 'estadoCuenta' };
                 readonly faltasLeves: { readonly column: 'faltasLeves' };
                 readonly horarioConfirmadoEn: { readonly column: 'horarioConfirmadoEn' };
                 readonly horarios: { readonly column: 'horarios' };
@@ -1691,6 +1764,7 @@ type ContractBase = Omit<
                 readonly nombreCompleto: { readonly column: 'nombreCompleto' };
                 readonly password: { readonly column: 'password' };
                 readonly paypalEmail: { readonly column: 'paypalEmail' };
+                readonly puntosReputacion: { readonly column: 'puntosReputacion' };
                 readonly recibirNotificacionesCriticas: {
                   readonly column: 'recibirNotificacionesCriticas';
                 };

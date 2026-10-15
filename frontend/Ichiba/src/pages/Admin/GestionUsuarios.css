@@ -70,6 +70,24 @@
   color: #b3001b;
 }
 
+/* RQNF10.3: cuenta cancelada de forma permanente por 8 puntos. */
+.gestion-usuarios__estado--cancelada {
+  background: #3b0d13;
+  color: #ffd7dc;
+}
+
+.gestion-usuarios__suspender:disabled,
+.gestion-usuarios__reactivar:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* RQNF10.3: la cancelación por 8 puntos no se puede revertir. */
+.gestion-usuarios__permanente {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
 .gestion-usuarios__suspender,
 .gestion-usuarios__reactivar {
   border: none;

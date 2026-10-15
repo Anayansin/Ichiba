@@ -38,6 +38,11 @@ import {
   expirarTurnoSiVencido,
 } from "../services/filaService.js";
 import clientePrisma from "../configuracion/prisma.js";
+import { calcularReputacionVendedor } from "../services/reputacionService.js";
+import {
+  PUNTOS_CANCELACION,
+  purgarCuentaSiCorresponde,
+} from "../services/cancelacionCuentaService.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -57,6 +62,23 @@ async function buscarVendedorDeProducto(vendedorId: unknown) {
   const idNumerico = Number(vendedorId);
   if (!Number.isInteger(idNumerico)) return null;
   return clientePrisma.usuario.findUnique({ where: { id: idNumerico } });
+}
+
+/**
+ * RQNF10.6 / RQF12: al completarse o cancelarse una entrega se revisa si el
+ * vendedor tiene cuenta cancelada y ya no le quedan entregas con pago
+ * confirmado; si es así, se purgan de inmediato sus datos personales (nombre,
+ * correo, contraseña, publicaciones, chats y token de PayPal).
+ */
+async function purgarCuentaSiYaNoTieneEntregas(vendedorId: number) {
+  try {
+    await purgarCuentaSiCorresponde(vendedorId);
+  } catch (error) {
+    console.error(
+      "[cancelacion] No se pudo purgar la cuenta tras resolver la entrega:",
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 /**
@@ -767,6 +789,10 @@ export async function rechazarComprobante(
       return res.status(400).json({ message: resultado.error });
     }
 
+    // RQNF10.6: el rechazo cancela la compra; si era la última entrega
+    // pendiente de un vendedor cancelado, se purga su cuenta.
+    await purgarCuentaSiYaNoTieneEntregas(vendedorId);
+
     res.json({
       message:
         "Comprobante rechazado. Se reembolsó al comprador y el turno pasó al siguiente en la fila.",
@@ -809,6 +835,10 @@ export async function registrarEntrega(
     if (resultado.error) {
       return res.status(400).json({ message: resultado.error });
     }
+
+    // RQNF10.6 / RQF12: al completar la entrega, si la cuenta estaba
+    // cancelada y ya no quedan pendientes, se purgan sus datos personales.
+    await purgarCuentaSiYaNoTieneEntregas(vendedorId);
 
     res.json({
       message:
@@ -973,7 +1003,21 @@ export async function ventasDelVendedor(
       productos.map((producto) => [String(producto._id), producto]),
     );
 
+    // RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y reputación promedio
+    // para el encabezado del panel del vendedor.
+    const cuenta = await clientePrisma.usuario.findUnique({
+      where: { id: vendedorId },
+      select: { estadoCuenta: true, puntosReputacion: true },
+    });
+    const reputacion = await calcularReputacionVendedor(vendedorId);
+
     res.json({
+      cuenta: {
+        estadoCuenta: cuenta?.estadoCuenta ?? "activa",
+        puntosReputacion: Number(cuenta?.puntosReputacion ?? 0),
+        puntosCancelacion: PUNTOS_CANCELACION,
+      },
+      reputacion,
       resumen: {
         porRevisar: ventas.filter(
           (venta) => venta.estado === "pendiente_confirmacion",
@@ -1153,6 +1197,21 @@ export async function calificar(req: Request, res: Response) {
       return res
         .status(403)
         .json({ message: "No puedes calificar esta compra" });
+    }
+
+    // RQF12 / RQNF10.3: el vendedor con cuenta cancelada solo conserva acceso
+    // a completar sus entregas pendientes; calificar no forma parte de eso.
+    if (esElVendedorDeLaVenta) {
+      const vendedor = await clientePrisma.usuario.findUnique({
+        where: { id: Number(venta.vendedorId) },
+        select: { estadoCuenta: true },
+      });
+      if (vendedor?.estadoCuenta === "cancelada") {
+        return res.status(403).json({
+          message:
+            "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado (RQNF10.3 / RQF12)",
+        });
+      }
     }
 
     const calificacionActual =

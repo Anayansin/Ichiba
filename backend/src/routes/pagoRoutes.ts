@@ -25,6 +25,7 @@ import { subirComprobante } from "../middleware/upload.js";
 import {
   rechazarAdminEnCompra,
   requiereVendedor,
+  requiereVendedorDeEntregas,
 } from "../middleware/vendedor.js";
 
 const router = Router();
@@ -76,16 +77,18 @@ router.post(
 router.get("/comprobante/:ventaId/imagen", imagenDeComprobante);
 
 // RQF31: el vendedor confirma o rechaza el comprobante recibido.
+// RQF12: estas acciones siguen disponibles para el vendedor con cuenta
+// cancelada, porque son parte de completar una entrega con pago confirmado.
 router.post(
   "/:ventaId/confirmar-comprobante",
   verificarToken,
-  requiereVendedor,
+  requiereVendedorDeEntregas,
   confirmarComprobante,
 );
 router.post(
   "/:ventaId/rechazar-comprobante",
   verificarToken,
-  requiereVendedor,
+  requiereVendedorDeEntregas,
   rechazarComprobante,
 );
 
@@ -94,12 +97,17 @@ router.post(
 router.post(
   "/:ventaId/confirmar-entrega",
   verificarToken,
-  requiereVendedor,
+  requiereVendedorDeEntregas,
   registrarEntrega,
 );
 
 // Seguimiento del flujo del escrow para cada parte.
-router.get("/vendedor/ventas", verificarToken, requiereVendedor, ventasDelVendedor);
+router.get(
+  "/vendedor/ventas",
+  verificarToken,
+  requiereVendedorDeEntregas,
+  ventasDelVendedor,
+);
 router.get(
   "/mis-compras",
   rechazarAdminEnCompra,

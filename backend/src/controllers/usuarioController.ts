@@ -21,6 +21,8 @@ import {
   obtenerTextoDeProximoBloque,
 } from "../utils/validarHorario.js";
 import { enviarCorreoRecuperacion } from "../services/emailService.js";
+import { calcularReputacionVendedor } from "../services/reputacionService.js";
+import { PUNTOS_CANCELACION } from "../services/cancelacionCuentaService.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -462,6 +464,9 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
         horarios: true,
         horarioConfirmadoEn: true,
         diasSinConfirmarHorario: true,
+        // RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y puntos acumulados.
+        estadoCuenta: true,
+        puntosReputacion: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -469,7 +474,15 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
     if (!usuario) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    res.json(usuario);
+
+    // RQNF10.1: promedio de calificaciones recibidas en ventas completadas.
+    const reputacion = await calcularReputacionVendedor(usuario.id);
+
+    res.json({
+      ...usuario,
+      reputacion,
+      puntosCancelacion: PUNTOS_CANCELACION,
+    });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener perfil" });
@@ -486,6 +499,7 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
         totalReportes: true,
         createdAt: true,
         horarios: true,
+        estadoCuenta: true,
       },
     });
     if (!usuario) {
@@ -505,9 +519,13 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
       ? null
       : obtenerTextoDeProximoBloque(horarios, ahora);
 
+    // RQNF10.1: reputación pública del vendedor (promedio de calificaciones).
+    const reputacion = await calcularReputacionVendedor(Number(req.params.id));
+
     res.json({
       usuario: usuarioPublico,
       productos,
+      reputacion,
       vendedorDisponibleAhora,
       proximoBloque,
     });

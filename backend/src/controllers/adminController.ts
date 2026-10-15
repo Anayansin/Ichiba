@@ -15,6 +15,11 @@ import {
   resumirEntrada,
 } from "../services/listaNegraService.js";
 import { aplicarFaltaConfirmada } from "./reporteController.js";
+import { puntosDeCategoria } from "../configuracion/categoriasReporte.js";
+import {
+  acumularPuntosDeReporte,
+  PUNTOS_CANCELACION,
+} from "../services/cancelacionCuentaService.js";
 
 const USUARIOS_POR_PAGINA = 10;
 
@@ -24,6 +29,10 @@ type UsuarioResumido = {
   correo: string;
   tipo: string;
   suspendido: boolean;
+  /** RQNF10.1 / RQNF10.3: reputación por infracciones (8 = cancelación). */
+  puntosReputacion: number;
+  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
+  estadoCuenta: string;
   fechaRegistro: Date | null;
 };
 
@@ -33,6 +42,8 @@ function resumirUsuario(usuario: {
   correo?: string;
   tipo?: string;
   suspendido?: boolean;
+  puntosReputacion?: number;
+  estadoCuenta?: string;
   createdAt?: Date;
 }): UsuarioResumido {
   return {
@@ -41,6 +52,8 @@ function resumirUsuario(usuario: {
     correo: usuario.correo ?? "",
     tipo: usuario.tipo ?? "",
     suspendido: usuario.suspendido === true,
+    puntosReputacion: Number(usuario.puntosReputacion ?? 0),
+    estadoCuenta: usuario.estadoCuenta ?? "activa",
     fechaRegistro: usuario.createdAt ?? null,
   };
 }
@@ -55,7 +68,9 @@ export async function obtenerTodosLosUsuarios(req: Request, res: Response) {
 
     const [usuarios, total] = await Promise.all([
       Usuario.find()
-        .select("nombreCompleto correo tipo suspendido createdAt")
+        .select(
+          "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt",
+        )
         .sort({ createdAt: -1 })
         .skip((pagina - 1) * porPagina)
         .limit(porPagina)
@@ -90,6 +105,16 @@ async function cambiarSuspension(
         .json({ message: "Indica el usuario que quieres modificar" });
     }
 
+    // RQNF10.3 / RQF12: la cancelación por 8 puntos es permanente; no se
+    // suspende ni se reactiva manualmente.
+    const existente = await Usuario.findById(id).select("estadoCuenta").lean();
+    if (existente && existente.estadoCuenta === "cancelada") {
+      return res.status(400).json({
+        message:
+          "La cuenta fue cancelada de forma permanente por acumular 8 puntos (RQNF10.3)",
+      });
+    }
+
     const usuario = await Usuario.findByIdAndUpdate(
       id,
       { suspendido },
@@ -122,33 +147,58 @@ export async function obtenerReportesPendientes(req: Request, res: Response) {
       orderBy: { createdAt: "desc" },
     });
 
-    const vendedores: Record<string, string> = {};
+    const vendedores: Record<
+      string,
+      { nombre: string; puntosReputacion: number; estadoCuenta: string }
+    > = {};
     for (const reporte of reportes) {
       const idVendedor = String(reporte.vendedorId);
       if (vendedores[idVendedor]) continue;
 
       const vendedor = await clientePrisma.usuario.findUnique({
         where: { id: Number(reporte.vendedorId) },
-        select: { nombreCompleto: true },
+        select: {
+          nombreCompleto: true,
+          puntosReputacion: true,
+          estadoCuenta: true,
+        },
       });
-      vendedores[idVendedor] =
-        vendedor?.nombreCompleto ?? "Vendedor no encontrado";
+      vendedores[idVendedor] = vendedor
+        ? {
+            nombre: vendedor.nombreCompleto,
+            puntosReputacion: Number(vendedor.puntosReputacion ?? 0),
+            estadoCuenta: vendedor.estadoCuenta ?? "activa",
+          }
+        : {
+            nombre: "Vendedor no encontrado",
+            puntosReputacion: 0,
+            estadoCuenta: "activa",
+          };
     }
 
     res.json(
-      reportes.map((reporte) => ({
-        id: reporte.id,
-        categoria: reporte.categoria,
-        categoriaNombre: reporte.categoriaNombre,
-        elemento: reporte.elemento,
-        tipoFalta: reporte.tipoFalta,
-        detalle: reporte.detalle ?? null,
-        estado: reporte.estado,
-        sujetoTipo: reporte.sujetoTipo,
-        reportadoPorTipo: reporte.reportadoPorTipo,
-        vendedorNombre: vendedores[String(reporte.vendedorId)],
-        fecha: reporte.createdAt,
-      })),
+      reportes.map((reporte) => {
+        const vendedor = vendedores[String(reporte.vendedorId)];
+        return {
+          id: reporte.id,
+          categoria: reporte.categoria,
+          categoriaNombre: reporte.categoriaNombre,
+          elemento: reporte.elemento,
+          tipoFalta: reporte.tipoFalta,
+          detalle: reporte.detalle ?? null,
+          estado: reporte.estado,
+          sujetoTipo: reporte.sujetoTipo,
+          reportadoPorTipo: reporte.reportadoPorTipo,
+          vendedorNombre: vendedor.nombre,
+          // RQNF10.1 / RQNF10.3: cuántos puntos suma el reporte al
+          // confirmarse y cuántos lleva acumulados el vendedor (8 = cancelación).
+          puntos: puntosDeCategoria(reporte.categoria, reporte.tipoFalta),
+          puntosReputacion: vendedor.puntosReputacion,
+          puntosCancelacion: PUNTOS_CANCELACION,
+          estadoCuenta: vendedor.estadoCuenta,
+          fecha: reporte.createdAt,
+        };
+      }),
     );
   } catch (error) {
     console.error("Error real:", error);
@@ -237,11 +287,26 @@ export async function resolverReporte(req: Request, res: Response) {
       vendedor.faltasLeves,
     );
 
+    // RQNF10.1 / RQNF10.3: los puntos del reporte se suman a la reputación al
+    // confirmarse y, al llegar a 8, la cuenta se cancela de forma permanente
+    // con correo al vendedor, lista negra, publicaciones fuera y purga
+    // posterior (RQNF10.5 / RQNF10.6 / RQNF10.7).
+    const resultadoPuntos = await acumularPuntosDeReporte(
+      idVendedorAcusado,
+      reporte.categoria,
+      reporte.tipoFalta,
+    );
+
     res.json({
-      message: "Reporte confirmado correctamente",
+      message: resultadoPuntos.cancelacion
+        ? `Reporte confirmado: el vendedor alcanzó ${PUNTOS_CANCELACION} puntos y su cuenta fue cancelada de forma permanente`
+        : "Reporte confirmado correctamente",
       estado: "confirmado",
       faltasLeves: faltas.faltasLeves,
       faltaGraveRegistrada: faltas.faltaGraveRegistrada,
+      puntos: resultadoPuntos.puntos,
+      puntosReputacion: resultadoPuntos.puntosReputacion,
+      cuentaCancelada: Boolean(resultadoPuntos.cancelacion),
     });
   } catch (error) {
     console.error("Error real:", error);
@@ -556,6 +621,7 @@ export async function obtenerResumenAdmin(req: Request, res: Response) {
       usuariosTotal,
       usuariosActivos,
       usuariosSuspendidos,
+      usuariosCancelados,
       usuariosAdministradores,
       usuariosNuevos30Dias,
       ultimosUsuarios,
@@ -573,6 +639,8 @@ export async function obtenerResumenAdmin(req: Request, res: Response) {
       Usuario.countDocuments(),
       Usuario.countDocuments({ suspendido: { $ne: true } }),
       Usuario.countDocuments({ suspendido: true }),
+      // RQNF10.3: cuentas canceladas de forma permanente (8 puntos).
+      clientePrisma.usuario.count({ where: { estadoCuenta: "cancelada" } }),
       Usuario.countDocuments({ tipo: "admin" }),
       Usuario.countDocuments({ createdAt: { $gte: desde30Dias } }),
       Usuario.find()
@@ -654,6 +722,7 @@ export async function obtenerResumenAdmin(req: Request, res: Response) {
         total: usuariosTotal,
         activos: usuariosActivos,
         suspendidos: usuariosSuspendidos,
+        cancelados: usuariosCancelados,
         administradores: usuariosAdministradores,
         nuevos30Dias: usuariosNuevos30Dias,
       },

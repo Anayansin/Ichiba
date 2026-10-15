@@ -24,6 +24,31 @@
   margin-bottom: 1.5rem;
 }
 
+/* RQNF10.3 / RQF12: aviso permanente de cuenta cancelada por 8 puntos. */
+.panel-vendedor__cancelada {
+  background-color: #3b0d13;
+  color: #ffd7dc;
+  border-radius: 12px;
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel-vendedor__cancelada h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: #ffb3bd;
+}
+
+.panel-vendedor__cancelada p {
+  margin: 0.4rem 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.panel-vendedor__stat-card--puntos .panel-vendedor__stat-numero {
+  color: #8a5a00;
+}
+
 .panel-vendedor__stats {
   display: flex;
   gap: 1.5rem;

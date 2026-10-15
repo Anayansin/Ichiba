@@ -540,3 +540,111 @@ export async function enviarCorreoVentaCancelada(
 
   return true;
 }
+
+/**
+ * RQF11 / RQNF10.5: notifica al vendedor que su cuenta fue cancelada de forma
+ * permanente al acumular 8 puntos de reputación, indicando el motivo y los
+ * reportes que la originaron.
+ */
+export async function enviarCorreoCuentaCancelada(
+  correo: string,
+  nombreCompleto: string,
+  puntos: number,
+  reportes: {
+    categoriaNombre: string;
+    tipoFalta: string;
+    puntos: number;
+    fecha: Date | string | null;
+  }[],
+): Promise<boolean> {
+  const listaReportes = reportes
+    .map(
+      (reporte) =>
+        `<li>${escaparHtml(reporte.categoriaNombre)} — falta ${escaparHtml(
+          reporte.tipoFalta,
+        )} (${reporte.puntos} punto${reporte.puntos === 1 ? "" : "s"})${
+          reporte.fecha
+            ? `, ${escaparHtml(new Date(reporte.fecha).toLocaleDateString("es-MX"))}`
+            : ""
+        }</li>`,
+    )
+    .join("");
+
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Cuenta cancelada de ${correo} (${nombreCompleto}): ${puntos} puntos. Reportes: ${reportes
+        .map((reporte) => reporte.categoriaNombre)
+        .join(", ")}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu cuenta de Ichiba fue cancelada de forma permanente",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombreCompleto ? ` ${escaparHtml(nombreCompleto)}` : ""}:</p>
+        <p>Tu cuenta de vendedor fue <strong>cancelada de forma permanente y sin posibilidad de recuperación</strong> porque acumulaste <strong>${puntos} puntos</strong> de reputación por infracción (el límite es de 8 puntos).</p>
+        <p><strong>Reportes confirmados que originaron la cancelación:</strong></p>
+        <ul>${listaReportes}</ul>
+        <p>Conservamos únicamente tu RFC y los datos de tu identificación oficial en una lista negra para impedir que vuelvas a registrarte.</p>
+        <p>Si tenías compras con pago confirmado pendientes de entrega, aún puedes ingresar a completarlas; no tendrás acceso a ninguna otra función de la plataforma.</p>
+        <p style="color: #888; font-size: 12px;">
+          Resolución emitida el ${escaparHtml(new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }))} (hora del centro, GMT-6).
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF10.7: avisa al cliente que fue retirado de una fila virtual porque el
+ * vendedor canceló su cuenta: el producto ya no está disponible.
+ */
+export async function enviarCorreoProductoNoDisponible(
+  correo: string,
+  nombreProducto: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Producto no disponible para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "El producto ya no está disponible",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Te retiramos de la fila${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: el producto ya no está disponible porque el vendedor canceló su cuenta.</p>
+        <p>Tu lugar en la fila quedó eliminado de tus filas activas. Puedes explorar otros productos en el catálogo.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}

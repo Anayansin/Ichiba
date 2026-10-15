@@ -88,6 +88,13 @@
   margin: 0;
 }
 
+/* RQNF10.3: aviso de cuenta cancelada de forma permanente. */
+.vendedor-perfil__aviso--cancelado {
+  background-color: #fdecef;
+  border-left-color: #b3001b;
+  color: #b3001b;
+}
+
 .vendedor-perfil__item-bloqueado {
   opacity: 0.6;
   cursor: not-allowed;

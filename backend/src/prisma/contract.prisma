@@ -12,6 +12,13 @@ model usuario {
   ventasExitosas                  Int       @default(0)
   totalReportes                   Int       @default(0)
   faltasLeves                     Int       @default(0)
+  // RQNF10.1 / RQNF10.3: reputación por puntos de infracción (se cancelan a los 8).
+  puntosReputacion                Float     @default(0)
+  // RQNF10.3 / RQF12: "activa" | "cancelada" (cancelada = solo entregas pendientes).
+  estadoCuenta                    String    @default("activa")
+  canceladaEn                     DateTime?
+  // RQNF10.6: fecha en la que se purgaron los datos personales tras resolverse las entregas.
+  datosEliminadosEn               DateTime?
   correoVerificado                Boolean   @default(false)
   codigoCorreo                    String?
   codigoCorreoExpira              DateTime?

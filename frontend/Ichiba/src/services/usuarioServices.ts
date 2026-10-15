@@ -60,6 +60,14 @@ export type PerfilUsuario = {
   horarios: BloqueHorario[];
   /** RQNF5.3: fecha de la última confirmación mensual del horario. */
   horarioConfirmadoEn?: string | null;
+  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
+  estadoCuenta?: string;
+  /** RQNF10.1: puntos por infracciones acumulados (8 = cancelación). */
+  puntosReputacion?: number;
+  /** RQNF10.3: puntos con los que se cancela la cuenta (8). */
+  puntosCancelacion?: number;
+  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
+  reputacion?: number | null;
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {
@@ -85,8 +93,12 @@ export type PerfilPublico = {
     nombreCompleto: string;
     ventasExitosas: number;
     totalReportes: number;
+    /** RQNF10.3 / RQF12: "activa" | "cancelada". */
+    estadoCuenta?: string;
   };
   productos: Producto[];
+  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
+  reputacion: number | null;
   vendedorDisponibleAhora: boolean;
   proximoBloque: string | null;
 };

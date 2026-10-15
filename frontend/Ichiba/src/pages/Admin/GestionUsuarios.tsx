@@ -92,6 +92,7 @@ function GestionUsuarios() {
               <th>Correo</th>
               <th>Tipo</th>
               <th>Registro</th>
+              <th>Puntos</th>
               <th>Estado</th>
               <th>Acción</th>
             </tr>
@@ -109,30 +110,49 @@ function GestionUsuarios() {
                       )
                     : "Sin fecha"}
                 </td>
+                {/* RQNF10.1 / RQNF10.3: puntos acumulados (8 = cancelación). */}
+                <td>{usuario.puntosReputacion}/8</td>
                 <td>
-                  <span
-                    className={`gestion-usuarios__estado ${
-                      usuario.suspendido
-                        ? "gestion-usuarios__estado--suspendido"
-                        : ""
-                    }`}
-                  >
-                    {usuario.suspendido ? "Suspendido" : "Activo"}
-                  </span>
+                  {usuario.estadoCuenta === "cancelada" ? (
+                    <span className="gestion-usuarios__estado gestion-usuarios__estado--cancelada">
+                      Cancelada
+                    </span>
+                  ) : (
+                    <span
+                      className={`gestion-usuarios__estado ${
+                        usuario.suspendido
+                          ? "gestion-usuarios__estado--suspendido"
+                          : ""
+                      }`}
+                    >
+                      {usuario.suspendido ? "Suspendido" : "Activo"}
+                    </span>
+                  )}
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={
-                      usuario.suspendido
-                        ? "gestion-usuarios__reactivar"
-                        : "gestion-usuarios__suspender"
-                    }
-                    disabled={usuarioEnAccion === usuario.id}
-                    onClick={() => cambiarSuspension(usuario)}
-                  >
-                    {usuario.suspendido ? "Reactivar" : "Suspender"}
-                  </button>
+                  {usuario.estadoCuenta === "cancelada" ? (
+                    <button
+                      type="button"
+                      className="gestion-usuarios__suspender gestion-usuarios__permanente"
+                      disabled
+                      title="La cancelación por 8 puntos es permanente (RQNF10.3)"
+                    >
+                      Permanente
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={
+                        usuario.suspendido
+                          ? "gestion-usuarios__reactivar"
+                          : "gestion-usuarios__suspender"
+                      }
+                      disabled={usuarioEnAccion === usuario.id}
+                      onClick={() => cambiarSuspension(usuario)}
+                    >
+                      {usuario.suspendido ? "Reactivar" : "Suspender"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

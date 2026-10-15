@@ -44,6 +44,12 @@ function RevisionReportes() {
       );
 
       let mensajeAviso = respuesta.message;
+      if (respuesta.cuentaCancelada) {
+        mensajeAviso +=
+          " Se envió el correo de cancelación, se dio de alta en la lista negra, se desactivaron sus publicaciones y solo conserva acceso a sus entregas pendientes (RQNF10.3 / RQNF10.6 / RQF12).";
+      } else if (respuesta.puntosReputacion !== undefined) {
+        mensajeAviso += ` El vendedor lleva ${respuesta.puntosReputacion}/8 puntos de cancelación.`;
+      }
       if (respuesta.faltaGraveRegistrada) {
         mensajeAviso +=
           " Se registró una falta grave por reincidencia (múltiplo de 3 faltas leves).";
@@ -99,6 +105,14 @@ function RevisionReportes() {
                 {reporte.vendedorNombre} · Elemento: {reporte.elemento} ·
                 Reportado por {reporte.reportadoPorTipo} ·{" "}
                 {new Date(reporte.fecha).toLocaleString("es-MX")}
+              </p>
+
+              {/* RQNF10.1 / RQNF10.3: puntos que suma el reporte y acumulado. */}
+              <p className="revision-reportes__puntos">
+                Al confirmarlo suma {reporte.puntos} punto(s) · El vendedor lleva{" "}
+                {reporte.puntosReputacion}/{reporte.puntosCancelacion} puntos
+                {reporte.estadoCuenta === "cancelada" &&
+                  " · ⚠ Cuenta cancelada de forma permanente"}
               </p>
 
               {reporte.detalle && (

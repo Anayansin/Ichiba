@@ -183,6 +183,16 @@ function PanelVendedor() {
   const productosInactivos = misProductos.filter((p) => !p.activo);
   const promocionalesActivos = misPromocionales.filter((p) => p.activo);
   const promocionalesInactivos = misPromocionales.filter((p) => !p.activo);
+  // RQNF10.3 / RQF12: cuenta cancelada de forma permanente por 8 puntos.
+  const cuentaCancelada =
+    ventasData?.cuenta.estadoCuenta === "cancelada" ||
+    perfil.estadoCuenta === "cancelada";
+  const puntosReputacion =
+    ventasData?.cuenta.puntosReputacion ?? perfil.puntosReputacion ?? 0;
+  const puntosCancelacion =
+    ventasData?.cuenta.puntosCancelacion ?? perfil.puntosCancelacion ?? 8;
+  // RQNF10.1: promedio de calificaciones recibidas en ventas completadas.
+  const reputacion = ventasData?.reputacion ?? perfil.reputacion ?? null;
   const ventasPorRevisar =
     ventasData?.ventas.filter((v) => v.estado === "pendiente_confirmacion") ??
     [];
@@ -490,26 +500,32 @@ function PanelVendedor() {
             </p>
           </div>
         </Link>
-        <div className="panel-vendedor__acciones">
-          <Link
-            to={`/panel-vendedor/editar/${producto._id}`}
-            className="panel-vendedor__editar-btn"
-          >
-            Editar
-          </Link>
-          <button
-            className="panel-vendedor__estado-btn"
-            onClick={() => handleCambiarEstado(producto._id)}
-          >
-            {producto.activo ? "Desactivar" : "Activar"}
-          </button>
-          <button
-            className="panel-vendedor__eliminar-btn"
-            onClick={() => handleEliminar(producto._id)}
-          >
-            Eliminar
-          </button>
-        </div>
+        {cuentaCancelada ? (
+          <p className="panel-vendedor__venta-nota">
+            Desactivado por la cancelación de tu cuenta (RQNF10.6).
+          </p>
+        ) : (
+          <div className="panel-vendedor__acciones">
+            <Link
+              to={`/panel-vendedor/editar/${producto._id}`}
+              className="panel-vendedor__editar-btn"
+            >
+              Editar
+            </Link>
+            <button
+              className="panel-vendedor__estado-btn"
+              onClick={() => handleCambiarEstado(producto._id)}
+            >
+              {producto.activo ? "Desactivar" : "Activar"}
+            </button>
+            <button
+              className="panel-vendedor__eliminar-btn"
+              onClick={() => handleEliminar(producto._id)}
+            >
+              Eliminar
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -534,20 +550,26 @@ function PanelVendedor() {
             </p>
           </div>
         </Link>
-        <div className="panel-vendedor__acciones">
-          <button
-            className="panel-vendedor__estado-btn"
-            onClick={() => handleCambiarEstadoPromocional(promocional._id)}
-          >
-            {promocional.activo ? "Desactivar" : "Activar"}
-          </button>
-          <button
-            className="panel-vendedor__eliminar-btn"
-            onClick={() => handleEliminarPromocional(promocional._id)}
-          >
-            Eliminar
-          </button>
-        </div>
+        {cuentaCancelada ? (
+          <p className="panel-vendedor__venta-nota">
+            Desactivado por la cancelación de tu cuenta (RQNF10.6).
+          </p>
+        ) : (
+          <div className="panel-vendedor__acciones">
+            <button
+              className="panel-vendedor__estado-btn"
+              onClick={() => handleCambiarEstadoPromocional(promocional._id)}
+            >
+              {promocional.activo ? "Desactivar" : "Activar"}
+            </button>
+            <button
+              className="panel-vendedor__eliminar-btn"
+              onClick={() => handleEliminarPromocional(promocional._id)}
+            >
+              Eliminar
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -559,6 +581,25 @@ function PanelVendedor() {
       {error && <p className="panel-vendedor__error">{error}</p>}
       {avisoPaypal && (
         <p className="panel-vendedor__paypal-aviso">{avisoPaypal}</p>
+      )}
+
+      {cuentaCancelada && (
+        <div className="panel-vendedor__cancelada">
+          <h2>Tu cuenta fue cancelada de forma permanente</h2>
+          <p>
+            Acumulaste {puntosReputacion}/{puntosCancelacion} puntos de
+            infracción (RQNF10.1), por lo que tu cuenta fue cancelada de forma
+            definitiva: ya no puedes publicar ni vender, y tus datos de
+            identificación (RFC, CURP e INE) quedaron en la lista negra de
+            Ichiba (RQNF10.3 / RQNF10.6).
+          </p>
+          <p>
+            Conservas el acceso únicamente para completar las entregas cuyo pago
+            ya está confirmado (RQF12). Cuando termines la última entrega
+            pendiente, tus datos personales se eliminarán y ya no podrás iniciar
+            sesión.
+          </p>
+        </div>
       )}
 
       <div className="panel-vendedor__stats">
@@ -584,38 +625,60 @@ function PanelVendedor() {
             Ventas concluidas sin problemas
           </span>
         </div>
+        {/* RQNF10.1: promedio de calificaciones de las ventas completadas. */}
+        <div className="panel-vendedor__stat-card">
+          <span className="panel-vendedor__stat-numero">
+            {reputacion === null ? "—" : reputacion.toFixed(1)}
+          </span>
+          <span className="panel-vendedor__stat-label">
+            Calificación promedio de compradores
+          </span>
+        </div>
+        {/* RQNF10.1 / RQNF10.3: puntos de infracción (8 = cancelación). */}
+        <div className="panel-vendedor__stat-card panel-vendedor__stat-card--puntos">
+          <span className="panel-vendedor__stat-numero">
+            {puntosReputacion}/{puntosCancelacion}
+          </span>
+          <span className="panel-vendedor__stat-label">
+            Puntos de infracción (cancelación al llegar a {puntosCancelacion})
+          </span>
+        </div>
         <div className="panel-vendedor__stat-card panel-vendedor__stat-card--reportes">
           <span className="panel-vendedor__stat-numero">{perfil.totalReportes}</span>
           <span className="panel-vendedor__stat-label">Reportes recibidos</span>
         </div>
       </div>
 
-      <div className="panel-vendedor__publicar">
-        <Link
-          to="/panel-vendedor/publicar"
-          className="panel-vendedor__boton-publicar"
-        >
-          + Publicar nuevo producto
-        </Link>
-        <Link
-          to="/panel-vendedor/promocionar"
-          className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
-        >
-          + Publicar promocional
-        </Link>
-        <Link
-          to="/panel-vendedor/horario"
-          className="panel-vendedor__boton-publicar"
-        >
-          Configurar horario
-        </Link>
-        <Link
-          to="/panel-vendedor/reportar-comprador"
-          className="panel-vendedor__boton-publicar"
-        >
-          Reportar a un comprador
-        </Link>
-      </div>
+      {/* RQF12: la cuenta cancelada ya no puede publicar ni configurar horario;
+          solo conserva acceso a sus entregas pendientes. */}
+      {!cuentaCancelada && (
+        <div className="panel-vendedor__publicar">
+          <Link
+            to="/panel-vendedor/publicar"
+            className="panel-vendedor__boton-publicar"
+          >
+            + Publicar nuevo producto
+          </Link>
+          <Link
+            to="/panel-vendedor/promocionar"
+            className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
+          >
+            + Publicar promocional
+          </Link>
+          <Link
+            to="/panel-vendedor/horario"
+            className="panel-vendedor__boton-publicar"
+          >
+            Configurar horario
+          </Link>
+          <Link
+            to="/panel-vendedor/reportar-comprador"
+            className="panel-vendedor__boton-publicar"
+          >
+            Reportar a un comprador
+          </Link>
+        </div>
+      )}
 
       <div className="panel-vendedor__ventas">
         <h2>Ventas y entregas</h2>
@@ -685,8 +748,10 @@ function PanelVendedor() {
         )}
       </div>
 
-      <div className="panel-vendedor__preferencias">
-        <h2>Preferencias de notificaciones</h2>
+      {/* RQF12: la cuenta cancelada tampoco puede cambiar sus preferencias. */}
+      {!cuentaCancelada && (
+        <div className="panel-vendedor__preferencias">
+          <h2>Preferencias de notificaciones</h2>
         <p className="panel-vendedor__preferencias-nota">
           Elige qué correos quieres recibir de Ichiba. Puedes cambiarlas cuando
           quieras.
@@ -727,15 +792,16 @@ function PanelVendedor() {
           </p>
         )}
 
-        <button
-          type="button"
-          className="panel-vendedor__preferencias-boton"
-          onClick={guardarPreferencias}
-          disabled={guardandoPreferencias}
-        >
-          {guardandoPreferencias ? "Guardando..." : "Guardar preferencias"}
-        </button>
-      </div>
+          <button
+            type="button"
+            className="panel-vendedor__preferencias-boton"
+            onClick={guardarPreferencias}
+            disabled={guardandoPreferencias}
+          >
+            {guardandoPreferencias ? "Guardando..." : "Guardar preferencias"}
+          </button>
+        </div>
+      )}
 
       <div className="panel-vendedor__productos">
         <h2>Activos</h2>

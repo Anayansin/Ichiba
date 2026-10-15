@@ -7,6 +7,7 @@ import {
   type UsuarioEscrow,
   type VentaEscrow,
 } from "../services/escrowService.js";
+import { purgarCuentasCanceladasResueltas } from "../services/cancelacionCuentaService.js";
 
 /**
  * RQNF23 / RQNF24 / RQNF28 / RQNF31: revisión automática del escrow.
@@ -117,6 +118,23 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
         error instanceof Error ? error.message : error,
       );
     }
+  }
+
+  // RQNF10.6 / RQF12: las cuentas canceladas por 8 puntos que ya resolvieron
+  // todas sus entregas se purgan aquí (nombre, correo, contraseña,
+  // publicaciones, chats y token de PayPal).
+  try {
+    const purgadas = await purgarCuentasCanceladasResueltas();
+    for (const id of purgadas) {
+      acciones.push(
+        `Cuenta ${id}: datos personales purgados tras resolverse sus entregas pendientes`,
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[cancelacion] No se pudieron purgar las cuentas canceladas:",
+      error instanceof Error ? error.message : error,
+    );
   }
 
   return acciones;

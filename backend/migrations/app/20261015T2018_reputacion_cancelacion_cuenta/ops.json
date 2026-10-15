@@ -1,0 +1,170 @@
+[
+  {
+    "id": "column.public.usuario.canceladaEn",
+    "label": "Add column \"canceladaEn\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "canceladaEn",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"canceladaEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "canceladaEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"canceladaEn\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"canceladaEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"canceladaEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "canceladaEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.datosEliminadosEn",
+    "label": "Add column \"datosEliminadosEn\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "datosEliminadosEn",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"datosEliminadosEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "datosEliminadosEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"datosEliminadosEn\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"datosEliminadosEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"datosEliminadosEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "datosEliminadosEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.estadoCuenta",
+    "label": "Add column \"estadoCuenta\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "estadoCuenta",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"estadoCuenta\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "estadoCuenta"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"estadoCuenta\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"estadoCuenta\" text DEFAULT 'activa' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"estadoCuenta\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "estadoCuenta"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.puntosReputacion",
+    "label": "Add column \"puntosReputacion\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "puntosReputacion",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"puntosReputacion\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "puntosReputacion"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"puntosReputacion\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"puntosReputacion\" float8 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"puntosReputacion\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "puntosReputacion"
+        ]
+      }
+    ]
+  }
+]

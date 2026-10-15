@@ -99,6 +99,14 @@ export type VentaDelVendedor = {
 };
 
 export type ResumenVentasDelVendedor = {
+  /** RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y puntos acumulados. */
+  cuenta: {
+    estadoCuenta: string;
+    puntosReputacion: number;
+    puntosCancelacion: number;
+  };
+  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
+  reputacion: number | null;
   resumen: { porRevisar: number; enEntrega: number; completadas: number };
   ventas: VentaDelVendedor[];
 };

@@ -161,6 +161,10 @@ function Dashboard() {
                 valor={entero.format(resumen.usuarios.suspendidos)}
               />
               <Tarjeta
+                etiqueta="Cancelados (8 puntos)"
+                valor={entero.format(resumen.usuarios.cancelados)}
+              />
+              <Tarjeta
                 etiqueta="Nuevos (30 días)"
                 valor={entero.format(resumen.usuarios.nuevos30Dias)}
               />

@@ -7,6 +7,10 @@ export type UsuarioAdmin = {
   correo: string;
   tipo: string;
   suspendido: boolean;
+  /** RQNF10.1 / RQNF10.3: puntos por infracciones acumulados (8 = cancelación). */
+  puntosReputacion: number;
+  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
+  estadoCuenta: string;
   fechaRegistro: string | null;
 };
 
@@ -49,6 +53,14 @@ export type ReportePendiente = {
   sujetoTipo: string;
   reportadoPorTipo: string;
   vendedorNombre: string;
+  /** RQNF10.1: puntos que suma este reporte si el administrador lo confirma. */
+  puntos: number;
+  /** RQNF10.1: puntos que ya lleva acumulados el vendedor. */
+  puntosReputacion: number;
+  /** RQNF10.3: puntos con los que la cuenta se cancela (8). */
+  puntosCancelacion: number;
+  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
+  estadoCuenta: string;
   fecha: string;
 };
 
@@ -57,6 +69,12 @@ export type RespuestaResolucion = {
   estado?: string;
   faltasLeves?: number;
   faltaGraveRegistrada?: boolean;
+  /** RQNF10.1: puntos que sumó el reporte al confirmarse. */
+  puntos?: number;
+  /** RQNF10.1: puntos totales del vendedor después de confirmar. */
+  puntosReputacion?: number;
+  /** RQNF10.3: true si con este reporte la cuenta llegó a 8 puntos y se canceló. */
+  cuentaCancelada?: boolean;
 };
 
 export async function fetchReportesPendientes(): Promise<
@@ -167,6 +185,8 @@ export type ResumenAdmin = {
     suspendidos: number;
     administradores: number;
     nuevos30Dias: number;
+    /** RQNF10.3: cuentas canceladas de forma permanente por llegar a 8 puntos. */
+    cancelados: number;
   };
   catalogo: {
     productos: { total: number; activos: number };

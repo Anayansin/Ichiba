@@ -343,6 +343,13 @@
                   "kind": "scalar"
                 }
               },
+              "canceladaEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
               "codigoCorreo": {
                 "nullable": true,
                 "type": {
@@ -399,6 +406,13 @@
                   "kind": "scalar"
                 }
               },
+              "datosEliminadosEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
               "diasSinConfirmarHorario": {
                 "nullable": false,
                 "type": {
@@ -407,6 +421,13 @@
                 }
               },
               "direccion": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "estadoCuenta": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
@@ -480,6 +501,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "puntosReputacion": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/float8@1",
                   "kind": "scalar"
                 }
               },
@@ -577,6 +605,9 @@
                 "aceptaTerminos": {
                   "column": "aceptaTerminos"
                 },
+                "canceladaEn": {
+                  "column": "canceladaEn"
+                },
                 "codigoCorreo": {
                   "column": "codigoCorreo"
                 },
@@ -601,11 +632,17 @@
                 "curp": {
                   "column": "curp"
                 },
+                "datosEliminadosEn": {
+                  "column": "datosEliminadosEn"
+                },
                 "diasSinConfirmarHorario": {
                   "column": "diasSinConfirmarHorario"
                 },
                 "direccion": {
                   "column": "direccion"
+                },
+                "estadoCuenta": {
+                  "column": "estadoCuenta"
                 },
                 "faltasLeves": {
                   "column": "faltasLeves"
@@ -636,6 +673,9 @@
                 },
                 "paypalEmail": {
                   "column": "paypalEmail"
+                },
+                "puntosReputacion": {
+                  "column": "puntosReputacion"
                 },
                 "recibirNotificacionesCriticas": {
                   "column": "recibirNotificacionesCriticas"
@@ -1183,6 +1223,11 @@
                   "nativeType": "bool",
                   "nullable": false
                 },
+                "canceladaEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
                 "codigoCorreo": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -1231,6 +1276,11 @@
                   "nativeType": "text",
                   "nullable": true
                 },
+                "datosEliminadosEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
                 "diasSinConfirmarHorario": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -1242,6 +1292,15 @@
                 },
                 "direccion": {
                   "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "estadoCuenta": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "activa"
+                  },
                   "nativeType": "text",
                   "nullable": false
                 },
@@ -1301,6 +1360,15 @@
                 "paypalEmail": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "puntosReputacion": {
+                  "codecId": "pg/float8@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "float8",
                   "nullable": false
                 },
                 "recibirNotificacionesCriticas": {
@@ -1565,7 +1633,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "1dbc5f25cc63c9da79c70436ecd83aaf54a7f177036f9ebd61614a4a64021ac5"
+    "storageHash": "1221e10be509fe8eb880c207d9cd1d982d1493bd4fce723f57412136a378ce66"
   },
   "execution": {
     "executionHash": "ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037",
