@@ -7,12 +7,16 @@ import ListaNegra from "./ListaNegra";
 import RevisionReportes from "./RevisionReportes";
 import Trazabilidad from "./Trazabilidad";
 import Dashboard from "./Dashboard";
+import Disputas from "./Disputas";
+import Adeudos from "./Adeudos";
 import "./Admin.css";
 
 const SECCIONES = [
   { id: "inicio", etiqueta: "Inicio" },
   { id: "usuarios", etiqueta: "Gestión de usuarios" },
   { id: "reportes", etiqueta: "Reportes pendientes" },
+  { id: "disputas", etiqueta: "Disputas y retenciones" },
+  { id: "adeudos", etiqueta: "Adeudos de vendedores" },
   { id: "informes", etiqueta: "Informes globales" },
   { id: "lista-negra", etiqueta: "Lista negra" },
   { id: "trazabilidad", etiqueta: "Trazabilidad" },
@@ -52,6 +56,8 @@ function Admin() {
       <div className="admin__contenido">
         {seccionActiva === "usuarios" && <GestionUsuarios />}
         {seccionActiva === "reportes" && <RevisionReportes />}
+        {seccionActiva === "disputas" && <Disputas />}
+        {seccionActiva === "adeudos" && <Adeudos />}
         {seccionActiva === "informes" && <InformesGlobales />}
         {seccionActiva === "lista-negra" && <ListaNegra />}
         {seccionActiva === "trazabilidad" && <Trazabilidad />}

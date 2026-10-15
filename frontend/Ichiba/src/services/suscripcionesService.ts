@@ -83,3 +83,11 @@ export type EventoListaNegra = {
   entradas: number;
   generadoEn: string;
 };
+
+export type EventoDisputa = {
+  tipo: string;
+  mensaje: string;
+  /** RQF40: disputas que siguen abiertas tras el cambio. */
+  abiertas: number;
+  generadoEn: string;
+};

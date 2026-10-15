@@ -223,3 +223,101 @@ export async function calificarVenta(
   const response = await api.post(`/pagos/${ventaMongoId}/calificar`, datos);
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// RQF40 / RQNF32: disputas de reembolso.
+// ---------------------------------------------------------------------------
+
+export type DisputaDeVenta = {
+  id: string;
+  ventaIdPg: number;
+  ventaMongoId: string | null;
+  productoNombre: string;
+  compradorId: string;
+  vendedorId: number;
+  vendedorNombre: string;
+  monto: number;
+  motivo: string;
+  descripcion: string | null;
+  /** Rutas autorizadas de las evidencias (se descargan como blob). */
+  evidenciasComprador: string[];
+  respuestaVendedor: string | null;
+  evidenciasVendedor: string[];
+  respondidaEn: string | null;
+  /** "abierta" | "reembolsada" | "rechazada". */
+  estado: string;
+  resueltaEn: string | null;
+  resueltaPor: string | null;
+  notaAdmin: string | null;
+  reembolsoId: string | null;
+  /** Estado del escrow de la venta (en_entrega, completada, …). */
+  ventaEstado: string | null;
+  fecha: string;
+};
+
+/**
+ * RQF40: el comprador abre la disputa de una compra en entrega o completada
+ * (motivo, descripción y hasta 5 evidencias). Mientras esté abierta, el pago
+ * queda retenido (RQNF32).
+ */
+export async function abrirDisputaDeCompra(
+  ventaId: number,
+  datos: { motivo: string; descripcion: string; imagenes: File[] },
+) {
+  const formData = new FormData();
+  formData.append("motivo", datos.motivo);
+  formData.append("descripcion", datos.descripcion);
+  for (const imagen of datos.imagenes.slice(0, 5)) {
+    formData.append("evidencias", imagen);
+  }
+
+  const response = await api.post(`/pagos/${ventaId}/disputa`, formData);
+  return response.data as { message: string; disputa: DisputaDeVenta };
+}
+
+/** RQF40: disputas del comprador (para «Mis pedidos»). */
+export async function fetchMisDisputas() {
+  const response = await api.get("/pagos/disputas/mis-disputas");
+  return response.data as { disputas: DisputaDeVenta[] };
+}
+
+/** RQF40: disputas del vendedor (para su panel). */
+export async function fetchDisputasDelVendedor() {
+  const response = await api.get("/pagos/vendedor/disputas");
+  return response.data as { disputas: DisputaDeVenta[] };
+}
+
+/** RQF40: el vendedor responde la disputa con su versión y sus evidencias. */
+export async function responderDisputaDeVenta(
+  disputaId: string,
+  datos: { respuesta: string; imagenes: File[] },
+) {
+  const formData = new FormData();
+  formData.append("respuesta", datos.respuesta);
+  for (const imagen of datos.imagenes.slice(0, 5)) {
+    formData.append("evidencias", imagen);
+  }
+
+  const response = await api.post(
+    `/pagos/disputas/${disputaId}/responder`,
+    formData,
+  );
+  return response.data as { message: string; disputa: DisputaDeVenta };
+}
+
+/**
+ * Las evidencias de una disputa solo las ven el comprador, el vendedor y la
+ * administración, así que no se pueden usar en un <img src> directo: se
+ * descargan como blob y se devuelve una URL temporal.
+ */
+export async function fetchEvidenciaDisputa(
+  disputaId: string,
+  lado: "comprador" | "vendedor",
+  indice: number,
+): Promise<string> {
+  const response = await api.get(
+    `/pagos/disputas/${disputaId}/evidencia/${lado}/${indice}`,
+    { responseType: "blob" },
+  );
+  return URL.createObjectURL(response.data as Blob);
+}

@@ -227,3 +227,184 @@ export async function fetchResumenAdmin(): Promise<ResumenAdmin> {
   const response = await api.get("/admin/resumen");
   return response.data;
 }
+
+// ---------------------------------------------------------------------------
+// RQF40 / RQNF32: disputas de reembolso y ventas con retención preventiva.
+// ---------------------------------------------------------------------------
+
+export type DisputaAdmin = {
+  id: string;
+  ventaIdPg: number;
+  ventaMongoId: string | null;
+  productoNombre: string;
+  compradorId: string;
+  vendedorId: number;
+  vendedorNombre: string;
+  monto: number;
+  motivo: string;
+  descripcion: string | null;
+  /** Rutas autorizadas de las evidencias (se descargan como blob). */
+  evidenciasComprador: string[];
+  respuestaVendedor: string | null;
+  evidenciasVendedor: string[];
+  respondidaEn: string | null;
+  /** "abierta" | "reembolsada" | "rechazada". */
+  estado: string;
+  resueltaEn: string | null;
+  resueltaPor: string | null;
+  notaAdmin: string | null;
+  reembolsoId: string | null;
+  ventaEstado: string | null;
+  fecha: string;
+};
+
+export type VentaRetenidaAdmin = {
+  ventaId: number;
+  ventaMongoId: string | null;
+  estado: string;
+  monto: number;
+  productoNombre: string;
+  compradorId: string;
+  vendedorId: number;
+  vendedorNombre: string;
+  canceladoMotivo: string | null;
+  tieneDisputaAbierta: boolean;
+  reportesPendientes: number;
+  reportesConfirmados: number;
+  fecha: string;
+};
+
+export type RespuestaDisputas = {
+  disputas: DisputaAdmin[];
+  ventasRetenidas: VentaRetenidaAdmin[];
+  abiertas: number;
+  pagina: number;
+  porPagina: number;
+  total: number;
+  totalPaginas: number;
+};
+
+export async function fetchDisputasAdmin(
+  pagina: number,
+  porPagina: number,
+  estado?: string,
+): Promise<RespuestaDisputas> {
+  const response = await api.get("/admin/disputas", {
+    params: { pagina, porPagina, estado },
+  });
+  return response.data;
+}
+
+export type RespuestaDictamenDisputa = {
+  message: string;
+  dictamen: "reembolsar" | "rechazar";
+  reembolsada: boolean;
+  retencionLiberada: boolean;
+  adeudoId?: string;
+};
+
+export async function resolverDisputaAdmin(
+  id: string,
+  dictamen: "reembolsar" | "rechazar",
+  nota?: string,
+): Promise<RespuestaDictamenDisputa> {
+  const response = await api.post(`/admin/disputas/${id}/resolver`, {
+    dictamen,
+    nota,
+  });
+  return response.data;
+}
+
+export type RespuestaVentaRetenida = {
+  message: string;
+  ventaId: number;
+  reembolsada: boolean;
+  retencionLiberada: boolean;
+  adeudoId?: string;
+};
+
+export async function resolverVentaRetenidaAdmin(
+  ventaId: number,
+  dictamen: "reembolsar" | "liberar",
+  opciones: { causaAdeudo?: string; nota?: string } = {},
+): Promise<RespuestaVentaRetenida> {
+  const response = await api.post(
+    `/admin/ventas-retenidas/${ventaId}/resolver`,
+    { dictamen, causaAdeudo: opciones.causaAdeudo, nota: opciones.nota },
+  );
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// RQNF37 / RQNF38: adeudos de los vendedores y su liquidación.
+// ---------------------------------------------------------------------------
+
+export type AdeudoAdmin = {
+  id: string;
+  usuarioId: number;
+  vendedorNombre: string;
+  ventaIdPg: number;
+  productoNombre: string;
+  monto: number;
+  motivo: string;
+  causa: string;
+  /** "pendiente" | "liquidado". */
+  estado: string;
+  fecha: string;
+  liquidadoEn: string | null;
+  liquidadoPor: string | null;
+  nota: string | null;
+};
+
+export type RespuestaAdeudos = {
+  adeudos: AdeudoAdmin[];
+  pagina: number;
+  porPagina: number;
+  total: number;
+  totalPaginas: number;
+  /** Suma de todos los adeudos pendientes de liquidar. */
+  pendienteTotal: number;
+};
+
+export async function fetchAdeudosAdmin(
+  pagina: number,
+  porPagina: number,
+  estado?: string,
+): Promise<RespuestaAdeudos> {
+  const response = await api.get("/admin/adeudos", {
+    params: { pagina, porPagina, estado },
+  });
+  return response.data;
+}
+
+export type RespuestaLiquidacion = {
+  message: string;
+  adeudo: AdeudoAdmin;
+  saldoPendiente: number;
+  reactivado: boolean;
+};
+
+export async function liquidarAdeudoAdmin(
+  id: string,
+  nota?: string,
+): Promise<RespuestaLiquidacion> {
+  const response = await api.post(`/admin/adeudos/${id}/liquidar`, { nota });
+  return response.data;
+}
+
+/** RQNF37: causas de un adeudo, para el dictamen de ventas retenidas. */
+export const CAUSAS_ADEUDO_ADMIN: { valor: string; etiqueta: string }[] = [
+  { valor: "", etiqueta: "No registrar adeudo" },
+  { valor: "reporte_confirmado", etiqueta: "Reporte confirmado al vendedor" },
+  { valor: "disputa_vendedor", etiqueta: "Disputa resuelta en su contra" },
+  { valor: "sin_confirmar_comprobante", etiqueta: "No confirmó el comprobante" },
+  { valor: "entrega_vencida", etiqueta: "Entrega fuera del plazo" },
+  { valor: "inactividad_chat", etiqueta: "Inactividad en el chat" },
+  { valor: "otro", etiqueta: "Otro motivo (irregularidad)" },
+];
+
+/** RQNF37: causa legible de un adeudo ya registrado. */
+export function textoCausaAdeudo(causa: string): string {
+  const encontrada = CAUSAS_ADEUDO_ADMIN.find((item) => item.valor === causa);
+  return encontrada?.etiqueta ?? causa;
+}

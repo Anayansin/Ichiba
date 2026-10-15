@@ -22,10 +22,14 @@ import {
 } from "../../services/promocionalService";
 import {
   confirmarComprobanteDeVenta,
+  fetchDisputasDelVendedor,
+  fetchEvidenciaDisputa,
   fetchImagenComprobante,
   fetchVentasDelVendedor,
   rechazarComprobanteDeVenta,
   registrarEntregaDeVenta,
+  responderDisputaDeVenta,
+  type DisputaDeVenta,
   type ResumenVentasDelVendedor,
   type VentaDelVendedor,
 } from "../../services/pagoService";
@@ -39,6 +43,74 @@ import { fechaLimiteTexto } from "../../utils/estadoVenta";
 import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
+
+/** RQF40: estado legible de una disputa para el vendedor. */
+function textoEstadoDisputaVendedor(estado: string): string {
+  const textos: Record<string, string> = {
+    abierta:
+      "Disputa abierta: la administración la está revisando y el pago sigue retenido",
+    reembolsada:
+      "Disputa resuelta a favor del comprador: se le reembolsó el monto",
+    rechazada:
+      "Disputa rechazada: la venta continúa su curso normal y el pago se libera",
+  };
+  return textos[estado] ?? estado;
+}
+
+/**
+ * RQF40: las evidencias solo las ven las partes y la administración, así que
+ * se descargan con la sesión y se muestran como blob.
+ */
+function EvidenciasDeDisputaVendedor({
+  disputaId,
+  lado,
+  cantidad,
+}: {
+  disputaId: string;
+  lado: "comprador" | "vendedor";
+  cantidad: number;
+}) {
+  const [urls, setUrls] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (cantidad === 0) {
+      setUrls([]);
+      return;
+    }
+
+    let activo = true;
+    const creadas: string[] = [];
+
+    (async () => {
+      for (let indice = 0; indice < cantidad; indice += 1) {
+        try {
+          const url = await fetchEvidenciaDisputa(disputaId, lado, indice);
+          creadas.push(url);
+          if (activo) setUrls([...creadas]);
+        } catch {
+          // Una evidencia ilegible no rompe la tarjeta.
+        }
+      }
+    })();
+
+    return () => {
+      activo = false;
+      for (const url of creadas) URL.revokeObjectURL(url);
+    };
+  }, [disputaId, lado, cantidad]);
+
+  if (cantidad === 0) return null;
+
+  return (
+    <div className="panel-vendedor__evidencias">
+      {urls.map((url) => (
+        <a key={url} href={url} target="_blank" rel="noreferrer">
+          <img src={url} alt={`Evidencia del ${lado}`} />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 function PanelVendedor() {
   const { usuario } = useAuth();
@@ -86,6 +158,22 @@ function PanelVendedor() {
   );
   const [errorInformes, setErrorInformes] = useState("");
 
+  // RQF40: disputas de reembolso abiertas por los compradores en sus compras.
+  const [disputasVendedor, setDisputasVendedor] = useState<DisputaDeVenta[]>(
+    [],
+  );
+  const [respuestasDisputa, setRespuestasDisputa] = useState<
+    Record<string, string>
+  >({});
+  const [imagenesRespuesta, setImagenesRespuesta] = useState<
+    Record<string, File[]>
+  >({});
+  const [enviandoRespuesta, setEnviandoRespuesta] = useState<string | null>(
+    null,
+  );
+  const [errorDisputas, setErrorDisputas] = useState("");
+  const [avisoDisputas, setAvisoDisputas] = useState("");
+
   function cargarImagenesDeComprobantes(data: ResumenVentasDelVendedor | null) {
     if (!data) return;
     for (const venta of data.ventas) {
@@ -124,13 +212,19 @@ function PanelVendedor() {
         console.error("Error al cargar los informes:", error);
         return [] as InformeVendedor[];
       }),
+      // Las disputas tampoco deben impedir cargar el panel
+      fetchDisputasDelVendedor().catch((error) => {
+        console.error("Error al cargar las disputas:", error);
+        return { disputas: [] as DisputaDeVenta[] };
+      }),
     ])
-      .then(([datosPerfil, productos, promocionales, datosVentas, datosInformes]) => {
+      .then(([datosPerfil, productos, promocionales, datosVentas, datosInformes, datosDisputas]) => {
         setPerfil(datosPerfil);
         setMisProductos(productos);
         setMisPromocionales(promocionales);
         setVentasData(datosVentas);
         setInformes(datosInformes);
+        setDisputasVendedor(datosDisputas.disputas);
         cargarImagenesDeComprobantes(datosVentas);
       })
       .catch((error) => {
@@ -347,6 +441,42 @@ function PanelVendedor() {
     }
   }
 
+  // --- RQF40: disputas de reembolso abiertas por los compradores -----------
+
+  async function handleResponderDisputa(disputaId: string) {
+    const respuesta = (respuestasDisputa[disputaId] ?? "").trim();
+    if (!respuesta) {
+      setErrorDisputas(
+        "Escribe tu versión de lo sucedido antes de enviarla.",
+      );
+      return;
+    }
+
+    setEnviandoRespuesta(disputaId);
+    setErrorDisputas("");
+    setAvisoDisputas("");
+    try {
+      const datos = await responderDisputaDeVenta(disputaId, {
+        respuesta,
+        imagenes: imagenesRespuesta[disputaId] ?? [],
+      });
+      setDisputasVendedor((anteriores) =>
+        anteriores.map((disputa) =>
+          disputa.id === disputaId ? datos.disputa : disputa,
+        ),
+      );
+      setRespuestasDisputa((anteriores) => ({ ...anteriores, [disputaId]: "" }));
+      setImagenesRespuesta((anteriores) => ({ ...anteriores, [disputaId]: [] }));
+      setAvisoDisputas(datos.message);
+    } catch (err) {
+      setErrorDisputas(
+        mensajeDeError(err) || "No se pudo enviar tu respuesta",
+      );
+    } finally {
+      setEnviandoRespuesta(null);
+    }
+  }
+
   // --- RQF13 / RQNF13.3: informes mensuales de ventas ----------------------
 
   async function handleDescargarInforme(periodo: string) {
@@ -513,6 +643,106 @@ function PanelVendedor() {
           )}
         </div>
         <EtiquetaEstadoVenta estado={venta.estado} rol="vendedor" />
+      </div>
+    );
+  }
+
+  // RQF40: una disputa de reembolso del comprador y su formulario de respuesta.
+  function renderDisputa(disputa: DisputaDeVenta) {
+    const pendienteDeRespuesta =
+      disputa.estado === "abierta" && !disputa.respuestaVendedor;
+
+    return (
+      <div key={disputa.id} className="panel-vendedor__disputa">
+        <div className="panel-vendedor__disputa-info">
+          <p className="panel-vendedor__venta-nombre">
+            {disputa.productoNombre}
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            ${disputa.monto.toFixed(2)} · Comprador:{" "}
+            {disputa.compradorId.slice(0, 8)}… ·{" "}
+            {new Date(disputa.fecha).toLocaleDateString()}
+          </p>
+          <p className="panel-vendedor__disputa-estado">
+            {textoEstadoDisputaVendedor(disputa.estado)}
+          </p>
+          <p className="panel-vendedor__venta-detalle">
+            Motivo: {disputa.motivo}
+          </p>
+          {disputa.descripcion && (
+            <p className="panel-vendedor__venta-detalle">
+              {disputa.descripcion}
+            </p>
+          )}
+          {disputa.evidenciasComprador.length > 0 && (
+            <EvidenciasDeDisputaVendedor
+              disputaId={disputa.id}
+              lado="comprador"
+              cantidad={disputa.evidenciasComprador.length}
+            />
+          )}
+          {disputa.respuestaVendedor && (
+            <p className="panel-vendedor__disputa-respuesta">
+              Tu respuesta: {disputa.respuestaVendedor}
+            </p>
+          )}
+          {disputa.evidenciasVendedor.length > 0 && (
+            <EvidenciasDeDisputaVendedor
+              disputaId={disputa.id}
+              lado="vendedor"
+              cantidad={disputa.evidenciasVendedor.length}
+            />
+          )}
+          {disputa.notaAdmin && (
+            <p className="panel-vendedor__venta-detalle">
+              Nota de la administración: {disputa.notaAdmin}
+            </p>
+          )}
+        </div>
+
+        {pendienteDeRespuesta && (
+          <div className="panel-vendedor__disputa-acciones">
+            <textarea
+              className="panel-vendedor__motivo-rechazo"
+              rows={3}
+              maxLength={2000}
+              placeholder="Tu versión de lo sucedido (la verán la administración y el comprador)"
+              value={respuestasDisputa[disputa.id] ?? ""}
+              onChange={(e) =>
+                setRespuestasDisputa((anteriores) => ({
+                  ...anteriores,
+                  [disputa.id]: e.target.value,
+                }))
+              }
+            />
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="panel-vendedor__archivo-disputa"
+              onChange={(e) =>
+                setImagenesRespuesta((anteriores) => ({
+                  ...anteriores,
+                  [disputa.id]: Array.from(e.target.files ?? []).slice(0, 5),
+                }))
+              }
+            />
+            <p className="panel-vendedor__venta-nota">
+              Puedes adjuntar hasta 5 imágenes como evidencia. Solo se admite
+              una respuesta por disputa.
+            </p>
+            <button
+              type="button"
+              className="panel-vendedor__confirmar-btn"
+              onClick={() => handleResponderDisputa(disputa.id)}
+              disabled={enviandoRespuesta === disputa.id}
+            >
+              {enviandoRespuesta === disputa.id
+                ? "Enviando..."
+                : "Enviar mi respuesta"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -778,6 +1008,33 @@ function PanelVendedor() {
         ) : (
           <div className="panel-vendedor__lista-ventas">
             {ventasHistorial.map(renderHistorial)}
+          </div>
+        )}
+      </div>
+
+      {/* RQF40: disputas de reembolso abiertas por los compradores. */}
+      <div className="panel-vendedor__disputas">
+        <h2>Disputas de reembolso</h2>
+        <p className="panel-vendedor__informes-nota">
+          Cuando un comprador abre una disputa, el pago de esa venta queda
+          retenido (RQNF32) hasta que la administración resuelva el caso. Aquí
+          puedes presentar tu versión y adjuntar tus evidencias.
+        </p>
+
+        {errorDisputas && (
+          <p className="panel-vendedor__error">{errorDisputas}</p>
+        )}
+        {avisoDisputas && (
+          <p className="panel-vendedor__disputas-aviso">{avisoDisputas}</p>
+        )}
+
+        {disputasVendedor.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes disputas de reembolso.
+          </p>
+        ) : (
+          <div className="panel-vendedor__lista-disputas">
+            {disputasVendedor.map(renderDisputa)}
           </div>
         )}
       </div>

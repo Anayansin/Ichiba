@@ -10,6 +10,7 @@
 .mis-pedidos__item {
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 1rem;
   padding: 1rem;
   background-color: #f9f9f9;
@@ -117,4 +118,131 @@
   margin: 0;
   font-size: 0.8rem;
   color: #b3001b;
+}
+
+/* RQF40: aviso tras abrir una disputa */
+.mis-pedidos__aviso {
+  background: #e6f4ea;
+  border: 1px solid #1e7e34;
+  color: #1e7e34;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+/* RQF40: disputa de reembolso del comprador */
+.mis-pedidos__disputa {
+  margin-top: 0.5rem;
+  background: #fff4f4;
+  border: 1px solid #d90429;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mis-pedidos__disputa-estado {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #b3001b;
+}
+
+.mis-pedidos__disputa-motivo {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #444;
+}
+
+.mis-pedidos__disputa-respuesta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #444;
+  background: #f1f1f1;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+
+.mis-pedidos__evidencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mis-pedidos__evidencias img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.mis-pedidos__disputa-boton {
+  background: #d90429;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mis-pedidos__disputa-boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* RQF40: formulario para abrir una disputa (ocupa todo el ancho) */
+.mis-pedidos__formulario-disputa {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px dashed #d90429;
+  border-radius: 10px;
+  padding: 0.9rem;
+}
+
+.mis-pedidos__formulario-titulo {
+  margin: 0;
+  font-weight: 700;
+  color: #d90429;
+}
+
+.mis-pedidos__formulario-nota {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #666;
+}
+
+.mis-pedidos__formulario-acciones {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mis-pedidos__campo {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.mis-pedidos__campo--area {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.mis-pedidos__archivo {
+  font-size: 0.85rem;
+}
+
+.mis-pedidos__error {
+  margin: 0;
+  color: #b3001b;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
