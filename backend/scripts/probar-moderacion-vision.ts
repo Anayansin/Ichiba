@@ -757,6 +757,63 @@ try {
       textoCoberturaMala.includes('"campo":"coberturaEnvio"'),
     `status ${rPromoCoberturaMala.status}: ${textoCoberturaMala}`,
   );
+
+  // -------------------------------------------------------------------------
+  // Botón "Pagar con …" de la fila: el detalle del producto informa el
+  // método de pago del vendedor (PayPal o Mercado Pago).
+  // -------------------------------------------------------------------------
+
+  // 34) Vendedor de PayPal → metodoPagoVendedor = paypal
+  if (!productoCorregido) {
+    verificar(
+      "Detalle con vendedor PayPal indica metodoPagoVendedor=paypal",
+      false,
+      "no hay producto de referencia",
+    );
+  } else {
+    const detallePayPal = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${productoCorregido}`,
+    );
+    const jsonPayPal = (await detallePayPal.json()) as {
+      metodoPagoVendedor?: string;
+    };
+    verificar(
+      "Detalle con vendedor PayPal indica metodoPagoVendedor=paypal",
+      detallePayPal.ok && jsonPayPal.metodoPagoVendedor === "paypal",
+      `metodoPagoVendedor: ${jsonPayPal.metodoPagoVendedor}`,
+    );
+  }
+
+  // 35) Vendedor de Mercado Pago → metodoPagoVendedor = mercadopago
+  const listaRutas = await fetch(
+    `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos`,
+  );
+  const productosLista = (await listaRutas.json()) as {
+    _id: string;
+    vendedorId: string;
+  }[];
+  const deMercadoPago = productosLista.find(
+    (producto) => String(producto.vendedorId) === "6",
+  );
+  if (!deMercadoPago) {
+    verificar(
+      "Detalle con vendedor Mercado Pago indica metodoPagoVendedor=mercadopago",
+      false,
+      "la base local no tiene productos del vendedor 6",
+    );
+  } else {
+    const detalleMP = await fetch(
+      `http://127.0.0.1:${PUERTO_CON_LLAVE}/api/productos/${deMercadoPago._id}`,
+    );
+    const jsonMP = (await detalleMP.json()) as {
+      metodoPagoVendedor?: string;
+    };
+    verificar(
+      "Detalle con vendedor Mercado Pago indica metodoPagoVendedor=mercadopago",
+      detalleMP.ok && jsonMP.metodoPagoVendedor === "mercadopago",
+      `metodoPagoVendedor: ${jsonMP.metodoPagoVendedor}`,
+    );
+  }
 } finally {
   // Limpieza: borrar productos y promocionales creados (y sus archivos) y
   // apagar todo

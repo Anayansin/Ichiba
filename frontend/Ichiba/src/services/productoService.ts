@@ -17,6 +17,8 @@ export type Producto = {
   horarioEntregaFin?: string;
   tiempoLimitePago?: number;
   activo: boolean;
+  /** Método de pago del vendedor (lo envía GET /productos/:id). */
+  metodoPagoVendedor?: "paypal" | "mercadopago";
 };
 
 export type NuevoProducto = {

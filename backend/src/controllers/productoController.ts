@@ -16,6 +16,7 @@ import {
   TIEMPO_PAGO_DEFECTO,
 } from "../models/producto.js";
 import { moderarFotosProducto } from "../services/visionService.js";
+import { Usuario } from "../models/usuario.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -253,7 +254,26 @@ export async function getProductoPorId(req: Request, res: Response) {
     if (!producto) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
-    res.json(producto);
+
+    // Método de pago del vendedor: la misma resolución que usa crearOrden
+    // (Mongo con PayPal de respaldo) para que el botón de la fila diga
+    // "Pagar con PayPal" o "Pagar con Mercado Pago" según corresponda.
+    let metodoPagoVendedor: "paypal" | "mercadopago" = "paypal";
+    try {
+      const vendedor = await buscarUsuarioPorId(producto.vendedorId);
+      if (vendedor?.correo) {
+        const espejo = (await Usuario.findOne({ correo: vendedor.correo })
+          .select("metodoPago")
+          .lean()) as { metodoPago?: string } | null;
+        if (espejo?.metodoPago === "mercadopago") {
+          metodoPagoVendedor = "mercadopago";
+        }
+      }
+    } catch {
+      // Si Mongo no responde se queda PayPal, igual que al crear la orden.
+    }
+
+    res.json({ ...producto.toObject(), metodoPagoVendedor });
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener el producto" });

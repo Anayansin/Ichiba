@@ -270,7 +270,14 @@ function ProductoCompleto() {
                   </strong>
                 </p>
               )}
-              <Boton texto="Pagar con PayPal" onClick={handlePagar} />
+              <Boton
+                texto={
+                  producto.metodoPagoVendedor === "mercadopago"
+                    ? "Pagar con Mercado Pago"
+                    : "Pagar con PayPal"
+                }
+                onClick={handlePagar}
+              />
             </div>
           ) : (
             <div className="producto-completo__esperando">
