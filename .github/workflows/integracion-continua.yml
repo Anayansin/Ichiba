@@ -4,8 +4,9 @@ name: Integración continua
 #
 # Se ejecuta en cada push a main y en cada pull request:
 #  1. Backend: levanta PostgreSQL y MongoDB de prueba, aplica las migraciones,
-#     revisa los tipos y corre las 5 suites E2E (escrow, puntos/cancelación,
-#     informes, suscripciones GraphQL y servidor MCP).
+#     revisa los tipos y corre las 8 suites E2E (escrow, puntos/cancelación,
+#     informes, suscripciones GraphQL, servidor MCP, sanciones progresivas,
+#     disputas/adeudos y fila/apertura).
 #  2. Frontend: compila la tienda (React + Vite) y el portal (Astro).
 #
 # El despliegue automático vive en `despliegue.yml` y solo arranca cuando este
@@ -83,7 +84,7 @@ jobs:
       - name: Verificación de tipos (TypeScript)
         run: npx tsc --noEmit
 
-      - name: "Suite Fase 1: escrow (56 pruebas)"
+      - name: "Suite Fase 1: escrow (60 pruebas)"
         run: node --harmony-temporal --import tsx scripts/probar-escrow.ts
 
       - name: "Suite Fase 2: puntos y cancelación (48 pruebas)"
@@ -97,6 +98,15 @@ jobs:
 
       - name: "Suite Fase 5: servidor MCP (22 pruebas)"
         run: node --harmony-temporal --import tsx scripts/probar-mcp.ts
+
+      - name: "Suite Fase 7a: sanciones progresivas (30 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-sanciones.ts
+
+      - name: "Suite Fase 7b: disputas y adeudos (65 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-disputas.ts
+
+      - name: "Suite Fase 7c: fila y apertura (30 pruebas)"
+        run: node --harmony-temporal --import tsx scripts/probar-fila-apertura.ts
 
   frontend:
     name: Frontend — compilación
