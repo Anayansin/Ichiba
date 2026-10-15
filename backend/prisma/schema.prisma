@@ -53,7 +53,25 @@ model venta {
   compradorId   String
   monto         Float
   paypalOrderId String
-  estado        String   @default("completada")
+  // RQNF4: ciclo del escrow (ver `src/prisma/contract.prisma` para el detalle).
+  estado        String   @default("pendiente_comprobante")
+  codigoPago    String?
+  autorizacionPaypalId String?
+  comprobantePalabraClave String?
+  comprobanteReferencia   String?
+  comprobanteImagen       String?
+  comprobanteEnviadoEn    DateTime?
+  comprobanteConfirmadoEn DateTime?
+  codigoEntrega  String?
+  confirmacionLimite DateTime?
+  entregaLimite  DateTime?
+  ultimoMensajeEn DateTime?
+  entregadoEn    DateTime?
+  capturaPaypalId String?
+  reembolsadoEn  DateTime?
+  reembolsoId    String?
+  canceladoMotivo String?
+  retenido       Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   vendedor      usuario  @relation(fields: [vendedorId], references: [id])

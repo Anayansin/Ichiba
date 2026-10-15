@@ -4,6 +4,14 @@ import {
   capturarOrden,
   confirmarMercadoPago,
   webhookMercadoPago,
+  registrarComprobante,
+  confirmarComprobante,
+  rechazarComprobante,
+  registrarEntrega,
+  detalleDeVenta,
+  imagenDeComprobante,
+  ventasDelVendedor,
+  misComprasDelComprador,
   calificar,
 } from "../controllers/pagoController.js";
 import {
@@ -13,6 +21,7 @@ import {
 } from "../controllers/paypalVinculacionController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { verificarToken } from "../middleware/auth.js";
+import { subirComprobante } from "../middleware/upload.js";
 import {
   rechazarAdminEnCompra,
   requiereVendedor,
@@ -51,6 +60,55 @@ router.post(
 // Webhook (IPN): MercadoPago lo llama desde su infraestructura, por eso no
 // lleva autenticación de comprador; se valida contra la API al procesarlo.
 router.post("/webhook-mercadopago", webhookMercadoPago);
+
+// RQF22: el comprador registra su comprobante (palabra clave + referencia +
+// fotografía moderada). La imagen viaja como archivo (`comprobante`).
+router.post(
+  "/:ventaId/comprobante",
+  rechazarAdminEnCompra,
+  requiereCompradorId,
+  subirComprobante("comprobante"),
+  registrarComprobante,
+);
+
+// La imagen del comprobante solo la ven las partes de la venta (el archivo
+// no se sirve estático).
+router.get("/comprobante/:ventaId/imagen", imagenDeComprobante);
+
+// RQF31: el vendedor confirma o rechaza el comprobante recibido.
+router.post(
+  "/:ventaId/confirmar-comprobante",
+  verificarToken,
+  requiereVendedor,
+  confirmarComprobante,
+);
+router.post(
+  "/:ventaId/rechazar-comprobante",
+  verificarToken,
+  requiereVendedor,
+  rechazarComprobante,
+);
+
+// RQF33 / RQNF27: el vendedor registra el código de entrega del comprador y
+// se liberan los fondos del escrow.
+router.post(
+  "/:ventaId/confirmar-entrega",
+  verificarToken,
+  requiereVendedor,
+  registrarEntrega,
+);
+
+// Seguimiento del flujo del escrow para cada parte.
+router.get("/vendedor/ventas", verificarToken, requiereVendedor, ventasDelVendedor);
+router.get(
+  "/mis-compras",
+  rechazarAdminEnCompra,
+  requiereCompradorId,
+  misComprasDelComprador,
+);
+
+// Detalle de una compra (comprador o vendedor).
+router.get("/:ventaId/detalle", detalleDeVenta);
 
 router.post("/:ventaId/calificar", calificar);
 

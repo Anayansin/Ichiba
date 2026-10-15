@@ -17,6 +17,7 @@ import suscripcionRoutes from "./routes/suscripcionRoutes.js";
 import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
 import { iniciarJobRevisionPagos } from "./jobs/revisionPagos.js";
 import { iniciarJobNotificacionesCategoria } from "./jobs/notificacionesCategoria.js";
+import { iniciarJobRevisionEntregas } from "./jobs/revisionEntregas.js";
 import mensajeRoutes from "./routes/mensajeRoutes.js";
 import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
@@ -94,6 +95,11 @@ app.use(filtroPalabrasProhibidas);
 app.use("/uploads/ine", (_req, res) => {
   res.status(404).json({ message: "No encontrado" });
 });
+// RQF22: las imágenes de comprobantes solo se muestran a las partes de la
+// venta mediante el endpoint autenticado de pagos; nunca estáticas.
+app.use("/uploads/comprobantes", (_req, res) => {
+  res.status(404).json({ message: "No encontrado" });
+});
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Healthcheck: le indica a la plataforma (Railway) que el servicio ya arrancó.
@@ -167,3 +173,4 @@ coneccionDB().then(() => {
 iniciarJobRevisionHorarios();
 iniciarJobRevisionPagos();
 iniciarJobNotificacionesCategoria();
+iniciarJobRevisionEntregas();

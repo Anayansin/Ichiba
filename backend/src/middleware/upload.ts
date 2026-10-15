@@ -113,3 +113,46 @@ export function subirFotosProducto(campo: string, maximo: number) {
     });
   };
 }
+
+/**
+ * RQF22: comprobantes de pago. Viven en su propia carpeta porque NO se
+ * sirven como archivos estáticos: solo las partes de la venta pueden verlos
+ * (el backend los sirve con autorización y después de la moderación).
+ */
+const carpetaComprobantes = path.join(__dirname, "../../uploads/comprobantes");
+
+if (!fs.existsSync(carpetaComprobantes)) {
+  fs.mkdirSync(carpetaComprobantes, { recursive: true });
+}
+
+const storageComprobantes = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, carpetaComprobantes);
+  },
+  filename: (req, file, cb) => {
+    const nombreUnico = `comprobante-${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`;
+    cb(null, nombreUnico);
+  },
+});
+
+const uploadComprobante = multer({
+  storage: storageComprobantes,
+  fileFilter: filtroArchivos,
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+/** Sube la fotografía del comprobante de pago (campo único, máx. 5 MB). */
+export function subirComprobante(campo: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    uploadComprobante.single(campo)(req, res, (error) => {
+      if (error) {
+        const mensaje =
+          error instanceof multer.MulterError
+            ? "El comprobante no cumple con los requisitos (máximo 5 MB)"
+            : error.message || "No se pudo procesar el comprobante";
+        return res.status(400).json({ message: mensaje });
+      }
+      next();
+    });
+  };
+}

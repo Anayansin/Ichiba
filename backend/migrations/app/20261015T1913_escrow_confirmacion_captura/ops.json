@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.venta.capturaPaypalId",
+    "label": "Add column \"capturaPaypalId\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "capturaPaypalId",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"capturaPaypalId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "capturaPaypalId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"capturaPaypalId\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"capturaPaypalId\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"capturaPaypalId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "capturaPaypalId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.comprobanteConfirmadoEn",
+    "label": "Add column \"comprobanteConfirmadoEn\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "comprobanteConfirmadoEn",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"comprobanteConfirmadoEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteConfirmadoEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"comprobanteConfirmadoEn\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"comprobanteConfirmadoEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"comprobanteConfirmadoEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteConfirmadoEn"
+        ]
+      }
+    ]
+  }
+]

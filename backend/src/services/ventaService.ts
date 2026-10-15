@@ -1,6 +1,7 @@
 import { Producto } from "../models/producto.js";
 import { Venta } from "../models/Venta.js";
 import clientePrisma from "../configuracion/prisma.js";
+import { generarCodigoPagoUnico } from "./escrowService.js";
 
 /**
  * Efectos de una venta confirmada, compartidos por todas las pasarelas.
@@ -15,6 +16,11 @@ import clientePrisma from "../configuracion/prisma.js";
  *   - MercadoPago -> `mp:<payment_id>`, p. ej. `mp:1234567890`
  * El prefijo `mp:` evita que los numéricos de MercadoPago puedan chocar con
  * las órdenes de PayPal en la misma columna.
+ *
+ * RQNF4: la venta nace en el ciclo del escrow como `pendiente_comprobante`
+ * con su palabra clave de 4 dígitos (RQNF20). El dinero queda retenido en la
+ * pasarela hasta que se registre el código de entrega (RQNF27) y se devuelve
+ * si la venta se cancela (RQNF23/24/28/31).
  */
 export type DatosVentaConfirmada = {
   productoId: string;
@@ -22,13 +28,33 @@ export type DatosVentaConfirmada = {
   vendedorId: number;
   monto: number;
   referenciaExterna: string;
+  /** RQNF4: id de la autorización de PayPal (captura diferida). */
+  autorizacionPaypalId?: string | null;
+};
+
+export type ResultadoVentaConfirmada = {
+  nueva: boolean;
+  venta: {
+    id: number;
+    codigoPago: string | null;
+    estado: string;
+    productoId: string;
+    vendedorId: number;
+    monto: number;
+  } | null;
 };
 
 export async function registrarVentaExitosa(
   datos: DatosVentaConfirmada,
-): Promise<{ nueva: boolean }> {
-  const { productoId, compradorId, vendedorId, monto, referenciaExterna } =
-    datos;
+): Promise<ResultadoVentaConfirmada> {
+  const {
+    productoId,
+    compradorId,
+    vendedorId,
+    monto,
+    referenciaExterna,
+    autorizacionPaypalId = null,
+  } = datos;
 
   const ventaYaRegistrada = await clientePrisma.venta.findFirst({
     where: { paypalOrderId: referenciaExterna },
@@ -56,6 +82,9 @@ export async function registrarVentaExitosa(
       data: { ventasExitosas: { increment: 1 } },
     });
 
+    // RQNF20: clave de 4 dígitos única para esta sesión de pago del producto.
+    const codigoPago = await generarCodigoPagoUnico(productoId);
+
     await clientePrisma.venta.create({
       data: {
         productoId,
@@ -63,23 +92,47 @@ export async function registrarVentaExitosa(
         compradorId,
         monto,
         paypalOrderId: referenciaExterna,
+        estado: "pendiente_comprobante",
+        codigoPago,
+        autorizacionPaypalId,
       },
     });
   }
+
+  const ventaPg =
+    ventaYaRegistrada ??
+    (await clientePrisma.venta.findFirst({
+      where: { paypalOrderId: referenciaExterna },
+    }));
 
   // Espejo en MongoDB: el chat del vendedor, la calificación, los reportes y
   // el historial de administración leen la colección `Venta`.
   await Venta.updateOne(
     { paypalOrderId: referenciaExterna },
     {
-      productoId,
-      vendedorId: String(vendedorId),
-      compradorId,
-      monto,
-      estado: "completada",
+      $set: {
+        productoId,
+        vendedorId: String(vendedorId),
+        compradorId,
+        monto,
+        estado: String(ventaPg?.estado ?? "pendiente_comprobante"),
+        ...(ventaPg?.codigoPago ? { codigoPago: ventaPg.codigoPago } : {}),
+      },
     },
     { upsert: true },
   );
 
-  return { nueva: !ventaYaRegistrada };
+  return {
+    nueva: !ventaYaRegistrada,
+    venta: ventaPg
+      ? {
+          id: Number(ventaPg.id),
+          codigoPago: (ventaPg.codigoPago as string | null) ?? null,
+          estado: String(ventaPg.estado),
+          productoId: String(ventaPg.productoId),
+          vendedorId: Number(ventaPg.vendedorId),
+          monto: Number(ventaPg.monto),
+        }
+      : null,
+  };
 }

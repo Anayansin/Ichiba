@@ -190,3 +190,22 @@ export async function obtenerPagoMercadoPago(paymentId: string) {
 export function pagoAprobado(pago: { status?: string } | null): boolean {
   return pago?.status === "approved";
 }
+
+/**
+ * RQNF23 / RQNF24 / RQNF28 / RQNF31: devuelve al comprador el dinero de un
+ * pago ya acreditado. En Checkout Pro el cobro entra a la cuenta dueña de la
+ * credencial, así que este reembolso es el mecanismo para "soltar" el escrow
+ * interno cuando la transacción se cancela (en PayPal se usa la anulación de
+ * la autorización antes de capturar, o el reembolso de la captura).
+ */
+export async function reembolsarPagoMercadoPago(
+  paymentId: string,
+  monto?: number,
+) {
+  return llamarApi(
+    "POST",
+    `/v1/payments/${encodeURIComponent(paymentId)}/refunds`,
+    "Reembolsar pago",
+    monto !== undefined ? { amount: monto } : {},
+  );
+}

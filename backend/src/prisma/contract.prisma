@@ -41,7 +41,46 @@ model venta {
   compradorId   String
   monto         Float
   paypalOrderId String
-  estado        String   @default("completada")
+  // RQNF4: ciclo del escrow. Estados:
+  //   pendiente_comprobante  -> pago autorizado (PayPal) o aprobado (MercadoPago),
+  //                             falta que el comprador registre su comprobante
+  //   pendiente_confirmacion -> comprobante enviado; el vendedor debe revisarlo
+  //   en_entrega             -> comprobante confirmado; chat abierto para coordinar
+  //   completada             -> código de entrega registrado y fondos liberados
+  //   reembolsada            -> se devolvió el dinero al comprador
+  //   cancelada              -> cancelada sin cobro (autorización anulada)
+  estado        String   @default("pendiente_comprobante")
+  // RQNF20: palabra clave numérica de 4 dígitos, única por sesión de pago.
+  codigoPago    String?
+  // RQNF4 (escrow): id de la autorización de PayPal (captura diferida).
+  autorizacionPaypalId String?
+  // RQF22: comprobante de pago del comprador.
+  comprobantePalabraClave String?
+  comprobanteReferencia   String?
+  comprobanteImagen       String?
+  comprobanteEnviadoEn    DateTime?
+  // RQNF24 / RQNF31: instante en que el vendedor confirmó el comprobante;
+  // desde ahí se abre el chat y corre la inactividad de 3 bloques.
+  comprobanteConfirmadoEn DateTime?
+  // RQNF24.4: código de confirmación de entrega de 4 dígitos (lo da el
+  // comprador al vendedor el día de la entrega).
+  codigoEntrega  String?
+  // RQNF24: fecha límite para que el vendedor confirme el comprobante
+  // (fin de su siguiente bloque de atención).
+  confirmacionLimite DateTime?
+  // RQNF28 / RQNF31: límite de entrega y último mensaje del chat.
+  entregaLimite  DateTime?
+  ultimoMensajeEn DateTime?
+  entregadoEn    DateTime?
+  // RQNF27: id de la captura de PayPal hecha al liberar los fondos;
+  // se necesita para poder reembolsar disputas posteriores a la entrega.
+  capturaPaypalId String?
+  // RQNF10.2 / RQNF23 / RQNF28: reembolsos.
+  reembolsadoEn  DateTime?
+  reembolsoId    String?
+  canceladoMotivo String?
+  // RQNF32: retención preventiva de fondos por reportes o disputas.
+  retenido       Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     temporal.updatedAtString()
   vendedor      usuario  @relation(fields: [vendedorId], references: [id])

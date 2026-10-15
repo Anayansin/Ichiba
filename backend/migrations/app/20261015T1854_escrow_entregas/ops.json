@@ -1,0 +1,716 @@
+[
+  {
+    "id": "column.public.cola.correo",
+    "label": "Add column \"correo\" to \"cola\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "correo",
+        "table": "cola"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"correo\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cola",
+          "correo"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"correo\"",
+        "sql": "ALTER TABLE \"public\".\"cola\" ADD COLUMN \"correo\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"correo\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "cola",
+          "correo"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.autorizacionPaypalId",
+    "label": "Add column \"autorizacionPaypalId\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "autorizacionPaypalId",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"autorizacionPaypalId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "autorizacionPaypalId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"autorizacionPaypalId\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"autorizacionPaypalId\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"autorizacionPaypalId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "autorizacionPaypalId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.canceladoMotivo",
+    "label": "Add column \"canceladoMotivo\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "canceladoMotivo",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"canceladoMotivo\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "canceladoMotivo"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"canceladoMotivo\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"canceladoMotivo\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"canceladoMotivo\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "canceladoMotivo"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.codigoEntrega",
+    "label": "Add column \"codigoEntrega\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "codigoEntrega",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"codigoEntrega\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "codigoEntrega"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"codigoEntrega\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"codigoEntrega\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"codigoEntrega\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "codigoEntrega"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.codigoPago",
+    "label": "Add column \"codigoPago\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "codigoPago",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"codigoPago\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "codigoPago"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"codigoPago\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"codigoPago\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"codigoPago\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "codigoPago"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.comprobanteEnviadoEn",
+    "label": "Add column \"comprobanteEnviadoEn\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "comprobanteEnviadoEn",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"comprobanteEnviadoEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteEnviadoEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"comprobanteEnviadoEn\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"comprobanteEnviadoEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"comprobanteEnviadoEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteEnviadoEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.comprobanteImagen",
+    "label": "Add column \"comprobanteImagen\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "comprobanteImagen",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"comprobanteImagen\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteImagen"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"comprobanteImagen\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"comprobanteImagen\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"comprobanteImagen\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteImagen"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.comprobantePalabraClave",
+    "label": "Add column \"comprobantePalabraClave\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "comprobantePalabraClave",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"comprobantePalabraClave\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobantePalabraClave"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"comprobantePalabraClave\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"comprobantePalabraClave\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"comprobantePalabraClave\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobantePalabraClave"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.comprobanteReferencia",
+    "label": "Add column \"comprobanteReferencia\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "comprobanteReferencia",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"comprobanteReferencia\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteReferencia"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"comprobanteReferencia\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"comprobanteReferencia\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"comprobanteReferencia\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "comprobanteReferencia"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.confirmacionLimite",
+    "label": "Add column \"confirmacionLimite\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "confirmacionLimite",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"confirmacionLimite\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "confirmacionLimite"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"confirmacionLimite\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"confirmacionLimite\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"confirmacionLimite\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "confirmacionLimite"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.entregaLimite",
+    "label": "Add column \"entregaLimite\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "entregaLimite",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"entregaLimite\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "entregaLimite"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"entregaLimite\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"entregaLimite\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"entregaLimite\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "entregaLimite"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.entregadoEn",
+    "label": "Add column \"entregadoEn\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "entregadoEn",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"entregadoEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "entregadoEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"entregadoEn\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"entregadoEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"entregadoEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "entregadoEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.reembolsadoEn",
+    "label": "Add column \"reembolsadoEn\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "reembolsadoEn",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"reembolsadoEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "reembolsadoEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"reembolsadoEn\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"reembolsadoEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"reembolsadoEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "reembolsadoEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.reembolsoId",
+    "label": "Add column \"reembolsoId\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "reembolsoId",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"reembolsoId\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "reembolsoId"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"reembolsoId\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"reembolsoId\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"reembolsoId\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "reembolsoId"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.retenido",
+    "label": "Add column \"retenido\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "retenido",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"retenido\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "retenido"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"retenido\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"retenido\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"retenido\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "retenido"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.venta.ultimoMensajeEn",
+    "label": "Add column \"ultimoMensajeEn\" to \"venta\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "ultimoMensajeEn",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"ultimoMensajeEn\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "ultimoMensajeEn"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"ultimoMensajeEn\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ADD COLUMN \"ultimoMensajeEn\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"ultimoMensajeEn\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "ultimoMensajeEn"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "setDefault.venta.estado",
+    "label": "Set default on \"venta\".\"estado\"",
+    "operationClass": "widening",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "estado",
+        "table": "venta"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"estado\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "estado"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "set default on \"estado\"",
+        "sql": "ALTER TABLE \"public\".\"venta\" ALTER COLUMN \"estado\" SET DEFAULT 'pendiente_comprobante'"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"estado\" has a default",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3 AND \"column_default\" IS NOT NULL)) AS \"result\"",
+        "params": [
+          "public",
+          "venta",
+          "estado"
+        ]
+      }
+    ]
+  }
+]

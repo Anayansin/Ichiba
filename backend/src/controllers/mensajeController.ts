@@ -4,6 +4,7 @@ import { Mensaje } from "../models/Mensaje.js";
 import { Venta } from "../models/Venta.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import { registrarActividadDeChat } from "../services/escrowService.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -21,6 +22,33 @@ async function validarAccesoVendedor(ventaId: string, vendedorId: string) {
   if (!venta) return null;
   if (String(venta.vendedorId) !== String(vendedorId)) return null;
   return venta;
+}
+
+/**
+ * RQNF24.2 / RQNF26 / RQNF29: el chat de coordinación solo está habilitado
+ * cuando el vendedor ya confirmó el comprobante (`en_entrega`). Antes está
+ * bloqueado esperando la revisión; después de completada o cancelada queda
+ * deshabilitado. Devuelve el mensaje para el usuario, o null si puede
+ * escribir.
+ */
+function motivoChatBloqueado(venta: {
+  estado?: string | null;
+}): string | null {
+  switch (venta.estado) {
+    case "en_entrega":
+      return null;
+    case "pendiente_comprobante":
+      return "El chat de coordinación se abrirá cuando el vendedor confirme tu pago y tu comprobante (RQNF29).";
+    case "pendiente_confirmacion":
+      return "El chat está bloqueado hasta que el vendedor revise y confirme tu comprobante de pago (RQNF24.2).";
+    case "completada":
+      return "La transacción ya concluyó: el chat de coordinación quedó deshabilitado (RQNF26).";
+    case "reembolsada":
+    case "cancelada":
+      return "Esta compra fue cancelada y reembolsada: el chat quedó deshabilitado (RQNF26).";
+    default:
+      return "El chat de esta compra no está disponible.";
+  }
 }
 
 /** Elimina la imagen subida cuando el mensaje no se va a guardar. */
@@ -91,6 +119,14 @@ export async function enviarMensajeComoComprador(
       return res.status(403).json({ message: "No tienes acceso a este chat" });
     }
 
+    // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el
+    // comprobante.
+    const bloqueo = motivoChatBloqueado(venta);
+    if (bloqueo) {
+      descartarImagen(req);
+      return res.status(403).json({ message: bloqueo });
+    }
+
     const { contenido, imagen, error } = datosDelMensaje(req);
     if (error) return res.status(400).json({ message: error });
 
@@ -102,6 +138,12 @@ export async function enviarMensajeComoComprador(
       imagen: imagen || null,
     });
     await mensaje.save();
+
+    // RQNF31: la inactividad del chat se cuenta desde el último mensaje.
+    await registrarActividadDeChat({
+      productoId: String(venta.productoId),
+      compradorId: venta.compradorId,
+    });
 
     res.status(201).json(mensaje);
   } catch (error) {
@@ -144,6 +186,14 @@ export async function enviarMensajeComoVendedor(
       return res.status(403).json({ message: "No tienes acceso a este chat" });
     }
 
+    // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el
+    // comprobante.
+    const bloqueo = motivoChatBloqueado(venta);
+    if (bloqueo) {
+      descartarImagen(req);
+      return res.status(403).json({ message: bloqueo });
+    }
+
     const { contenido, imagen, error } = datosDelMensaje(req);
     if (error) return res.status(400).json({ message: error });
 
@@ -155,6 +205,12 @@ export async function enviarMensajeComoVendedor(
       imagen: imagen || null,
     });
     await mensaje.save();
+
+    // RQNF31: la inactividad del chat se cuenta desde el último mensaje.
+    await registrarActividadDeChat({
+      productoId: String(venta.productoId),
+      compradorId: venta.compradorId,
+    });
 
     res.status(201).json(mensaje);
   } catch (error) {

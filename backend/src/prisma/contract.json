@@ -668,6 +668,41 @@
           },
           "venta": {
             "fields": {
+              "autorizacionPaypalId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "canceladoMotivo": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "capturaPaypalId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "codigoEntrega": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "codigoPago": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "compradorId": {
                 "nullable": false,
                 "type": {
@@ -675,8 +710,64 @@
                   "kind": "scalar"
                 }
               },
+              "comprobanteConfirmadoEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "comprobanteEnviadoEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "comprobanteImagen": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "comprobantePalabraClave": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "comprobanteReferencia": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "confirmacionLimite": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
               "createdAt": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "entregaLimite": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "entregadoEn": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/timestamptz-temporal@1",
                   "kind": "scalar"
@@ -717,6 +808,34 @@
                   "kind": "scalar"
                 }
               },
+              "reembolsadoEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "reembolsoId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "retenido": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "ultimoMensajeEn": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -752,11 +871,50 @@
             },
             "storage": {
               "fields": {
+                "autorizacionPaypalId": {
+                  "column": "autorizacionPaypalId"
+                },
+                "canceladoMotivo": {
+                  "column": "canceladoMotivo"
+                },
+                "capturaPaypalId": {
+                  "column": "capturaPaypalId"
+                },
+                "codigoEntrega": {
+                  "column": "codigoEntrega"
+                },
+                "codigoPago": {
+                  "column": "codigoPago"
+                },
                 "compradorId": {
                   "column": "compradorId"
                 },
+                "comprobanteConfirmadoEn": {
+                  "column": "comprobanteConfirmadoEn"
+                },
+                "comprobanteEnviadoEn": {
+                  "column": "comprobanteEnviadoEn"
+                },
+                "comprobanteImagen": {
+                  "column": "comprobanteImagen"
+                },
+                "comprobantePalabraClave": {
+                  "column": "comprobantePalabraClave"
+                },
+                "comprobanteReferencia": {
+                  "column": "comprobanteReferencia"
+                },
+                "confirmacionLimite": {
+                  "column": "confirmacionLimite"
+                },
                 "createdAt": {
                   "column": "createdAt"
+                },
+                "entregaLimite": {
+                  "column": "entregaLimite"
+                },
+                "entregadoEn": {
+                  "column": "entregadoEn"
                 },
                 "estado": {
                   "column": "estado"
@@ -772,6 +930,18 @@
                 },
                 "productoId": {
                   "column": "productoId"
+                },
+                "reembolsadoEn": {
+                  "column": "reembolsadoEn"
+                },
+                "reembolsoId": {
+                  "column": "reembolsoId"
+                },
+                "retenido": {
+                  "column": "retenido"
+                },
+                "ultimoMensajeEn": {
+                  "column": "ultimoMensajeEn"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -1207,10 +1377,65 @@
             },
             "venta": {
               "columns": {
+                "autorizacionPaypalId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "canceladoMotivo": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "capturaPaypalId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "codigoEntrega": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "codigoPago": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "compradorId": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "comprobanteConfirmadoEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "comprobanteEnviadoEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "comprobanteImagen": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "comprobantePalabraClave": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "comprobanteReferencia": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "confirmacionLimite": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
                 },
                 "createdAt": {
                   "codecId": "pg/timestamptz-temporal@1",
@@ -1221,11 +1446,21 @@
                   "nativeType": "timestamptz",
                   "nullable": false
                 },
+                "entregaLimite": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "entregadoEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
                 "estado": {
                   "codecId": "pg/text@1",
                   "default": {
                     "kind": "literal",
-                    "value": "completada"
+                    "value": "pendiente_comprobante"
                   },
                   "nativeType": "text",
                   "nullable": false
@@ -1253,6 +1488,30 @@
                   "codecId": "pg/text@1",
                   "nativeType": "text",
                   "nullable": false
+                },
+                "reembolsadoEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "reembolsoId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "retenido": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "ultimoMensajeEn": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
                 },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-string@1",
@@ -1306,7 +1565,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "65dc47af40794a552be9d3ad3e41fdb9ae37ad3b1a6838b70318d4fcd8cd8550"
+    "storageHash": "1dbc5f25cc63c9da79c70436ecd83aaf54a7f177036f9ebd61614a4a64021ac5"
   },
   "execution": {
     "executionHash": "ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037",

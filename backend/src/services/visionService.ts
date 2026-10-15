@@ -251,3 +251,102 @@ export async function moderarFotosProducto(
 
   return null;
 }
+
+/**
+ * RQNF18 (para RQF22): moderación de contenido de las imágenes de
+ * comprobante con la detección de contenido inseguro (SafeSearch) de Cloud
+ * Vision. Debe correr ANTES de mostrársela al vendedor.
+ */
+type AnalisisSeguro = {
+  permitido: boolean;
+  motivo?: "no-configurada" | "error" | "inapropiado";
+};
+
+async function analizarContenidoInseguro(
+  rutaArchivo: string,
+): Promise<AnalisisSeguro> {
+  const clave = process.env.GOOGLE_VISION_API_KEY;
+  if (!clave) return { permitido: false, motivo: "no-configurada" };
+
+  try {
+    const base64 = fs.readFileSync(rutaArchivo).toString("base64");
+
+    const respuesta = await fetch(`${ENDPOINT}?key=${clave}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: base64 },
+            features: [{ type: "SAFE_SEARCH_DETECTION" }],
+          },
+        ],
+      }),
+    });
+
+    if (!respuesta.ok) {
+      console.error(
+        `[vision] Cloud Vision (SafeSearch) respondió ${respuesta.status}`,
+      );
+      return { permitido: false, motivo: "error" };
+    }
+
+    const json = (await respuesta.json()) as {
+      responses?: {
+        safeSearchAnnotation?: {
+          adult?: string;
+          spoof?: string;
+          violence?: string;
+          racy?: string;
+        };
+      }[];
+    };
+
+    const anotacion = json?.responses?.[0]?.safeSearchAnnotation ?? {};
+    const valores = [anotacion.adult, anotacion.violence];
+    const muyProbable = (valor?: string) =>
+      valor === "LIKELY" || valor === "VERY_LIKELY";
+
+    if (valores.some(muyProbable) || anotacion.racy === "VERY_LIKELY") {
+      return { permitido: false, motivo: "inapropiado" };
+    }
+
+    return { permitido: true };
+  } catch (error) {
+    console.error(
+      "[vision] No se pudo analizar el comprobante:",
+      error instanceof Error ? error.message : error,
+    );
+    return { permitido: false, motivo: "error" };
+  }
+}
+
+/**
+ * Analiza la fotografía del comprobante de pago. Devuelve el mensaje en
+ * español del bloqueo, o null si está permitida.
+ *
+ * Igual que RQNF7.3: si la moderación no puede ejecutarse (sin llave o con
+ * error de Cloud Vision) la imagen queda bloqueada —nunca se muestra al
+ * vendedor sin analizar— a menos que VISION_MODERACION="omitir".
+ */
+export async function moderarComprobante(
+  rutaArchivo: string,
+): Promise<string | null> {
+  if (process.env.VISION_MODERACION === "omitir") return null;
+
+  const analisis = await analizarContenidoInseguro(rutaArchivo);
+  if (analisis.permitido) return null;
+
+  if (analisis.motivo === "no-configurada") {
+    console.error(
+      "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de comprobantes está activa y bloquea el envío (RQNF18).",
+    );
+    return "La moderación de imágenes no está disponible en este momento; no se puede enviar el comprobante. Intenta más tarde o contacta al administrador.";
+  }
+
+  if (analisis.motivo === "error") {
+    return "No fue posible analizar tu comprobante en este momento; intenta de nuevo.";
+  }
+
+  return "La imagen del comprobante contiene contenido inapropiado y no puede enviarse.";
+}

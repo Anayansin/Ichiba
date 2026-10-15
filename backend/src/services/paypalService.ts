@@ -103,7 +103,11 @@ export async function crearOrdenPaypal(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      intent: "CAPTURE",
+      // RQNF4: captura diferida (escrow). Con `AUTHORIZE` el comprador
+      // aprueba el pago, pero el dinero queda retenido hasta que el sistema
+      // captura la autorización (al registrarse el código de entrega) o la
+      // anula si la transacción se cancela.
+      intent: "AUTHORIZE",
       purchase_units: [
         {
           reference_id: productoId,
@@ -124,6 +128,106 @@ export async function crearOrdenPaypal(
   });
 
   return leerRespuesta(respuesta, "Crear orden");
+}
+
+/**
+ * RQNF4 (escrow): autoriza la orden aprobada por el comprador. PayPal retiene
+ * el dinero de su instrumento de pago y devuelve una autorización que después
+ * se captura (paga al vendedor) o se anula (liberación sin cobro).
+ */
+export async function autorizarOrdenPaypal(orderId: string) {
+  const { apiBase } = configuracionPaypal();
+  const token = await obtenerAccessToken();
+
+  const respuesta = await fetch(
+    `${apiBase}/v2/checkout/orders/${orderId}/authorize`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return leerRespuesta(respuesta, "Autorizar orden");
+}
+
+/**
+ * RQNF27: captura la autorización para liberar los fondos retenidos en escrow
+ * hacia la cuenta del vendedor (se llama al registrarse el código de entrega).
+ */
+export async function capturarAutorizacionPaypal(authorizationId: string) {
+  const { apiBase } = configuracionPaypal();
+  const token = await obtenerAccessToken();
+
+  const respuesta = await fetch(
+    `${apiBase}/v2/payments/authorizations/${authorizationId}/capture`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return leerRespuesta(respuesta, "Capturar autorización (escrow)");
+}
+
+/**
+ * RQNF23 / RQNF28: anula la autorización. El comprador nunca alcanza a pagar:
+ * PayPal libera la retención sin mover dinero.
+ */
+export async function anularAutorizacionPaypal(authorizationId: string) {
+  const { apiBase } = configuracionPaypal();
+  const token = await obtenerAccessToken();
+
+  const respuesta = await fetch(
+    `${apiBase}/v2/payments/authorizations/${authorizationId}/void`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  // PayPal responde 204 sin cuerpo cuando la anulación es correcta.
+  if (respuesta.status === 204) return { ok: true };
+
+  return leerRespuesta(respuesta, "Anular autorización (escrow)");
+}
+
+/**
+ * Reembolso de una captura ya realizada (disputas resueltas a favor del
+ * comprador después de liberar los fondos).
+ */
+export async function reembolsarCapturaPaypal(
+  captureId: string,
+  monto?: number,
+  motivo?: string,
+) {
+  const { apiBase } = configuracionPaypal();
+  const token = await obtenerAccessToken();
+
+  const respuesta = await fetch(
+    `${apiBase}/v2/payments/captures/${captureId}/refund`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...(monto ? { amount: { currency_code: "MXN", value: monto.toFixed(2) } } : {}),
+        ...(motivo ? { note_to_payer: motivo.slice(0, 255) } : {}),
+      }),
+    },
+  );
+
+  return leerRespuesta(respuesta, "Reembolsar captura");
 }
 
 export async function capturarOrdenPaypal(orderId: string) {

@@ -1,13 +1,15 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Producto } from "../models/producto.js";
 import { Usuario } from "../models/usuario.js";
-import { Cola } from "../models/Cola.js";
 import { Venta } from "../models/Venta.js";
 import { VinculoPayPal } from "../models/VinculoPayPal.js";
 import {
   crearOrdenPaypal,
-  capturarOrdenPaypal,
+  autorizarOrdenPaypal,
   obtenerOrdenPaypal,
 } from "../services/paypalService.js";
 import {
@@ -16,12 +18,34 @@ import {
   pagoAprobado,
 } from "../services/mercadopagoService.js";
 import { registrarVentaExitosa } from "../services/ventaService.js";
+import { enviarCorreoPalabraClaveCompra } from "../services/emailService.js";
+import { moderarComprobante } from "../services/visionService.js";
+import {
+  avisoDeAtencion,
+  cargarVenta,
+  confirmarComprobanteDeVenta,
+  correoDelComprador,
+  rechazarComprobanteDeVenta,
+  registrarComprobanteDeVenta,
+  registrarEntregaDeVenta,
+  type UsuarioEscrow,
+  type VentaEscrow,
+} from "../services/escrowService.js";
 import { RequestConComprador } from "../middleware/comprador.js";
+import { RequestConUsuario } from "../middleware/auth.js";
 import {
   iniciarTemporizadorPago,
   expirarTurnoSiVencido,
 } from "../services/filaService.js";
 import clientePrisma from "../configuracion/prisma.js";
+import {
+  campoConPalabrasProhibidas,
+  mensajePalabrasProhibidas,
+} from "../utils/filtroPalabras.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const carpetaComprobantes = path.join(__dirname, "../../uploads/comprobantes");
 
 async function buscarProducto(productoId: unknown) {
   if (typeof productoId !== "string" || !/^[0-9a-fA-F]{24}$/.test(productoId))
@@ -88,6 +112,72 @@ function identificarQuienCalifica(req: Request): IdentidadQueCalifica | null {
   return null;
 }
 
+/** ¿Quién está consultando esta venta: el comprador o el vendedor? */
+function identificarRolEnVenta(
+  req: Request,
+  venta: { compradorId: string; vendedorId: number },
+): "comprador" | "vendedor" | null {
+  const compradorId = req.headers["x-comprador-id"];
+  if (
+    typeof compradorId === "string" &&
+    compradorId !== "" &&
+    compradorId === venta.compradorId
+  ) {
+    return "comprador";
+  }
+
+  const cabeceraAutorizacion = req.headers.authorization;
+  if (cabeceraAutorizacion?.startsWith("Bearer ")) {
+    try {
+      const payload = jwt.verify(
+        cabeceraAutorizacion.split(" ")[1],
+        process.env.JWT_SECRET as string,
+      ) as { id?: number | string; tipo?: string };
+
+      if (
+        payload.tipo !== "admin" &&
+        Number(payload.id) === Number(venta.vendedorId)
+      ) {
+        return "vendedor";
+      }
+    } catch {
+      // Token inválido: se responde como acceso denegado.
+    }
+  }
+
+  return null;
+}
+
+/**
+ * RQNF20 / RQNF24.1: avisa al comprador su palabra clave de pago y el bloque
+ * de atención del vendedor, si dejó correo al entrar a la fila.
+ */
+async function avisarPalabraClave(
+  productoId: string,
+  compradorId: string,
+  nombreProducto: string,
+  codigoPago: string | null,
+  vendedor: UsuarioEscrow | null,
+): Promise<void> {
+  if (!codigoPago) return;
+  const correo = await correoDelComprador(productoId, compradorId);
+  if (!correo) return;
+
+  try {
+    await enviarCorreoPalabraClaveCompra(
+      correo,
+      nombreProducto,
+      codigoPago,
+      avisoDeAtencion(vendedor),
+    );
+  } catch (error) {
+    console.error(
+      "[pago] No se pudo enviar la palabra clave por correo:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
 export async function crearOrden(req: RequestConComprador, res: Response) {
   try {
     const { productoId } = req.body;
@@ -127,6 +217,10 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     if (!vendedor)
       return res.status(404).json({ message: "Vendedor no encontrado" });
 
+    // RQNF24.1: antes de pagar se advierte que la atención será únicamente
+    // dentro del bloque de horario de atención vigente del vendedor.
+    const avisoAtencion = avisoDeAtencion(vendedor as UsuarioEscrow);
+
     const metodo = await metodoDePagoDelVendedor(vendedor.correo);
 
     if (metodo === "mercadopago") {
@@ -159,6 +253,7 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
         metodo: "mercadopago",
         preferenceId: preferencia.id,
         linkAprobacion,
+        avisoAtencion,
       });
     }
 
@@ -195,7 +290,12 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       });
     }
 
-    res.json({ metodo: "paypal", orderId: orden.id, linkAprobacion });
+    res.json({
+      metodo: "paypal",
+      orderId: orden.id,
+      linkAprobacion,
+      avisoAtencion,
+    });
   } catch (error) {
     console.error("[pago] Error al crear la orden:", error);
     const detalle = error instanceof Error ? error.message : "";
@@ -207,23 +307,44 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
   }
 }
 
+/**
+ * RQNF4 (escrow) / RQF21: el comprador vuelve de PayPal y se AUTORIZA el
+ * pago: el dinero queda retenido en escrow (no se cobra al vendedor todavía).
+ * La venta nace en `pendiente_comprobante` con su palabra clave de 4 dígitos
+ * (RQNF20) que se muestra aquí y se envía por correo.
+ */
 export async function capturarOrden(req: RequestConComprador, res: Response) {
   try {
     const orderId = req.params.orderId as string;
     const compradorId = req.compradorId as string;
 
+    // Idempotencia: si la venta ya se registró (recarga de la página de
+    // vuelta), se responde con los mismos datos sin volver a llamar a PayPal.
+    const ventaExistente = await clientePrisma.venta.findFirst({
+      where: { paypalOrderId: orderId },
+    });
+    if (ventaExistente) {
+      return res.json({
+        message: "Pago autorizado",
+        ventaId: Number(ventaExistente.id),
+        vendedorId: Number(ventaExistente.vendedorId),
+        productoId: String(ventaExistente.productoId),
+        codigoPago: ventaExistente.codigoPago ?? null,
+        estado: ventaExistente.estado,
+      });
+    }
+
     let resultado: any;
     try {
-      resultado = await capturarOrdenPaypal(orderId);
+      resultado = await autorizarOrdenPaypal(orderId);
     } catch (error) {
-      // PayPal responde 422 ORDER_ALREADY_CAPTURED cuando la página se
-      // recarga o la captura se intenta dos veces: en ese caso consultamos
-      // la orden y, si ya está COMPLETED, seguimos como si fuera la primera.
       const respuesta = (error as any)?.respuestaPaypal;
-      const nombreError = respuesta?.name;
+      const nombreError = respuesta?.name ?? "";
       const incidencia = respuesta?.details?.[0]?.issue ?? "";
 
-      if (nombreError === "ORDER_ALREADY_CAPTURED") {
+      if (nombreError === "ORDER_ALREADY_AUTHORIZED") {
+        // Doble clic o recarga: se consulta la orden, que ya trae su
+        // autorización, y se continúa como si fuera la primera vez.
         resultado = await obtenerOrdenPaypal(orderId);
       } else if (
         incidencia === "PAYER_NOT_APPROVED" ||
@@ -244,22 +365,27 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
       }
     }
 
-    if (!resultado || resultado.status !== "COMPLETED") {
+    const unidadDeCompra = resultado?.purchase_units?.[0];
+    const autorizacion = unidadDeCompra?.payments?.authorizations?.[0];
+    const productoId = String(unidadDeCompra?.reference_id ?? "");
+    const autorizacionPaypalId = String(autorizacion?.id ?? "");
+
+    if (!autorizacionPaypalId) {
       const detalle =
         resultado?.details?.[0]?.description ?? resultado?.name ?? null;
       return res.status(400).json({
         message: detalle
-          ? `El pago no se completó correctamente (${detalle})`
-          : "El pago no se completó correctamente",
+          ? `El pago no se autorizó correctamente (${detalle})`
+          : "El pago no se autorizó correctamente",
       });
     }
 
-    const unidadDeCompra = resultado.purchase_units?.[0];
-    const productoId = unidadDeCompra?.reference_id;
-    const monto = Number(
-      unidadDeCompra?.payments?.captures?.[0]?.amount?.value ??
-        unidadDeCompra?.amount?.value,
-    );
+    if (String(autorizacion?.status ?? "") !== "CREATED") {
+      return res.status(400).json({
+        message:
+          "La autorización de este pago ya no está activa; crea una orden nueva.",
+      });
+    }
 
     const producto = await buscarProducto(productoId);
     if (!producto || typeof productoId !== "string")
@@ -270,28 +396,43 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
 
-    // Idempotente: en una recarga no se repiten los efectos del pago, pero
-    // se responde 200 igual.
-    await registrarVentaExitosa({
+    const monto = Number(autorizacion?.amount?.value) || producto.precio;
+
+    const { nueva, venta } = await registrarVentaExitosa({
       productoId,
       compradorId,
       vendedorId,
       monto,
       referenciaExterna: orderId,
+      autorizacionPaypalId,
     });
 
+    const vendedor = await buscarVendedorDeProducto(vendedorId);
+    if (nueva) {
+      await avisarPalabraClave(
+        productoId,
+        compradorId,
+        producto.nombre,
+        venta?.codigoPago ?? null,
+        vendedor as UsuarioEscrow | null,
+      );
+    }
+
     res.json({
-      message: "Pago completado",
+      message: "Pago autorizado",
+      ventaId: venta?.id ?? null,
       vendedorId,
       productoId,
+      codigoPago: venta?.codigoPago ?? null,
+      estado: venta?.estado ?? "pendiente_comprobante",
     });
   } catch (error) {
-    console.error("[paypal] Error al capturar el pago:", error);
+    console.error("[paypal] Error al autorizar el pago:", error);
     const detalle = error instanceof Error ? error.message : "";
     res.status(500).json({
       message: detalle
         ? `No se pudo confirmar el pago con PayPal: ${detalle}`
-        : "Error al capturar el pago",
+        : "Error al autorizar el pago",
     });
   }
 }
@@ -302,7 +443,8 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
  *
  * No hay paso de captura: se consulta el pago a MercadoPago (fuente única de
  * verdad, lo que hace la operación idempotente) y, si está aprobado, se
- * registran los mismos efectos que con PayPal.
+ * registran los mismos efectos que con PayPal. El dinero entra a la cuenta de
+ * la plataforma (escrow interno) y se reembolsa por la API si se cancela.
  */
 export async function confirmarMercadoPago(
   req: RequestConComprador,
@@ -366,18 +508,33 @@ export async function confirmarMercadoPago(
       );
     }
 
-    await registrarVentaExitosa({
+    const compradorId = req.compradorId as string;
+    const { nueva, venta } = await registrarVentaExitosa({
       productoId,
-      compradorId: req.compradorId as string,
+      compradorId,
       vendedorId,
       monto,
       referenciaExterna: `mp:${paymentId}`,
     });
 
+    if (nueva) {
+      const vendedor = await buscarVendedorDeProducto(vendedorId);
+      await avisarPalabraClave(
+        productoId,
+        compradorId,
+        producto.nombre,
+        venta?.codigoPago ?? null,
+        vendedor as UsuarioEscrow | null,
+      );
+    }
+
     res.json({
       message: "Pago completado",
+      ventaId: venta?.id ?? null,
       vendedorId,
       productoId,
+      codigoPago: venta?.codigoPago ?? null,
+      estado: venta?.estado ?? "pendiente_comprobante",
     });
   } catch (error) {
     console.error("[mercadopago] Error al confirmar el pago:", error);
@@ -437,7 +594,7 @@ export async function webhookMercadoPago(req: Request, res: Response) {
     const vendedorId = Number(producto.vendedorId);
     if (!Number.isInteger(vendedorId)) return;
 
-    const { nueva } = await registrarVentaExitosa({
+    const { nueva, venta } = await registrarVentaExitosa({
       productoId,
       compradorId,
       vendedorId,
@@ -449,9 +606,492 @@ export async function webhookMercadoPago(req: Request, res: Response) {
       console.log(
         `[mercadopago] Venta registrada por webhook: producto ${productoId}`,
       );
+      const vendedor = await buscarVendedorDeProducto(vendedorId);
+      await avisarPalabraClave(
+        productoId,
+        compradorId,
+        producto.nombre,
+        venta?.codigoPago ?? null,
+        vendedor as UsuarioEscrow | null,
+      );
     }
   } catch (error) {
     console.error("[mercadopago] Error en el webhook:", error);
+  }
+}
+
+/**
+ * RQF22 / RQNF18 / RQNF24.4: el comprador registra su comprobante (palabra
+ * clave + referencia + fotografía). La imagen se moderó antes de guardarse;
+ * la venta pasa a `pendiente_confirmacion` y la fila queda en reposo.
+ */
+export async function registrarComprobante(
+  req: RequestConComprador,
+  res: Response,
+) {
+  const archivo = req.file;
+  const limpiarArchivo = () => {
+    if (archivo) fs.unlink(archivo.path, () => {});
+  };
+
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const compradorId = req.compradorId as string;
+
+    if (!Number.isInteger(ventaId)) {
+      limpiarArchivo();
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta) {
+      limpiarArchivo();
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    if (venta.compradorId !== compradorId) {
+      limpiarArchivo();
+      return res
+        .status(403)
+        .json({ message: "No puedes registrar el comprobante de esta compra" });
+    }
+
+    if (!archivo) {
+      return res.status(400).json({
+        message: "Adjunta la fotografía o captura de pantalla del comprobante",
+      });
+    }
+
+    // El filtro global de palabras corre antes de Multer, así que aquí se
+    // revisa otra vez la referencia escrita.
+    const referencia = String(req.body?.referencia ?? "").trim();
+    const campoProhibido = campoConPalabrasProhibidas({ referencia });
+    if (campoProhibido) {
+      limpiarArchivo();
+      return res
+        .status(400)
+        .json({ message: mensajePalabrasProhibidas(campoProhibido) });
+    }
+
+    // RQNF18 (de RQF22): moderación de contenido antes de mostrarla.
+    const bloqueo = await moderarComprobante(archivo.path);
+    if (bloqueo) {
+      limpiarArchivo();
+      return res.status(400).json({ message: bloqueo });
+    }
+
+    const resultado = await registrarComprobanteDeVenta(venta, {
+      palabraClave: String(req.body?.palabraClave ?? ""),
+      referencia,
+      imagen: `/uploads/comprobantes/${archivo.filename}`,
+    });
+
+    if (resultado.error) {
+      limpiarArchivo();
+      return res.status(400).json({ message: resultado.error });
+    }
+
+    res.json({
+      message:
+        "Comprobante recibido. El vendedor lo revisará dentro de su horario de atención.",
+      estado: "pendiente_confirmacion",
+      confirmacionLimite: resultado.confirmacionLimite ?? null,
+    });
+  } catch (error) {
+    limpiarArchivo();
+    console.error("[pago] Error al registrar el comprobante:", error);
+    res.status(500).json({ message: "Error al registrar el comprobante" });
+  }
+}
+
+/** RQF31: el vendedor confirma el comprobante (cierra reposo, abre chat). */
+export async function confirmarComprobante(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const vendedorId = Number(req.usuarioId);
+
+    if (!Number.isInteger(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const resultado = await confirmarComprobanteDeVenta(venta, vendedorId);
+    if (resultado.error) {
+      return res.status(400).json({ message: resultado.error });
+    }
+
+    res.json({
+      message:
+        "Comprobante confirmado. El chat de coordinación quedó habilitado y el comprador recibió su código de entrega.",
+      estado: "en_entrega",
+      entregaLimite: resultado.entregaLimite ?? null,
+      ventaId: venta.id,
+    });
+  } catch (error) {
+    console.error("[pago] Error al confirmar el comprobante:", error);
+    res.status(500).json({ message: "Error al confirmar el comprobante" });
+  }
+}
+
+/** RQF31 / RQNF23: el vendedor rechaza el comprobante (se reembolsa). */
+export async function rechazarComprobante(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const vendedorId = Number(req.usuarioId);
+
+    if (!Number.isInteger(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const resultado = await rechazarComprobanteDeVenta(
+      venta,
+      vendedorId,
+      String(req.body?.motivo ?? ""),
+    );
+    if (resultado.error) {
+      return res.status(400).json({ message: resultado.error });
+    }
+
+    res.json({
+      message:
+        "Comprobante rechazado. Se reembolsó al comprador y el turno pasó al siguiente en la fila.",
+      estado: "cancelada",
+      ventaId: venta.id,
+    });
+  } catch (error) {
+    console.error("[pago] Error al rechazar el comprobante:", error);
+    res.status(500).json({ message: "Error al rechazar el comprobante" });
+  }
+}
+
+/**
+ * RQF33 / RQNF27: el vendedor registra el código de confirmación de entrega
+ * que le dio el comprador. Con esto se libera el dinero del escrow y la
+ * transacción queda completada (RQNF26 cierra el chat).
+ */
+export async function registrarEntrega(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    const vendedorId = Number(req.usuarioId);
+
+    if (!Number.isInteger(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const resultado = await registrarEntregaDeVenta(
+      venta,
+      vendedorId,
+      String(req.body?.codigoEntrega ?? req.body?.codigo ?? ""),
+    );
+    if (resultado.error) {
+      return res.status(400).json({ message: resultado.error });
+    }
+
+    res.json({
+      message:
+        "Entrega confirmada: la transacción quedó completada y los fondos fueron liberados.",
+      estado: "completada",
+      ventaId: venta.id,
+    });
+  } catch (error) {
+    console.error("[pago] Error al registrar la entrega:", error);
+    res.status(500).json({ message: "Error al registrar la entrega" });
+  }
+}
+
+/**
+ * Detalle completo de una compra. Cada parte ve lo que le corresponde: el
+ * comprador su palabra clave y su código de entrega; el vendedor las fechas
+ * y el comprobante para revisarlo (RQF30), nunca los códigos secretos.
+ */
+export async function detalleDeVenta(req: Request, res: Response) {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    if (!Number.isInteger(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const rol = identificarRolEnVenta(req, venta);
+    if (!rol) {
+      return res.status(403).json({ message: "No tienes acceso a esta compra" });
+    }
+
+    const producto = await buscarProducto(venta.productoId);
+    const vendedor = await clientePrisma.usuario.findUnique({
+      where: { id: Number(venta.vendedorId) },
+    });
+
+    res.json({
+      ventaId: venta.id,
+      estado: venta.estado,
+      rol,
+      monto: Number(venta.monto),
+      producto: producto
+        ? {
+            id: String(producto._id),
+            nombre: producto.nombre,
+            imagenes: producto.imagenes ?? [],
+          }
+        : null,
+      vendedor: vendedor
+        ? {
+            id: Number(vendedor.id),
+            nombreCompleto: vendedor.nombreCompleto,
+          }
+        : null,
+      // RQNF20: solo el comprador conoce la palabra clave.
+      codigoPago: rol === "comprador" ? (venta.codigoPago ?? null) : null,
+      // RQNF24.4: el código de entrega es del comprador (RQNF26).
+      codigoEntrega:
+        rol === "comprador" && venta.estado === "en_entrega"
+          ? (venta.codigoEntrega ?? null)
+          : null,
+      comprobante: venta.comprobanteImagen
+        ? {
+            referencia: venta.comprobanteReferencia ?? null,
+            imagen: `/api/pagos/comprobante/${venta.id}/imagen`,
+            enviadoEn: venta.comprobanteEnviadoEn ?? null,
+          }
+        : null,
+      fechas: {
+        creada: venta.createdAt ?? null,
+        comprobanteEnviadoEn: venta.comprobanteEnviadoEn ?? null,
+        comprobanteConfirmadoEn: venta.comprobanteConfirmadoEn ?? null,
+        confirmacionLimite: venta.confirmacionLimite ?? null,
+        entregaLimite: venta.entregaLimite ?? null,
+        entregadoEn: venta.entregadoEn ?? null,
+        reembolsadoEn: venta.reembolsadoEn ?? null,
+      },
+      canceladoMotivo: venta.canceladoMotivo ?? null,
+      chatHabilitado: venta.estado === "en_entrega",
+      retenido: Boolean(venta.retenido),
+    });
+  } catch (error) {
+    console.error("[pago] Error al consultar el detalle de la venta:", error);
+    res.status(500).json({ message: "Error al consultar la compra" });
+  }
+}
+
+/**
+ * Sirve la fotografía del comprobante. Nunca se expone como archivo
+ * estático: solo la ven las partes de la venta y ya pasó la moderación.
+ */
+export async function imagenDeComprobante(req: Request, res: Response) {
+  try {
+    const ventaId = Number(req.params.ventaId);
+    if (!Number.isInteger(ventaId)) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    const venta = await cargarVenta(ventaId);
+    if (!venta || !venta.comprobanteImagen) {
+      return res.status(404).json({ message: "Comprobante no encontrado" });
+    }
+
+    const rol = identificarRolEnVenta(req, venta);
+    if (!rol) {
+      return res.status(403).json({ message: "No tienes acceso a esta compra" });
+    }
+
+    const nombreArchivo = path.basename(venta.comprobanteImagen);
+    const rutaAbsoluta = path.join(carpetaComprobantes, nombreArchivo);
+
+    if (!fs.existsSync(rutaAbsoluta)) {
+      return res.status(404).json({ message: "Comprobante no encontrado" });
+    }
+
+    res.sendFile(rutaAbsoluta);
+  } catch (error) {
+    console.error("[pago] Error al servir el comprobante:", error);
+    res.status(500).json({ message: "Error al obtener el comprobante" });
+  }
+}
+
+/**
+ * RQF30 / RQF32 / RQF33: ventas del vendedor para su panel: comprobantes por
+ * revisar, entregas en curso e historial.
+ */
+export async function ventasDelVendedor(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const vendedorId = Number(req.usuarioId);
+    const filtro =
+      typeof req.query.estado === "string" ? req.query.estado : null;
+
+    const ventas = (await clientePrisma.venta.findMany({
+      where: { vendedorId },
+      orderBy: { id: "desc" },
+    })) as VentaEscrow[];
+
+    const visibles = filtro
+      ? ventas.filter((venta) => venta.estado === filtro)
+      : ventas;
+
+    const idsProducto = [
+      ...new Set(
+        visibles
+          .map((venta) => String(venta.productoId))
+          .filter((id) => /^[0-9a-fA-F]{24}$/.test(id)),
+      ),
+    ];
+    const productos = idsProducto.length
+      ? await Producto.find({ _id: { $in: idsProducto } }).select(
+          "nombre imagenes",
+        )
+      : [];
+    const mapaProductos = new Map(
+      productos.map((producto) => [String(producto._id), producto]),
+    );
+
+    res.json({
+      resumen: {
+        porRevisar: ventas.filter(
+          (venta) => venta.estado === "pendiente_confirmacion",
+        ).length,
+        enEntrega: ventas.filter((venta) => venta.estado === "en_entrega")
+          .length,
+        completadas: ventas.filter((venta) => venta.estado === "completada")
+          .length,
+      },
+      ventas: visibles.map((venta) => {
+        const producto = mapaProductos.get(String(venta.productoId));
+        return {
+          ventaId: Number(venta.id),
+          estado: venta.estado,
+          monto: Number(venta.monto),
+          producto: producto
+            ? { nombre: producto.nombre, imagenes: producto.imagenes ?? [] }
+            : null,
+          compradorId: venta.compradorId,
+          comprobante:
+            venta.comprobanteImagen &&
+            (venta.estado === "pendiente_confirmacion" ||
+              venta.estado === "en_entrega" ||
+              venta.estado === "completada")
+              ? {
+                  referencia: venta.comprobanteReferencia ?? null,
+                  imagen: `/api/pagos/comprobante/${venta.id}/imagen`,
+                  enviadoEn: venta.comprobanteEnviadoEn ?? null,
+                }
+              : null,
+          fechas: {
+            creada: venta.createdAt ?? null,
+            comprobanteEnviadoEn: venta.comprobanteEnviadoEn ?? null,
+            confirmacionLimite: venta.confirmacionLimite ?? null,
+            comprobanteConfirmadoEn: venta.comprobanteConfirmadoEn ?? null,
+            entregaLimite: venta.entregaLimite ?? null,
+            entregadoEn: venta.entregadoEn ?? null,
+          },
+          canceladoMotivo: venta.canceladoMotivo ?? null,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("[pago] Error al listar las ventas del vendedor:", error);
+    res.status(500).json({ message: "Error al consultar tus ventas" });
+  }
+}
+
+/**
+ * Seguimiento de compras del comprador: estado del escrow, palabra clave,
+ * código de entrega y si el chat está habilitado.
+ */
+export async function misComprasDelComprador(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const compradorId = req.compradorId as string;
+
+    const ventas = (await clientePrisma.venta.findMany({
+      where: { compradorId },
+      orderBy: { id: "desc" },
+    })) as VentaEscrow[];
+
+    const idsProducto = [
+      ...new Set(
+        ventas
+          .map((venta) => String(venta.productoId))
+          .filter((id) => /^[0-9a-fA-F]{24}$/.test(id)),
+      ),
+    ];
+    const productos = idsProducto.length
+      ? await Producto.find({ _id: { $in: idsProducto } }).select(
+          "nombre imagenes",
+        )
+      : [];
+    const mapaProductos = new Map(
+      productos.map((producto) => [String(producto._id), producto]),
+    );
+
+    const espejos = ventas.length
+      ? await Venta.find({
+          paypalOrderId: { $in: ventas.map((venta) => venta.paypalOrderId) },
+        }).select("_id paypalOrderId")
+      : [];
+    const mapaEspejos = new Map(
+      espejos.map((espejo) => [String(espejo.paypalOrderId), String(espejo._id)]),
+    );
+
+    res.json({
+      compras: ventas.map((venta) => {
+        const producto = mapaProductos.get(String(venta.productoId));
+        return {
+          ventaId: Number(venta.id),
+          ventaMongoId: mapaEspejos.get(String(venta.paypalOrderId)) ?? null,
+          estado: venta.estado,
+          monto: Number(venta.monto),
+          producto: producto
+            ? { nombre: producto.nombre, imagenes: producto.imagenes ?? [] }
+            : null,
+          codigoPago: venta.codigoPago ?? null,
+          codigoEntrega:
+            venta.estado === "en_entrega"
+              ? (venta.codigoEntrega ?? null)
+              : null,
+          comprobanteEnviadoEn: venta.comprobanteEnviadoEn ?? null,
+          confirmacionLimite: venta.confirmacionLimite ?? null,
+          entregaLimite: venta.entregaLimite ?? null,
+          entregadoEn: venta.entregadoEn ?? null,
+          canceladoMotivo: venta.canceladoMotivo ?? null,
+          chatHabilitado: venta.estado === "en_entrega",
+          calificacionComprador: venta.calificacionComprador ?? null,
+        };
+      }),
+    });
+  } catch (error) {
+    console.error("[pago] Error al listar las compras del comprador:", error);
+    res.status(500).json({ message: "Error al consultar tus compras" });
   }
 }
 
@@ -481,6 +1121,14 @@ export async function calificar(req: Request, res: Response) {
     const venta = await Venta.findById(ventaId);
     if (!venta) {
       return res.status(404).json({ message: "Compra no encontrada" });
+    }
+
+    // RQF27: la calificación se hace después de confirmada la entrega.
+    if (venta.estado !== "completada") {
+      return res.status(400).json({
+        message:
+          "Solo puedes calificar cuando la entrega esté confirmada (transacción completada)",
+      });
     }
 
     const personaQueCalifica = identificarQuienCalifica(req);

@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'65dc47af40794a552be9d3ad3e41fdb9ae37ad3b1a6838b70318d4fcd8cd8550'>;
+  StorageHashBase<'1dbc5f25cc63c9da79c70436ecd83aaf54a7f177036f9ebd61614a4a64021ac5'>;
 export type ExecutionHash =
   ExecutionHashBase<'ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037'>;
 export type ProfileHash =
@@ -313,13 +313,30 @@ export type FieldOutputTypes = {
       readonly ventasExitosas: CodecTypes['pg/int4@1']['output'];
     };
     readonly venta: {
+      readonly autorizacionPaypalId: CodecTypes['pg/text@1']['output'] | null;
+      readonly canceladoMotivo: CodecTypes['pg/text@1']['output'] | null;
+      readonly capturaPaypalId: CodecTypes['pg/text@1']['output'] | null;
+      readonly codigoEntrega: CodecTypes['pg/text@1']['output'] | null;
+      readonly codigoPago: CodecTypes['pg/text@1']['output'] | null;
       readonly compradorId: CodecTypes['pg/text@1']['output'];
+      readonly comprobanteConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly comprobanteEnviadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly comprobanteImagen: CodecTypes['pg/text@1']['output'] | null;
+      readonly comprobantePalabraClave: CodecTypes['pg/text@1']['output'] | null;
+      readonly comprobanteReferencia: CodecTypes['pg/text@1']['output'] | null;
+      readonly confirmacionLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly entregaLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly entregadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly monto: CodecTypes['pg/float8@1']['output'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['output'];
       readonly productoId: CodecTypes['pg/text@1']['output'];
+      readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly reembolsoId: CodecTypes['pg/text@1']['output'] | null;
+      readonly retenido: CodecTypes['pg/bool@1']['output'];
+      readonly ultimoMensajeEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly vendedorId: CodecTypes['pg/int4@1']['output'];
     };
@@ -390,13 +407,30 @@ export type FieldInputTypes = {
       readonly ventasExitosas: CodecTypes['pg/int4@1']['input'];
     };
     readonly venta: {
+      readonly autorizacionPaypalId: CodecTypes['pg/text@1']['input'] | null;
+      readonly canceladoMotivo: CodecTypes['pg/text@1']['input'] | null;
+      readonly capturaPaypalId: CodecTypes['pg/text@1']['input'] | null;
+      readonly codigoEntrega: CodecTypes['pg/text@1']['input'] | null;
+      readonly codigoPago: CodecTypes['pg/text@1']['input'] | null;
       readonly compradorId: CodecTypes['pg/text@1']['input'];
+      readonly comprobanteConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly comprobanteEnviadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly comprobanteImagen: CodecTypes['pg/text@1']['input'] | null;
+      readonly comprobantePalabraClave: CodecTypes['pg/text@1']['input'] | null;
+      readonly comprobanteReferencia: CodecTypes['pg/text@1']['input'] | null;
+      readonly confirmacionLimite: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly entregaLimite: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly entregadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly monto: CodecTypes['pg/float8@1']['input'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['input'];
       readonly productoId: CodecTypes['pg/text@1']['input'];
+      readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly reembolsoId: CodecTypes['pg/text@1']['input'] | null;
+      readonly retenido: CodecTypes['pg/bool@1']['input'];
+      readonly ultimoMensajeEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly vendedorId: CodecTypes['pg/int4@1']['input'];
     };
@@ -467,13 +501,30 @@ export type StorageColumnTypes = {
       readonly ventasExitosas: CodecTypes['pg/int4@1']['output'];
     };
     readonly venta: {
+      readonly autorizacionPaypalId: CodecTypes['pg/text@1']['output'] | null;
+      readonly canceladoMotivo: CodecTypes['pg/text@1']['output'] | null;
+      readonly capturaPaypalId: CodecTypes['pg/text@1']['output'] | null;
+      readonly codigoEntrega: CodecTypes['pg/text@1']['output'] | null;
+      readonly codigoPago: CodecTypes['pg/text@1']['output'] | null;
       readonly compradorId: CodecTypes['pg/text@1']['output'];
+      readonly comprobanteConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly comprobanteEnviadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly comprobanteImagen: CodecTypes['pg/text@1']['output'] | null;
+      readonly comprobantePalabraClave: CodecTypes['pg/text@1']['output'] | null;
+      readonly comprobanteReferencia: CodecTypes['pg/text@1']['output'] | null;
+      readonly confirmacionLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+      readonly entregadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly entregaLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly estado: CodecTypes['pg/text@1']['output'];
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly monto: CodecTypes['pg/float8@1']['output'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['output'];
       readonly productoId: CodecTypes['pg/text@1']['output'];
+      readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly reembolsoId: CodecTypes['pg/text@1']['output'] | null;
+      readonly retenido: CodecTypes['pg/bool@1']['output'];
+      readonly ultimoMensajeEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly vendedorId: CodecTypes['pg/int4@1']['output'];
     };
@@ -544,13 +595,30 @@ export type StorageColumnInputTypes = {
       readonly ventasExitosas: CodecTypes['pg/int4@1']['input'];
     };
     readonly venta: {
+      readonly autorizacionPaypalId: CodecTypes['pg/text@1']['input'] | null;
+      readonly canceladoMotivo: CodecTypes['pg/text@1']['input'] | null;
+      readonly capturaPaypalId: CodecTypes['pg/text@1']['input'] | null;
+      readonly codigoEntrega: CodecTypes['pg/text@1']['input'] | null;
+      readonly codigoPago: CodecTypes['pg/text@1']['input'] | null;
       readonly compradorId: CodecTypes['pg/text@1']['input'];
+      readonly comprobanteConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly comprobanteEnviadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly comprobanteImagen: CodecTypes['pg/text@1']['input'] | null;
+      readonly comprobantePalabraClave: CodecTypes['pg/text@1']['input'] | null;
+      readonly comprobanteReferencia: CodecTypes['pg/text@1']['input'] | null;
+      readonly confirmacionLimite: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-temporal@1']['input'];
+      readonly entregadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly entregaLimite: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly estado: CodecTypes['pg/text@1']['input'];
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly monto: CodecTypes['pg/float8@1']['input'];
       readonly paypalOrderId: CodecTypes['pg/text@1']['input'];
       readonly productoId: CodecTypes['pg/text@1']['input'];
+      readonly reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly reembolsoId: CodecTypes['pg/text@1']['input'] | null;
+      readonly retenido: CodecTypes['pg/bool@1']['input'];
+      readonly ultimoMensajeEn: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly vendedorId: CodecTypes['pg/int4@1']['input'];
     };
@@ -627,13 +695,30 @@ export namespace Models {
     readonly [RelationKeys]?: 'reportes' | 'ventas';
   };
   export type public_venta = {
+    autorizacionPaypalId: CodecTypes['pg/text@1']['output'] | null;
+    canceladoMotivo: CodecTypes['pg/text@1']['output'] | null;
+    capturaPaypalId: CodecTypes['pg/text@1']['output'] | null;
+    codigoEntrega: CodecTypes['pg/text@1']['output'] | null;
+    codigoPago: CodecTypes['pg/text@1']['output'] | null;
     compradorId: CodecTypes['pg/text@1']['output'];
+    comprobanteConfirmadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    comprobanteEnviadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    comprobanteImagen: CodecTypes['pg/text@1']['output'] | null;
+    comprobantePalabraClave: CodecTypes['pg/text@1']['output'] | null;
+    comprobanteReferencia: CodecTypes['pg/text@1']['output'] | null;
+    confirmacionLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
+    entregaLimite: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    entregadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     estado: CodecTypes['pg/text@1']['output'];
     id: CodecTypes['pg/int4@1']['output'];
     monto: CodecTypes['pg/float8@1']['output'];
     paypalOrderId: CodecTypes['pg/text@1']['output'];
     productoId: CodecTypes['pg/text@1']['output'];
+    reembolsadoEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    reembolsoId: CodecTypes['pg/text@1']['output'] | null;
+    retenido: CodecTypes['pg/bool@1']['output'];
+    ultimoMensajeEn: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     vendedorId: CodecTypes['pg/int4@1']['output'];
     vendedor: public_usuario;
@@ -1049,10 +1134,65 @@ type ContractBase = Omit<
             };
             readonly venta: {
               columns: {
+                readonly autorizacionPaypalId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly canceladoMotivo: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly capturaPaypalId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly codigoEntrega: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly codigoPago: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly compradorId: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly comprobanteConfirmadoEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly comprobanteEnviadoEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly comprobanteImagen: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly comprobantePalabraClave: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly comprobanteReferencia: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly confirmacionLimite: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
                 };
                 readonly createdAt: {
                   readonly nativeType: 'timestamptz';
@@ -1060,13 +1200,23 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
                 };
+                readonly entregaLimite: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly entregadoEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
                 readonly estado: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                   readonly default: {
                     readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/text@1', 'completada'>;
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'pendiente_comprobante'>;
                   };
                 };
                 readonly id: {
@@ -1092,6 +1242,30 @@ type ContractBase = Omit<
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly reembolsadoEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly reembolsoId: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly retenido: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly ultimoMensajeEn: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
                 };
                 readonly updatedAt: {
                   readonly nativeType: 'timestamptz';
@@ -1534,12 +1708,79 @@ type ContractBase = Omit<
           };
           readonly venta: {
             readonly fields: {
+              readonly autorizacionPaypalId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly canceladoMotivo: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly capturaPaypalId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly codigoEntrega: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly codigoPago: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly compradorId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly comprobanteConfirmadoEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly comprobanteEnviadoEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly comprobanteImagen: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly comprobantePalabraClave: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly comprobanteReferencia: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly confirmacionLimite: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
               readonly createdAt: {
                 readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly entregaLimite: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly entregadoEn: {
+                readonly nullable: true;
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'pg/timestamptz-temporal@1';
@@ -1564,6 +1805,28 @@ type ContractBase = Omit<
               readonly productoId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly reembolsadoEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly reembolsoId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly retenido: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly ultimoMensajeEn: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
               };
               readonly updatedAt: {
                 readonly nullable: false;
@@ -1595,13 +1858,30 @@ type ContractBase = Omit<
               readonly table: 'venta';
               readonly namespaceId: 'public';
               readonly fields: {
+                readonly autorizacionPaypalId: { readonly column: 'autorizacionPaypalId' };
+                readonly canceladoMotivo: { readonly column: 'canceladoMotivo' };
+                readonly capturaPaypalId: { readonly column: 'capturaPaypalId' };
+                readonly codigoEntrega: { readonly column: 'codigoEntrega' };
+                readonly codigoPago: { readonly column: 'codigoPago' };
                 readonly compradorId: { readonly column: 'compradorId' };
+                readonly comprobanteConfirmadoEn: { readonly column: 'comprobanteConfirmadoEn' };
+                readonly comprobanteEnviadoEn: { readonly column: 'comprobanteEnviadoEn' };
+                readonly comprobanteImagen: { readonly column: 'comprobanteImagen' };
+                readonly comprobantePalabraClave: { readonly column: 'comprobantePalabraClave' };
+                readonly comprobanteReferencia: { readonly column: 'comprobanteReferencia' };
+                readonly confirmacionLimite: { readonly column: 'confirmacionLimite' };
                 readonly createdAt: { readonly column: 'createdAt' };
+                readonly entregaLimite: { readonly column: 'entregaLimite' };
+                readonly entregadoEn: { readonly column: 'entregadoEn' };
                 readonly estado: { readonly column: 'estado' };
                 readonly id: { readonly column: 'id' };
                 readonly monto: { readonly column: 'monto' };
                 readonly paypalOrderId: { readonly column: 'paypalOrderId' };
                 readonly productoId: { readonly column: 'productoId' };
+                readonly reembolsadoEn: { readonly column: 'reembolsadoEn' };
+                readonly reembolsoId: { readonly column: 'reembolsoId' };
+                readonly retenido: { readonly column: 'retenido' };
+                readonly ultimoMensajeEn: { readonly column: 'ultimoMensajeEn' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
                 readonly vendedorId: { readonly column: 'vendedorId' };
               };

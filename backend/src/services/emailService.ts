@@ -261,3 +261,282 @@ export async function enviarCorreoTurnoDePago(
 
   return true;
 }
+
+/**
+ * RQNF20: entrega al comprador la palabra clave numérica de 4 dígitos de su
+ * sesión de pago (la necesita para registrar el comprobante en RQF22).
+ * RQNF24.1: además se advierte que la atención será únicamente dentro del
+ * bloque de horario de atención del vendedor.
+ */
+export async function enviarCorreoPalabraClaveCompra(
+  correo: string,
+  nombreProducto: string,
+  codigoPago: string,
+  atencionTexto: string | null,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Palabra clave para ${correo}: ${codigoPago} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  const detalleProducto = nombreProducto
+    ? `<p>Tu pago de <strong>${escaparHtml(nombreProducto)}</strong> quedó autorizado y el dinero está protegido por Ichiba.</p>`
+    : "<p>Tu pago quedó autorizado y el dinero está protegido por Ichiba.</p>";
+
+  const avisoHorario = atencionTexto
+    ? `<p style="background:#fff4f4; border-left:4px solid #d90429; padding:10px 14px;">Aviso: la atención del vendedor será únicamente dentro de su bloque de horario de atención vigente (${escaparHtml(atencionTexto)}). Si escribes fuera de él, el vendedor te responderá en su siguiente bloque.</p>`
+    : "";
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu palabra clave de pago en Ichiba",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        ${detalleProducto}
+        <p>Esta es tu palabra clave para acreditar tu pago (la usarás al subir tu comprobante):</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${codigoPago}</p>
+        <p>Sube tu comprobante desde la página de tu compra dentro de las próximas 24 horas.</p>
+        ${avisoHorario}
+        <p style="color: #888; font-size: 12px;">
+          No compartas esta palabra clave con el vendedor hasta que él confirme tu comprobante.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/** RQF30/RQF31: avisa al vendedor que llegó un comprobante por revisar. */
+export async function enviarCorreoComprobanteRecibidoVendedor(
+  correo: string,
+  nombreProducto: string,
+  limiteTexto: string | null,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Comprobante por revisar para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Revisa el comprobante de pago que recibiste",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Un comprador envió su comprobante de pago${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""} y está en espera de tu revisión.</p>
+        <p>Puedes verlo desde tu panel de vendedor, en "Comprobantes por revisar".</p>
+        ${
+          limiteTexto
+            ? `<p style="background:#fff4f4; border-left:4px solid #d90429; padding:10px 14px;">Confírmalo o recházalo antes de que termine tu siguiente bloque de atención (${escaparHtml(limiteTexto)}); de lo contrario la compra se cancelará y se reembolsará al comprador de forma automática.</p>`
+            : ""
+        }
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF24.4: al confirmar el comprobante se entrega al comprador su código
+ * confidencial de confirmación de entrega (se lo dará al vendedor el día de
+ * la entrega, RQF26/RQF33).
+ */
+export async function enviarCorreoCodigoEntregaComprador(
+  correo: string,
+  nombreProducto: string,
+  codigoEntrega: string,
+  limiteTexto: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Código de entrega para ${correo}: ${codigoEntrega} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu comprobante fue confirmado: ya puedes coordinar la entrega",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>El vendedor confirmó tu comprobante de pago${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}. El chat de coordinación ya está abierto.</p>
+        <p>Este es tu código confidencial de confirmación de entrega:</p>
+        <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${codigoEntrega}</p>
+        <p>Entrégalo al vendedor únicamente cuando recibas tu producto en tus manos. Con este código se libera el dinero del vendedor.</p>
+        <p style="color: #888; font-size: 12px;">Si el vendedor no entrega el producto antes del ${escaparHtml(limiteTexto)}, la compra se cancelará y se te reembolsará automáticamente. No compartas este código antes de tiempo.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQF23: al rechazar el comprobante, el comprador puede reportar al vendedor;
+ * RQNF23: el turno pasa automáticamente al siguiente en la fila y se le
+ * devuelve su dinero.
+ */
+export async function enviarCorreoComprobanteRechazadoComprador(
+  correo: string,
+  nombreProducto: string,
+  motivo: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Comprobante rechazado para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu comprobante de pago fue rechazado",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>El vendedor rechazó el comprobante de pago${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}.</p>
+        <p><strong>Motivo:</strong> ${escaparHtml(motivo)}</p>
+        <p>Se te devolvió el dinero de tu pago y el turno pasó al siguiente comprador en la fila.</p>
+        <p>Si consideras que el rechazo fue injustificado, puedes reportar al vendedor desde tu compra en Ichiba ("Reportar al vendedor").</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/** RQNF26 / RQNF27: la entrega quedó confirmada y los fondos, liberados. */
+export async function enviarCorreoEntregaCompletada(
+  correo: string,
+  nombreProducto: string,
+  esVendedor: boolean,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Entrega completada para ${correo} (${nombreProducto || "producto sin nombre"})`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Entrega confirmada: transacción completada",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Se registró el código de confirmación de entrega${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}: la transacción quedó completada y el chat se cerró.</p>
+        ${
+          esVendedor
+            ? "<p>El dinero retenido en escrow fue liberado a tu cuenta de cobro.</p>"
+            : "<p>Si aún no calificas al vendedor, puedes hacerlo de 1 a 5 estrellas desde tu compra.</p>"
+        }
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF24 / RQNF28 / RQNF31 / RQNF10.2: aviso de cancelación automática del
+ * escrow. Se informa la hora y el día de la resolución y el reembolso.
+ */
+export async function enviarCorreoVentaCancelada(
+  correo: string,
+  nombreProducto: string,
+  motivo: string,
+  resolucionTexto: string,
+  reembolsoTexto: string,
+  esVendedor = false,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Compra cancelada para ${correo} (${nombreProducto || "producto sin nombre"}): ${motivo}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: esVendedor
+      ? "Se canceló una de tus ventas en Ichiba"
+      : "Tu compra fue cancelada y tu dinero será devuelto",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>${
+          esVendedor
+            ? `Se canceló la venta${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""}.`
+            : `La compra${nombreProducto ? ` de <strong>${escaparHtml(nombreProducto)}</strong>` : ""} fue cancelada.`
+        }</p>
+        <p><strong>Motivo:</strong> ${escaparHtml(motivo)}</p>
+        <p>${escaparHtml(reembolsoTexto)}</p>
+        <p style="color: #888; font-size: 12px;">Resolución emitida el ${escaparHtml(resolucionTexto)} (hora del centro, GMT-6).</p>
+      </div>
+    `,
+  });
+
+  return true;
+}

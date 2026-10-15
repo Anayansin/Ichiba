@@ -154,3 +154,69 @@ export async function expirarFilasVencidas(): Promise<number> {
 
   return liberadas;
 }
+
+/**
+ * RQNF23 / RQNF23.2 / RQNF24.2: la compra de un comprador se canceló o se
+ * rechazó su comprobante: su fila se cierra ("pagada"/"reposo" ->
+ * "finalizada") y las personas que esperaban la confirmación ("en espera")
+ * vuelven a la fila con su turno reacomodado. El producto se pone de nuevo
+ * a la venta y, si alguien queda en posición 1, arranca su temporizador y se
+ * le avisa por correo.
+ */
+export async function reanudarFilaTrasCancelacion(
+  productoId: string,
+  compradorId: string,
+): Promise<{ reanudados: number }> {
+  await clientePrisma.cola.updateMany({
+    where: { productoId, compradorId, estado: "pagada" },
+    data: { estado: "finalizada" },
+  });
+  await clientePrisma.cola.updateMany({
+    where: { productoId, compradorId, estado: "reposo" },
+    data: { estado: "finalizada" },
+  });
+
+  const enEspera = await clientePrisma.cola.findMany({
+    where: { productoId, estado: "esperando_confirmacion" },
+  });
+  enEspera.sort((a, b) => Number(a.posicion) - Number(b.posicion));
+
+  const tiempoLimite = await obtenerTiempoLimitePago(productoId);
+  const producto = await Producto.findById(productoId);
+
+  for (let indice = 0; indice < enEspera.length; indice += 1) {
+    const fila = enEspera[indice];
+    const nuevaPosicion = indice + 1;
+
+    await clientePrisma.cola.update({
+      where: { id: Number(fila.id) },
+      data: {
+        estado: "activa",
+        posicion: nuevaPosicion,
+        pagoExpiraEn:
+          nuevaPosicion === 1
+            ? new Date(Date.now() + tiempoLimite * 60 * 1000)
+            : null,
+      },
+    });
+
+    if (nuevaPosicion === 1 && fila.correo) {
+      try {
+        await enviarCorreoTurnoDePago(
+          fila.correo,
+          producto?.nombre ?? "",
+          tiempoLimite,
+        );
+      } catch (error) {
+        console.error("Error real:", error);
+      }
+    }
+  }
+
+  // El producto vuelve al catálogo: la compra que lo retiraba ya no existe.
+  if (producto) {
+    await Producto.updateOne({ _id: productoId }, { activo: true });
+  }
+
+  return { reanudados: enEspera.length };
+}

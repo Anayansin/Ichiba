@@ -180,6 +180,113 @@ export function estaDentroDeSuHorario(
   return minutosAhora >= inicio && minutosAhora < fin;
 }
 
+/** Convierte un "reloj GMT-6" (resultado de relojZonaCentro) a instante real. */
+export function deRelojZonaCentro(reloj: Date): Date {
+  return new Date(
+    reloj.getTime() +
+      OFFSET_ZONA_CENTRO_MINUTOS * 60000 -
+      reloj.getTimezoneOffset() * 60000,
+  );
+}
+
+/** RQNF24: texto "dd/mm/aaaa a las hh:mm" en hora del centro (GMT-6). */
+export function formatearFechaHoraZonaCentro(fecha: Date): string {
+  const reloj = relojZonaCentro(fecha);
+  const dia = String(reloj.getDate()).padStart(2, "0");
+  const mes = String(reloj.getMonth() + 1).padStart(2, "0");
+  const anio = reloj.getFullYear();
+  const hora = String(reloj.getHours()).padStart(2, "0");
+  const minuto = String(reloj.getMinutes()).padStart(2, "0");
+  return `${dia}/${mes}/${anio} a las ${hora}:${minuto}`;
+}
+
+/**
+ * RQNF24 / RQNF31: los plazos del escrow se cuentan en bloques de atención
+ * del vendedor. Para que un bloque cuente como oportunidad de atención debe
+ * quedarle al menos este tiempo disponible desde el momento de referencia;
+ * si el bloque vigente ya está por terminar, se usa el siguiente.
+ */
+const MINUTOS_MINIMOS_DE_ATENCION = 30;
+
+export type BloqueProgramado = { inicio: Date; fin: Date };
+
+/** Próximos bloques de atención (máximo `maxDias` días hacia adelante). */
+export function bloquesProgramados(
+  horarios: BloqueHorario[],
+  desde: Date,
+  maxDias = 14,
+): BloqueProgramado[] {
+  if (!Array.isArray(horarios)) return [];
+
+  const reloj = relojZonaCentro(desde);
+  const bloques: BloqueProgramado[] = [];
+
+  for (let diasAdelante = 0; diasAdelante <= maxDias; diasAdelante += 1) {
+    const fechaBuscada = new Date(reloj);
+    fechaBuscada.setDate(reloj.getDate() + diasAdelante);
+    const nombreDelDia = NOMBRES_DE_DIA[fechaBuscada.getDay()];
+
+    const bloque = horarios.find(
+      (item) => item.dia === nombreDelDia && bloqueUtilizable(item),
+    );
+    if (!bloque) continue;
+
+    const [horaInicio, minutoInicio] = bloque.horaInicio.split(":").map(Number);
+    const [horaFin, minutoFin] = bloque.horaFin.split(":").map(Number);
+
+    const inicio = new Date(fechaBuscada);
+    inicio.setHours(horaInicio, minutoInicio, 0, 0);
+    const fin = new Date(fechaBuscada);
+    fin.setHours(horaFin, minutoFin, 0, 0);
+
+    bloques.push({
+      inicio: deRelojZonaCentro(inicio),
+      fin: deRelojZonaCentro(fin),
+    });
+  }
+
+  return bloques;
+}
+
+/**
+ * RQNF24: momento límite (fin del siguiente bloque de atención del vendedor)
+ * para que confirme el comprobante antes de que se cancele y reembolse.
+ * Devuelve null si el vendedor no tiene bloques agendados.
+ */
+export function finDelSiguienteBloqueDeAtencion(
+  horarios: BloqueHorario[],
+  desde: Date,
+): Date | null {
+  const referencia = new Date(
+    desde.getTime() + MINUTOS_MINIMOS_DE_ATENCION * 60000,
+  );
+  const proximo = bloquesProgramados(horarios, desde).find(
+    (bloque) => bloque.fin.getTime() >= referencia.getTime(),
+  );
+  return proximo?.fin ?? null;
+}
+
+/**
+ * RQNF31: fin de los próximos `cantidad` bloques de atención (por defecto 3).
+ * Si pasa ese momento sin ningún mensaje, la transacción se cancela y se
+ * reembolsa. Devuelve null si no hay bloques suficientes agendados.
+ */
+export function finDeBloquesDeAtencion(
+  horarios: BloqueHorario[],
+  desde: Date,
+  cantidad = 3,
+): Date | null {
+  const referencia = new Date(
+    desde.getTime() + MINUTOS_MINIMOS_DE_ATENCION * 60000,
+  );
+  const disponibles = bloquesProgramados(horarios, desde, 21).filter(
+    (bloque) => bloque.fin.getTime() >= referencia.getTime(),
+  );
+
+  if (disponibles.length < cantidad) return null;
+  return disponibles[cantidad - 1].fin;
+}
+
 export function obtenerTextoDeProximoBloque(
   horarios: BloqueHorario[],
   fechaActual: Date,
