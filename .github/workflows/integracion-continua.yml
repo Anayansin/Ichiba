@@ -4,9 +4,10 @@ name: Integración continua
 #
 # Se ejecuta en cada push a main y en cada pull request:
 #  1. Backend: levanta PostgreSQL y MongoDB de prueba, aplica las migraciones,
-#     revisa los tipos y corre las 8 suites E2E (escrow, puntos/cancelación,
-#     informes, suscripciones GraphQL, servidor MCP, sanciones progresivas,
-#     disputas/adeudos y fila/apertura).
+#     siembra los datos demo (vendedores de prueba), revisa los tipos y corre
+#     las 8 suites E2E (escrow, puntos/cancelación, informes, suscripciones
+#     GraphQL, servidor MCP, sanciones progresivas, disputas/adeudos y
+#     fila/apertura).
 #  2. Frontend: compila la tienda (React + Vite) y el portal (Astro).
 #
 # El despliegue automático vive en `despliegue.yml` y solo arranca cuando este
@@ -80,6 +81,11 @@ jobs:
 
       - name: Aplicar las migraciones de PostgreSQL
         run: npx prisma db migrate
+
+      - name: Sembrar los datos demo (vendedores de prueba para las suites)
+        run: |
+          npm run seed
+          npm run seed:mp
 
       - name: Verificación de tipos (TypeScript)
         run: npx tsc --noEmit

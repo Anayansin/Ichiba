@@ -205,7 +205,7 @@ cd backend
 npm install
 ```
 
-Luego crea el archivo `.env` con las variables de la tabla anterior y prepara PostgreSQL: crea la base de datos y verifica el estado de las migraciones con `npx prisma migration status`. Si partes de una base vacía, aplica las migraciones que viven en `migrations/app` con la CLI de Prisma 8 o crea las tablas con `npx prisma db init`, como indica `backend/prisma-8.md`. Cada vez que modifiques `src/prisma/contract.prisma` vuelve a generar los tipos con:
+Luego crea el archivo `.env` con las variables de la tabla anterior y prepara PostgreSQL: crea la base de datos y revisa el estado de las migraciones con `npx prisma migration status`. Si partes de una base vacía, aplica las migraciones que viven en `migrations/app` con `npx prisma db migrate` (también puedes crear las tablas con `npx prisma db init`, como indica `backend/prisma-8.md`). Después llena los datos demo con `npm run seed` y `npm run seed:mp` (ver *Datos de prueba*). Cada vez que modifiques `src/prisma/contract.prisma` vuelve a generar los tipos con:
 
 ```bash
 npm run contract:emit
@@ -430,7 +430,7 @@ Los robots viven en `.github/workflows/` y se ejecutan en GitHub Actions:
 
 Se dispara en **cada push a `main`** y en cada pull request. Hace dos trabajos:
 
-1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (292 pruebas). Si alguna falla, el pipeline queda en rojo.
+1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (292 pruebas). Si alguna falla, el pipeline queda en rojo.
 2. **Frontend**: compila la tienda React (`npm run build`) y el portal Astro (`npm run compilar`).
 
 ### Despliegue continuo (`despliegue.yml`)
