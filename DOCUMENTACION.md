@@ -434,19 +434,30 @@ Se dispara en **cada push a `main`** y en cada pull request. Hace dos trabajos:
 1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (293 pruebas). Si alguna falla, el pipeline queda en rojo.
 2. **Frontend**: compila la tienda React (`npm run build`) y el portal Astro (`npm run compilar`).
 
-### Despliegue continuo (`despliegue.yml`)
+### Despliegue automático por integración con GitHub (lo que usa hoy el proyecto)
 
-Solo arranca cuando la integración continua **terminó en verde sobre `main`** (o a mano desde *Actions → Despliegue continuo → Run workflow*). Publica:
+Las dos plataformas están **conectadas directamente al repositorio** `Anayansin/Ichiba` (rama `main`), así que se publican solas con cada push, sin secretos en GitHub:
+
+- **Backend (Railway)**: el servicio `backend` está conectado al repositorio con **auto-despliegue activado**. Cada push a `main` crea un despliegue nuevo automáticamente: compila la carpeta `backend/`, aplica las migraciones pendientes y reinicia el servidor. El avance se ve en railway.com → proyecto *ichiba* → servicio *backend* (pestaña *Deployments*).
+- **Tienda (Vercel)**: el proyecto `ichiba` está conectado al repositorio; cada push a `main` publica la tienda automáticamente en **https://ichiba-three.vercel.app**.
+
+Antes de arrancar el backend, Railway aplica solo las migraciones pendientes de PostgreSQL: `backend/railway.json` define el paso previo `npx prisma db migrate` (`preDeployCommand`), así que la base de datos queda al día en cada despliegue sin correr nada a mano. Si ese paso falla, el despliegue se detiene y la versión anterior sigue funcionando.
+
+> **Nota de mantenimiento:** si actualizas dependencias del backend, ejecuta `npm install` dentro de `backend/` y commitea también `package-lock.json`: Railway compila con `npm ci` y exige que ambos archivos estén sincronizados.
+
+### Despliegue continuo alternativo (`despliegue.yml`)
+
+El workflow de GitHub Actions queda como **vía alternativa** (por ejemplo, para relanzar un despliegue a mano desde *Actions → Despliegue continuo → Run workflow*). Solo arranca cuando la integración continua **terminó en verde sobre `main`** y publica:
 
 - El **backend** en **Railway** (Node + PostgreSQL + MongoDB).
 - La **tienda** (React + Vite) en **Vercel**.
 - El **portal Astro** en Vercel, solo si se configura su proyecto.
 
-Mientras falten credenciales, cada paso se salta solo con un aviso (`::warning::`) y el pipeline queda en verde: nada se rompe por no haber configurado aún las plataformas.
+Mientras falten credenciales, cada paso se salta solo con un aviso (`::warning::`) y el pipeline queda en verde: nada se rompe por no haber configurado los secretos.
 
-Antes de arrancar el backend, Railway aplica solo las migraciones pendientes de PostgreSQL: `backend/railway.json` define el paso previo `npx prisma db migrate` (`preDeployCommand`), así que la base de datos queda al día en cada despliegue sin correr nada a mano. Si ese paso falla, el despliegue se detiene y la versión anterior sigue funcionando.
+### Cómo configurar los secretos del workflow alternativo (paso a paso)
 
-### Cómo configurar los secretos (paso a paso)
+Estos secretos solo hacen falta si quieres usar el workflow `despliegue.yml`; con la integración de GitHub descrita arriba el proyecto ya se publica solo.
 
 En GitHub, entra al repositorio → **Settings → Secrets and variables → Actions** y crea:
 
@@ -494,7 +505,8 @@ Cuando quieras relanzar un despliegue, entra a **Actions → Despliegue continuo
 
 Todo el código de las fases 1 a 7c está terminado y probado. Para completar el 100% de la puesta en marcha en producción, lo único que depende de una persona es:
 
-1. **Configurar los secretos de CI/CD en GitHub** (sección 6): `RAILWAY_TOKEN`, `VERCEL_TOKEN`, `RAILWAY_SERVICE`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` y, si aplica, `VERCEL_PROJECT_ID_ASTRO`. Sin ellos el pipeline funciona pero avisa que no despliega.
+1. **Secretos del workflow de despliegue (opcional)**: Railway y Vercel ya publican solos con cada push gracias a su integración con GitHub (sección 6). Solo si además quieres poder relanzar despliegues desde GitHub Actions, configura `RAILWAY_TOKEN`, `VERCEL_TOKEN`, `RAILWAY_SERVICE`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` y, si aplica, `VERCEL_PROJECT_ID_ASTRO`.
 2. **Probar un pago real de extremo a extremo** con una cuenta compradora *sandbox* creada en developer.paypal.com (aprobando el enlace de pago), y repetir con Mercado Pago si se desea. Las suites usan simuladores; esta es la única verificación que exige una cuenta externa real.
 3. **Credenciales externas en producción** (si aún no están): `GMAIL_USER`/`GMAIL_APP_PASSWORD` (correos reales), `STRUCTOCR_API_KEY` (INE), `GOOGLE_VISION_API_KEY` (moderación) y `PAYPAL_LLAVE_CIFRADO` (vinculación de PayPal).
 4. **Limpiar el historial de git** (opcional pero recomendado): en commits antiguos quedaron `backend/.env` con credenciales y fotografías de INE. El archivo actual está desvinculado y en `.gitignore`, pero el historial todavía las contiene; se ofreció limpiarlo con `git filter-repo`.
+5. **Mantener activa la suscripción de Railway**: la cuenta está en plan de prueba con límite de tiempo/crédito; si se agota, los servicios en línea se pausan. Revisa railway.com → *Account* → *Plans* y actualiza antes de que termine.
