@@ -443,6 +443,8 @@ Solo arranca cuando la integración continua **terminó en verde sobre `main`** 
 
 Mientras falten credenciales, cada paso se salta solo con un aviso (`::warning::`) y el pipeline queda en verde: nada se rompe por no haber configurado aún las plataformas.
 
+Antes de arrancar el backend, Railway aplica solo las migraciones pendientes de PostgreSQL: `backend/railway.json` define el paso previo `npx prisma db migrate` (`preDeployCommand`), así que la base de datos queda al día en cada despliegue sin correr nada a mano. Si ese paso falla, el despliegue se detiene y la versión anterior sigue funcionando.
+
 ### Cómo configurar los secretos (paso a paso)
 
 En GitHub, entra al repositorio → **Settings → Secrets and variables → Actions** y crea:
