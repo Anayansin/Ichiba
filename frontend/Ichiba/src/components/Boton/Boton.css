@@ -13,3 +13,12 @@
 .btn:hover {
   background-color: #b8031f;
 }
+
+.btn:disabled {
+  background-color: #9aa0a6;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background-color: #9aa0a6;
+}

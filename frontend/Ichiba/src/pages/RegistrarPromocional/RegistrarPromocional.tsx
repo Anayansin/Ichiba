@@ -6,6 +6,12 @@ import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError, campoDeError } from "../../utils/errores";
 import { CONDICIONES_USO } from "../../utils/opcionesProducto";
 import { TIPOS_PROMOCIONAL } from "../../configuracion/categorias";
+// RQNF10.1: detección inmediata, con la misma lista y normalización que el
+// backend (que sigue siendo la autoridad al enviar).
+import {
+  contienePalabrasProhibidas,
+  mensajePalabrasNoPermitidas,
+} from "../../configuracion/palabrasProhibidas";
 import "../RegistrarProducto/RegistrarProducto.css";
 import "./RegistrarPromocional.css";
 
@@ -67,10 +73,39 @@ function RegistrarPromocional() {
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // RQNF10.1: en cuanto el texto de un campo contiene una palabra no
+  // permitida aparece la alerta roja bajo ese campo; al corregirla desaparece.
+  function revisarEnVivo(campo: string, texto: string) {
+    if (contienePalabrasProhibidas(texto)) {
+      setCampoError(campo);
+      setError(mensajePalabrasNoPermitidas(campo));
+    } else if (campoError === campo) {
+      setCampoError(null);
+      setError("");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setCampoError(null);
+
+    // RQNF10: no se envía contenido con palabras no permitidas.
+    const camposTexto: Array<[string, string]> = [
+      ["nombre", nombre],
+      ["descripcion", descripcion],
+      ["coberturaEnvio", coberturaEnvio],
+    ];
+    const campoProhibido = camposTexto.find(([, texto]) =>
+      contienePalabrasProhibidas(texto),
+    );
+    if (campoProhibido) {
+      const [campo] = campoProhibido;
+      setError(mensajePalabrasNoPermitidas(campo));
+      setCampoError(campo);
+      document.getElementById(`campo-${campo}`)?.focus();
+      return;
+    }
 
     if (archivos.length === 0) {
       setError("Agrega al menos una imagen del promocional");
@@ -160,11 +195,14 @@ function RegistrarPromocional() {
             className="registrar-producto-input"
             placeholder="Ej. Casa en venta con jardín"
             value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
+            onChange={(e) => {
+              setNombre(e.target.value);
+              revisarEnVivo("nombre", e.target.value);
+            }}
             required
           />
           <small className="registrar-producto-nota">
-            {longitudNombre}/35 caracteres
+            {longitudNombre}/35 caracteres (mínimo 10)
           </small>
           {error && campoError === "nombre" && (
             <p className="registrar-producto-error">{error}</p>
@@ -211,11 +249,14 @@ function RegistrarPromocional() {
             className="registrar-producto-input registrar-producto-textarea"
             placeholder="Describe el artículo o servicio, detalles de ubicación, estado, etc."
             value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
+            onChange={(e) => {
+              setDescripcion(e.target.value);
+              revisarEnVivo("descripcion", e.target.value);
+            }}
             required
           />
           <small className="registrar-producto-nota">
-            {longitudDescripcion}/100 caracteres
+            {longitudDescripcion}/100 caracteres (mínimo 30)
           </small>
           {error && campoError === "descripcion" && (
             <p className="registrar-producto-error">{error}</p>
@@ -245,7 +286,10 @@ function RegistrarPromocional() {
             className="registrar-producto-input"
             placeholder="Ej. Todo el país, solo CDMX y Estado de México"
             value={coberturaEnvio}
-            onChange={(e) => setCoberturaEnvio(e.target.value)}
+            onChange={(e) => {
+              setCoberturaEnvio(e.target.value);
+              revisarEnVivo("coberturaEnvio", e.target.value);
+            }}
             required
           />
           <small className="registrar-producto-nota">
@@ -328,11 +372,13 @@ function RegistrarPromocional() {
           )}
         </div>
 
+        {/* Solo se bloquea mientras se envía: si algo falta, al pulsar el
+            botón aparece el mensaje exacto en vez de no pasar nada. */}
         <Boton
           texto={cargando ? "Publicando..." : "Publicar promocional"}
           onClick={() => {}}
           type="submit"
-          disabled={cargando || !nombreValido || !descripcionValido}
+          disabled={cargando}
         />
       </form>
     </div>

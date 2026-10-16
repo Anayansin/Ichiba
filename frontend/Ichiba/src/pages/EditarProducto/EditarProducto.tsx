@@ -17,6 +17,12 @@ import {
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
 import { textoCategoria } from "../../configuracion/categorias";
+// RQNF10.1: detección inmediata, con la misma lista y normalización que el
+// backend (que sigue siendo la autoridad al enviar).
+import {
+  contienePalabrasProhibidas,
+  mensajePalabrasNoPermitidas,
+} from "../../configuracion/palabrasProhibidas";
 import "./EditarProducto.css";
 
 const categorias = [
@@ -122,10 +128,38 @@ function EditarProducto() {
     e.target.value = "";
   }
 
+  // RQNF10.1: en cuanto el texto de un campo contiene una palabra no
+  // permitida aparece la alerta roja bajo ese campo; al corregirla desaparece.
+  function revisarEnVivo(campo: string, texto: string) {
+    if (contienePalabrasProhibidas(texto)) {
+      setCampoError(campo);
+      setError(mensajePalabrasNoPermitidas(campo));
+    } else if (campoError === campo) {
+      setCampoError(null);
+      setError("");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setCampoError(null);
+
+    // RQNF10: no se guarda contenido con palabras no permitidas.
+    const camposTexto: Array<[string, string]> = [
+      ["nombre", nombre],
+      ["descripcion", descripcion],
+    ];
+    const campoProhibido = camposTexto.find(([, texto]) =>
+      contienePalabrasProhibidas(texto),
+    );
+    if (campoProhibido) {
+      const [campo] = campoProhibido;
+      setError(mensajePalabrasNoPermitidas(campo));
+      setCampoError(campo);
+      document.getElementById(`campo-${campo}`)?.focus();
+      return;
+    }
 
     if (totalImagenes === 0) {
       setError("El producto debe tener al menos una imagen");
@@ -201,7 +235,10 @@ function EditarProducto() {
             id="campo-nombre"
             className="editar-producto-input"
             value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
+            onChange={(e) => {
+              setNombre(e.target.value);
+              revisarEnVivo("nombre", e.target.value);
+            }}
             required
           />
           {error && campoError === "nombre" && (
@@ -247,7 +284,10 @@ function EditarProducto() {
             id="campo-descripcion"
             className="editar-producto-input editar-producto-textarea"
             value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
+            onChange={(e) => {
+              setDescripcion(e.target.value);
+              revisarEnVivo("descripcion", e.target.value);
+            }}
             required
           />
           {error && campoError === "descripcion" && (
