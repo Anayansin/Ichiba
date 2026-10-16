@@ -1,8 +1,62 @@
 import api from "./api";
 import type { ReputacionVendedor } from "./usuarioServices";
 
-export async function crearOrdenPago(productoId: string) {
+export type OrdenDePagoPayPal = {
+  metodo: "paypal";
+  orderId: string;
+  linkAprobacion: string;
+  avisoAtencion?: string;
+};
+
+export type OrdenDePagoMercadoPago = {
+  metodo: "mercadopago";
+  /** Llave pública con la que el navegador monta el Payment Brick. */
+  llavePublica: string;
+  /** Precio actual del producto fijado por el servidor. */
+  monto: number;
+  correoComprador: string | null;
+  avisoAtencion?: string;
+};
+
+export async function crearOrdenPago(
+  productoId: string,
+): Promise<OrdenDePagoPayPal | OrdenDePagoMercadoPago> {
   const response = await api.post("/pagos/crear-orden", { productoId });
+  return response.data;
+}
+
+export type FormularioPagoMercadoPago = {
+  productoId: string;
+  token?: string;
+  payment_method_id: string;
+  issuer_id?: string | number;
+  installments?: number;
+  payer?: {
+    email?: string;
+    identification?: { type?: string; number?: string };
+  };
+};
+
+export type ResultadoPagoMercadoPago = {
+  estado: "aprobado" | "pendiente";
+  pagoId: number | null;
+  ventaId?: number | null;
+  codigoPago?: string | null;
+  estadoVenta?: string;
+  urlVoucher?: string | null;
+  mensaje?: string;
+  message?: string;
+};
+
+/**
+ * Checkout API: envía el formulario embebido (Payment Brick) y crea el cobro
+ * contra la API de MercadoPago. Si la tarjeta queda aprobada la venta ya
+ * existe; OXXO/SPEI quedan pendientes con su comprobante.
+ */
+export async function procesarPagoMercadoPago(
+  datos: FormularioPagoMercadoPago,
+): Promise<ResultadoPagoMercadoPago> {
+  const response = await api.post("/pagos/mercadopago/procesar", datos);
   return response.data;
 }
 

@@ -14,7 +14,8 @@ import {
   obtenerOrdenPaypal,
 } from "../services/paypalService.js";
 import {
-  crearPreferenciaMercadoPago,
+  crearPagoMercadoPago,
+  llavePublicaMercadoPago,
   obtenerPagoMercadoPago,
   pagoAprobado,
 } from "../services/mercadopagoService.js";
@@ -210,35 +211,49 @@ async function avisarPalabraClave(
   }
 }
 
+/**
+ * RQNF16 / RQNF18: el comprador solo puede pagar cuando es el primero de la
+ * fila y su tiempo de pago sigue vigente. Devuelve el mensaje de error, o
+ * null si puede continuar. Lo comparten la creación de la orden y el envío
+ * del formulario embebido de MercadoPago.
+ */
+async function asegurarTurnoDePago(
+  productoId: string,
+  compradorId: string,
+): Promise<string | null> {
+  const miFila = await clientePrisma.cola.findFirst({
+    where: {
+      productoId,
+      compradorId,
+      estado: "activa",
+    },
+  });
+
+  if (!miFila || miFila.posicion !== 1) {
+    return "No es tu turno para pagar todavía";
+  }
+
+  if (!miFila.pagoExpiraEn) {
+    await iniciarTemporizadorPago(miFila);
+    await clientePrisma.cola.update({
+      where: { id: miFila.id },
+      data: { pagoExpiraEn: miFila.pagoExpiraEn },
+    });
+  } else if (await expirarTurnoSiVencido(miFila)) {
+    return "Se agotó tu tiempo para pagar y perdiste tu turno en la fila";
+  }
+
+  return null;
+}
+
 export async function crearOrden(req: RequestConComprador, res: Response) {
   try {
     const { productoId } = req.body;
     const compradorId = req.compradorId as string;
 
-    const miFila = await clientePrisma.cola.findFirst({
-      where: {
-        productoId,
-        compradorId,
-        estado: "activa",
-      },
-    });
-
-    if (!miFila || miFila.posicion !== 1) {
-      return res
-        .status(403)
-        .json({ message: "No es tu turno para pagar todavía" });
-    }
-
-    if (!miFila.pagoExpiraEn) {
-      await iniciarTemporizadorPago(miFila);
-      await clientePrisma.cola.update({
-        where: { id: miFila.id },
-        data: { pagoExpiraEn: miFila.pagoExpiraEn },
-      });
-    } else if (await expirarTurnoSiVencido(miFila)) {
-      return res.status(403).json({
-        message: "Se agotó tu tiempo para pagar y perdiste tu turno en la fila",
-      });
+    const problemaDeTurno = await asegurarTurnoDePago(productoId, compradorId);
+    if (problemaDeTurno) {
+      return res.status(403).json({ message: problemaDeTurno });
     }
 
     const producto = await buscarProducto(productoId);
@@ -256,35 +271,15 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     const metodo = await metodoDePagoDelVendedor(vendedor.correo);
 
     if (metodo === "mercadopago") {
-      // Checkout Pro: MercadoPago devuelve `init_point`, la página donde el
-      // comprador paga. Usamos el mismo campo `linkAprobacion` que PayPal
-      // para que el frontend no tenga que distinguir pasarelas.
-      const preferencia = await crearPreferenciaMercadoPago({
-        productoId,
-        compradorId,
-        titulo: producto.nombre,
-        descripcion: producto.descripcion,
-        precio: producto.precio,
-        imagen: producto.imagenes?.[0] ?? null,
-      });
-
-      const linkAprobacion = preferencia?.init_point as string | undefined;
-
-      if (!preferencia?.id || !linkAprobacion) {
-        console.error(
-          "[mercadopago] Preferencia creada sin enlace de pago:",
-          preferencia,
-        );
-        return res.status(500).json({
-          message:
-            "MercadoPago no devolvió el enlace de pago. Intenta de nuevo.",
-        });
-      }
-
+      // Checkout API: el formulario (Payment Brick) se monta en la página del
+      // producto con la llave pública; el cobro se crea al enviarlo
+      // (`procesarPagoMercadoPago`), sin salir de Ichiba.
       return res.json({
         metodo: "mercadopago",
-        preferenceId: preferencia.id,
-        linkAprobacion,
+        llavePublica: llavePublicaMercadoPago(),
+        monto: producto.precio,
+        correoComprador:
+          (await correoDelComprador(productoId, compradorId)) ?? null,
         avisoAtencion,
       });
     }
@@ -470,8 +465,9 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
 }
 
 /**
- * Confirma un pago de MercadoPago una vez que el comprador vuelve del
- * checkout con `?fuente=mercadopago&payment_id=...`.
+ * Confirma un pago de MercadoPago consultándolo por su id (por ejemplo, un
+ * OXXO o SPEI que el comprador terminó de pagar, o la vuelta de una compra
+ * antigua con `?fuente=mercadopago&payment_id=...`).
  *
  * No hay paso de captura: se consulta el pago a MercadoPago (fuente única de
  * verdad, lo que hace la operación idempotente) y, si está aprobado, se
@@ -495,7 +491,7 @@ export async function confirmarMercadoPago(
 
     const pago = await obtenerPagoMercadoPago(paymentId);
 
-    // La referencia que guardamos al crear la preferencia es `mp:<productoId>`.
+    // La referencia que guardamos al crear el pago es `mp:<productoId>`.
     const referenciaExterna = String(pago?.external_reference ?? "");
     const productoId = referenciaExterna.startsWith("mp:")
       ? referenciaExterna.slice(3)
@@ -529,7 +525,7 @@ export async function confirmarMercadoPago(
       return res.status(404).json({ message: "Vendedor no encontrado" });
     }
 
-    // El importe lo fija MercadoPago según la preferencia que creamos en el
+    // El importe lo fija MercadoPago según el pago que creamos en el
     // servidor; si no coincide con el precio actual es porque el vendedor lo
     // editó mientras el comprador pagaba. Se registra lo realmente cobrado
     // (el dinero ya se movió) y se deja constancia.
@@ -575,6 +571,148 @@ export async function confirmarMercadoPago(
       message: detalle
         ? `No se pudo confirmar el pago con MercadoPago: ${detalle}`
         : "Error al confirmar el pago",
+    });
+  }
+}
+
+/**
+ * Checkout API (Payment Brick): el comprador envía el formulario embebido de
+ * la página del producto y aquí se crea el pago contra la API de MercadoPago.
+ *
+ * - Aprobado (tarjeta): se registra la venta en el escrow igual que con
+ *   PayPal y se responde con su palabra clave.
+ * - Pendiente (OXXO/SPEI): se devuelve el enlace del comprobante; la venta se
+ *   registrará sola por webhook cuando MercadoPago acredite el pago.
+ * - Rechazado: se devuelve el motivo para que el comprador corrija.
+ */
+export async function procesarPagoMercadoPago(
+  req: RequestConComprador,
+  res: Response,
+) {
+  try {
+    const compradorId = req.compradorId as string;
+    const {
+      productoId,
+      token,
+      payment_method_id: metodoPago,
+      issuer_id,
+      installments,
+      payer,
+    } = (req.body ?? {}) as {
+      productoId?: string;
+      token?: string;
+      payment_method_id?: string;
+      issuer_id?: string | number;
+      installments?: string | number;
+      payer?: {
+        email?: string;
+        identification?: { type?: string; number?: string };
+      };
+    };
+
+    if (!productoId || !metodoPago) {
+      return res.status(400).json({
+        message: "El formulario de pago llegó incompleto",
+      });
+    }
+
+    const problemaDeTurno = await asegurarTurnoDePago(productoId, compradorId);
+    if (problemaDeTurno) {
+      return res.status(403).json({ message: problemaDeTurno });
+    }
+
+    const producto = await buscarProducto(productoId);
+    if (!producto)
+      return res.status(404).json({ message: "Producto no encontrado" });
+
+    const vendedorId = Number(producto.vendedorId);
+    if (!Number.isInteger(vendedorId)) {
+      return res.status(404).json({ message: "Vendedor no encontrado" });
+    }
+
+    const vendedor = await buscarVendedorDeProducto(vendedorId);
+    if (!vendedor)
+      return res.status(404).json({ message: "Vendedor no encontrado" });
+
+    const metodo = await metodoDePagoDelVendedor(vendedor.correo);
+    if (metodo !== "mercadopago") {
+      return res.status(400).json({
+        message: "Este producto no se cobra con MercadoPago",
+      });
+    }
+
+    const pago = await crearPagoMercadoPago({
+      productoId,
+      compradorId,
+      titulo: producto.nombre,
+      precio: producto.precio,
+      pago: {
+        token,
+        payment_method_id: metodoPago,
+        issuer_id,
+        installments,
+        payer,
+      },
+    });
+
+    if (!pagoAprobado(pago)) {
+      const estado = String(pago?.status ?? "");
+      const detalle = String(pago?.status_detail ?? "");
+      const urlVoucher =
+        pago?.transaction_details?.external_resource_url ??
+        pago?.point_of_interaction?.transaction_data?.ticket_url ??
+        null;
+
+      if (estado === "pending" || estado === "in_process") {
+        return res.json({
+          estado: "pendiente",
+          pagoId: pago?.id ?? null,
+          urlVoucher,
+          mensaje: urlVoucher
+            ? "Tu pago quedó pendiente: completa el pago con el comprobante y te avisaremos en cuanto se acredite."
+            : "Tu pago quedó pendiente de acreditación; te avisaremos en cuanto MercadoPago lo confirme.",
+        });
+      }
+
+      return res.status(400).json({
+        estado: "rechazado",
+        message: `MercadoPago rechazó el pago${detalle ? ` (${detalle})` : ""}`,
+      });
+    }
+
+    const { nueva, venta } = await registrarVentaExitosa({
+      productoId,
+      compradorId,
+      vendedorId,
+      monto: Number(pago.transaction_amount),
+      referenciaExterna: `mp:${pago.id}`,
+    });
+
+    if (nueva) {
+      await avisarPalabraClave(
+        productoId,
+        compradorId,
+        producto.nombre,
+        venta?.codigoPago ?? null,
+        vendedor as UsuarioEscrow | null,
+      );
+    }
+
+    res.json({
+      estado: "aprobado",
+      pagoId: pago?.id ?? null,
+      message: "Pago completado",
+      ventaId: venta?.id ?? null,
+      codigoPago: venta?.codigoPago ?? null,
+      estadoVenta: venta?.estado ?? "pendiente_comprobante",
+    });
+  } catch (error) {
+    console.error("[mercadopago] Error al procesar el pago:", error);
+    const detalle = error instanceof Error ? error.message : "";
+    res.status(500).json({
+      message: detalle
+        ? `No se pudo procesar el pago con MercadoPago: ${detalle}`
+        : "Error al procesar el pago con MercadoPago",
     });
   }
 }

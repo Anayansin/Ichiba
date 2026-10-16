@@ -245,6 +245,41 @@
   text-decoration: underline;
 }
 
+/* Checkout API: formulario de pago embebido de MercadoPago (Payment Brick) */
+.producto-completo__pago-mp {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+}
+
+.producto-completo__pago-mp .producto-completo__aviso-pago-titulo {
+  color: #1a1a1a;
+}
+
+.producto-completo__pago-mp .producto-completo__aviso-pago-texto {
+  color: #666;
+}
+
+.producto-completo__brick-mp {
+  margin: 0.8rem 0;
+}
+
+.producto-completo__voucher {
+  display: inline-block;
+  margin: 0 0 0.8rem 0;
+  color: #d90429;
+  font-weight: 600;
+}
+
+.producto-completo__pago-mp-pendiente {
+  background-color: #eef4fd;
+  border-color: #1a56b0;
+}
+
+.producto-completo__pago-mp-pendiente .producto-completo__aviso-pago-titulo,
+.producto-completo__pago-mp-pendiente .producto-completo__aviso-pago-texto {
+  color: #1a56b0;
+}
+
 /* RQF18 / RQNF18: esperando la próxima apertura del vendedor */
 .producto-completo__esperando--apertura {
   background-color: #eef4fd;

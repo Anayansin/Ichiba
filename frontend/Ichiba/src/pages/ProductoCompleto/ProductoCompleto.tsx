@@ -25,7 +25,13 @@ import {
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
 import "./ProductoCompleto.css";
-import { crearOrdenPago } from "../../services/pagoService";
+import {
+  confirmarPagoMercadoPago,
+  crearOrdenPago,
+  procesarPagoMercadoPago,
+  type OrdenDePagoMercadoPago,
+} from "../../services/pagoService";
+import { crearPaymentBrick } from "../../utils/mercadoPagoSdk";
 import { guardarSuscripcion } from "../../services/notificacionService";
 
 function ProductoCompleto() {
@@ -45,6 +51,17 @@ function ProductoCompleto() {
   // RQNF24.1: aviso de atención y enlace a la pasarela tras confirmar el pago.
   const [avisoAtencion, setAvisoAtencion] = useState("");
   const [enlacePago, setEnlacePago] = useState("");
+  // Checkout API: datos para montar el Payment Brick embebido y su resultado.
+  const [datosPagoMP, setDatosPagoMP] = useState<OrdenDePagoMercadoPago | null>(
+    null,
+  );
+  const [brickListo, setBrickListo] = useState(false);
+  const [errorPagoMP, setErrorPagoMP] = useState("");
+  const [pagoPendienteMP, setPagoPendienteMP] = useState<{
+    pagoId: number | null;
+    mensaje: string;
+    urlVoucher: string | null;
+  } | null>(null);
   // RQF18: espera a la próxima apertura del vendedor.
   const [guardandoEspera, setGuardandoEspera] = useState(false);
 
@@ -111,6 +128,121 @@ function ProductoCompleto() {
     return () => clearInterval(intervalo);
   }, [estadoFila?.puedePagar, estadoFila?.pagoExpiraEn]);
 
+  // Checkout API: monta el Payment Brick en cuanto llegan los datos del pago
+  // y lo desmonta al cancelar o al salir de la página.
+  useEffect(() => {
+    if (!datosPagoMP || !producto) return;
+
+    let activo = true;
+    let controlador: { unmount: () => void } | null = null;
+
+    setBrickListo(false);
+    setErrorPagoMP("");
+
+    crearPaymentBrick(datosPagoMP.llavePublica, "contenedor-pago-mp", {
+      initialization: {
+        amount: datosPagoMP.monto,
+        payer: datosPagoMP.correoComprador
+          ? { email: datosPagoMP.correoComprador }
+          : undefined,
+      },
+      // Personalización de Ichiba: el rojo de la marca en botones y focos.
+      customization: {
+        paymentMethods: {
+          // El saldo de MercadoPago exige una preferencia (Checkout Pro):
+          // no se ofrece en el formulario embebido.
+          mercadoPago: "none",
+          ticket: "all", // OXXO
+          bankTransfer: "all", // SPEI
+          creditCard: "all",
+          debitCard: "all",
+          prepaidCard: "all",
+        },
+        visual: {
+          style: {
+            theme: "default",
+            customVariables: {
+              baseColor: "#d90429",
+              baseColorFirstVariant: "#b8031f",
+              baseColorSecondVariant: "#a00219",
+              buttonTextColor: "#ffffff",
+              borderRadiusMedium: "6px",
+              borderRadiusLarge: "8px",
+              fontSizeMedium: "14px",
+            },
+          },
+        },
+      },
+      callbacks: {
+        onReady: () => {
+          if (activo) setBrickListo(true);
+        },
+        onSubmit: async ({ formData }) => {
+          try {
+            const resultado = await procesarPagoMercadoPago({
+              productoId: producto._id,
+              payment_method_id: String(formData.payment_method_id ?? ""),
+              token: formData.token,
+              issuer_id: formData.issuer_id,
+              installments: formData.installments,
+              payer: formData.payer,
+            });
+
+            if (resultado.estado === "aprobado" && resultado.ventaId) {
+              // La venta ya quedó registrada: se retoma el comprobante.
+              navigate(`/pago-exitoso?venta=${resultado.ventaId}`);
+              return;
+            }
+
+            if (resultado.estado === "pendiente") {
+              setDatosPagoMP(null);
+              setPagoPendienteMP({
+                pagoId: resultado.pagoId ?? null,
+                mensaje: String(resultado.mensaje ?? ""),
+                urlVoucher: resultado.urlVoucher ?? null,
+              });
+            }
+          } catch (err) {
+            if (activo) {
+              setErrorPagoMP(
+                mensajeDeError(err) ||
+                  "No se pudo procesar el pago. Revisa los datos e intenta de nuevo.",
+              );
+            }
+          }
+        },
+        onError: (error) => {
+          console.error("Error del Payment Brick:", error);
+          if (activo) {
+            setErrorPagoMP(
+              "El formulario de pago tuvo un problema. Intenta de nuevo.",
+            );
+          }
+        },
+      },
+    })
+      .then((creado) => {
+        if (!activo) {
+          creado.unmount();
+          return;
+        }
+        controlador = creado;
+      })
+      .catch((error) => {
+        console.error("No se pudo montar el Payment Brick:", error);
+        if (activo) {
+          setErrorPagoMP(
+            "No se pudo cargar el formulario de pago. Revisa tu conexión e intenta de nuevo.",
+          );
+        }
+      });
+
+    return () => {
+      activo = false;
+      controlador?.unmount();
+    };
+  }, [datosPagoMP, producto, navigate]);
+
   async function handleEntrarFila() {
     const yaAceptoTerminos =
       localStorage.getItem("terminosAceptados") === "true";
@@ -139,11 +271,20 @@ function ProductoCompleto() {
   }
   async function handlePagar() {
     if (!producto) return;
+    setMensajeFila("");
+    setErrorPagoMP("");
+    setPagoPendienteMP(null);
     try {
-      const { linkAprobacion, avisoAtencion } = await crearOrdenPago(
-        producto._id,
-      );
-      if (!linkAprobacion) {
+      const orden = await crearOrdenPago(producto._id);
+
+      if (orden.metodo === "mercadopago") {
+        // Checkout API: el formulario se monta aquí mismo (Payment Brick).
+        setAvisoAtencion(String(orden.avisoAtencion ?? ""));
+        setDatosPagoMP(orden);
+        return;
+      }
+
+      if (!orden.linkAprobacion) {
         setMensajeFila(
           "La pasarela de pago no devolvió el enlace. Intenta de nuevo en unos segundos.",
         );
@@ -151,11 +292,41 @@ function ProductoCompleto() {
       }
       // RQNF24.1: antes de salir a la pasarela se advierte que la atención
       // del vendedor será únicamente dentro de su bloque de horario vigente.
-      setAvisoAtencion(String(avisoAtencion ?? ""));
-      setEnlacePago(String(linkAprobacion));
+      setAvisoAtencion(String(orden.avisoAtencion ?? ""));
+      setEnlacePago(String(orden.linkAprobacion));
     } catch (err) {
       setMensajeFila(mensajeDeError(err) || "Error al iniciar el pago");
     }
+  }
+
+  /** Checkout API: el comprador dice que ya pagó un OXXO/SPEI pendiente. */
+  async function handleVerificarPagoPendiente() {
+    if (!pagoPendienteMP?.pagoId) return;
+    setErrorPagoMP("");
+    try {
+      const datos = await confirmarPagoMercadoPago(
+        String(pagoPendienteMP.pagoId),
+      );
+      const ventaId = Number(datos?.ventaId);
+      if (Number.isInteger(ventaId) && ventaId > 0) {
+        navigate(`/pago-exitoso?venta=${ventaId}`);
+        return;
+      }
+      setPagoPendienteMP({
+        ...pagoPendienteMP,
+        mensaje: String(datos?.message ?? "El pago aún no se acredita."),
+      });
+    } catch (err) {
+      setErrorPagoMP(
+        mensajeDeError(err) || "El pago aún no se ha acreditado",
+      );
+    }
+  }
+
+  function cancelarPagoMP() {
+    setDatosPagoMP(null);
+    setPagoPendienteMP(null);
+    setErrorPagoMP("");
   }
 
   /**
@@ -333,7 +504,77 @@ function ProductoCompleto() {
                   {estadoFila.avisoAtencion}
                 </p>
               )}
-              {enlacePago ? (
+              {pagoPendienteMP ? (
+                <div className="producto-completo__aviso-pago producto-completo__pago-mp-pendiente">
+                  <p className="producto-completo__aviso-pago-titulo">
+                    Pago pendiente de acreditación
+                  </p>
+                  <p className="producto-completo__aviso-pago-texto">
+                    {pagoPendienteMP.mensaje}
+                  </p>
+                  {pagoPendienteMP.urlVoucher && (
+                    <a
+                      className="producto-completo__voucher"
+                      href={pagoPendienteMP.urlVoucher}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Ver el comprobante de pago
+                    </a>
+                  )}
+                  {errorPagoMP && (
+                    <p className="producto-completo__mensaje-fila">
+                      {errorPagoMP}
+                    </p>
+                  )}
+                  <div className="producto-completo__aviso-pago-acciones">
+                    <Boton
+                      texto="Ya pagué, verificar"
+                      onClick={handleVerificarPagoPendiente}
+                    />
+                    <button
+                      type="button"
+                      className="producto-completo__cancelar-pago"
+                      onClick={cancelarPagoMP}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              ) : datosPagoMP ? (
+                <div className="producto-completo__aviso-pago producto-completo__pago-mp">
+                  <p className="producto-completo__aviso-pago-titulo">
+                    Paga con Mercado Pago
+                  </p>
+                  <p className="producto-completo__aviso-pago-texto">
+                    {avisoAtencion ||
+                      "La atención del vendedor será únicamente dentro de su bloque de horario de atención vigente."}
+                  </p>
+                  {errorPagoMP && (
+                    <p className="producto-completo__mensaje-fila">
+                      {errorPagoMP}
+                    </p>
+                  )}
+                  {!brickListo && !errorPagoMP && (
+                    <p className="producto-completo__aviso-pago-texto">
+                      Cargando el formulario de pago...
+                    </p>
+                  )}
+                  <div
+                    id="contenedor-pago-mp"
+                    className="producto-completo__brick-mp"
+                  />
+                  <div className="producto-completo__aviso-pago-acciones">
+                    <button
+                      type="button"
+                      className="producto-completo__cancelar-pago"
+                      onClick={cancelarPagoMP}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : enlacePago ? (
                 <div className="producto-completo__aviso-pago">
                   <p className="producto-completo__aviso-pago-titulo">
                     Antes de pagar, ten en cuenta:
@@ -344,11 +585,7 @@ function ProductoCompleto() {
                   </p>
                   <div className="producto-completo__aviso-pago-acciones">
                     <Boton
-                      texto={
-                        producto.metodoPagoVendedor === "mercadopago"
-                          ? "Continuar a Mercado Pago"
-                          : "Continuar a PayPal"
-                      }
+                      texto="Continuar a PayPal"
                       onClick={() => {
                         window.location.href = enlacePago;
                       }}

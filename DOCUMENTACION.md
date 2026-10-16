@@ -184,6 +184,7 @@ El backend se configura en `backend/.env`. El archivo `backend/.env.example` exp
 | `PAYPAL_LLAVE_CIFRADO` | Para vincular cuentas de PayPal | Llave AES-256-GCM (64 dígitos hexadecimales) con la que se cifra el Token de Acceso que PayPal otorga al vendedor al vincular su cuenta. Si falta, la vinculación falla con un mensaje claro. |
 | `PAYPAL_API_BASE` | Para pagos | Base de la API de PayPal (modo pruebas o producción). |
 | `MERCADOPAGO_ACCESS_TOKEN` | Para pagos con MercadoPago | Access Token de la cuenta de MercadoPago (mercadopago.com/developers → Credenciales). Sin él, el pago de un vendedor con `metodoPago: mercadopago` falla con un mensaje claro. |
+| `MERCADOPAGO_PUBLIC_KEY` | Para pagos con MercadoPago | Llave pública de la misma cuenta (mercadopago.com/developers → Credenciales). Es pública por diseño: el navegador la usa para montar el formulario de pago embebido (Payment Brick). Sin ella, el formulario no puede mostrarse y el backend lo avisa con un mensaje claro. |
 | `MERCADOPAGO_API_BASE` | No | Base de la API de MercadoPago; por defecto `https://api.mercadopago.com`. |
 | `BACKEND_URL` | No | URL pública (https) del backend. Si existe y es https, MercadoPago la usa como `notification_url` (webhook); con `http://localhost` el webhook no se registra y solo confirma el pago quien vuelve del checkout. También se usa como `redirect_uri` de la vinculación de PayPal. |
 | `GMAIL_USER` | No | Correo desde el que se envían los mensajes. |
@@ -229,7 +230,7 @@ npm run seed
 
 El script `scripts/seed.ts` valida cada dato con las mismas reglas del controlador (longitudes, precios y palabras no permitidas), reutiliza las imágenes que ya existen en `uploads/` y es idempotente: todo lo que inserta queda marcado con `semilla: true`, se borra antes de volver a insertar y nunca toca datos reales. Si PostgreSQL está disponible los artículos se ligan a un usuario existente; si no, usan un vendedor de respaldo.
 
-Además, `npm run seed:mp` (`scripts/seed-mercadopago.ts`) crea otros 30 productos del catálogo ligados a una cuenta dedicada, `vendedor.mp@ichiba.test`, cuyo método de pago es MercadoPago, para poder probar el flujo de Checkout Pro sin tocar la semilla original (que sigue siendo PayPal). Sus productos llevan `semilla: "mercadopago"`, así que `npm run seed` no los borra.
+Además, `npm run seed:mp` (`scripts/seed-mercadopago.ts`) crea otros 30 productos del catálogo ligados a una cuenta dedicada, `vendedor.mp@ichiba.test`, cuyo método de pago es MercadoPago, para poder probar el flujo de MercadoPago (Checkout API, formulario embebido) sin tocar la semilla original (que sigue siendo PayPal). Sus productos llevan `semilla: "mercadopago"`, así que `npm run seed` no los borra.
 
 **Paso 2. Frontend React**
 
@@ -259,7 +260,7 @@ Astro sirve las páginas en `http://localhost:4321`. Para publicar, usa `npm run
 
 ### Verificación rápida
 
-La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoose` y el mensaje de servidor corriendo; `http://localhost:5000/api/salud` debe responder `{"estado":"ok"}`; `http://localhost:5000/api/productos` debe responder con el catálogo; y en `http://localhost:5173` debe cargarse la portada con el botón de inicio de sesión. Si el backend falla al arrancar, revisa primero `DATABASE_URL` y `MONGO_URI`; si las funciones de correo no llegan, revisa `GMAIL_USER` y `GMAIL_APP_PASSWORD`; si el pago no inicia, revisa las variables de PayPal, `MERCADOPAGO_ACCESS_TOKEN` y `FRONTEND_URL`; si la vinculación de PayPal falla, revisa `PAYPAL_LLAVE_CIFRADO` y que el `redirect_uri` (`${BACKEND_URL}/api/pagos/paypal/vincular/callback`) esté dado de alta en la aplicación de developer.paypal.com; si el registro rechaza la identificación, revisa `STRUCTOCR_API_KEY`; y si la publicación de productos responde *"La moderación de imágenes no está disponible"*, revisa `GOOGLE_VISION_API_KEY` (requiere la Cloud Vision API habilitada en Google Cloud).
+La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoose` y el mensaje de servidor corriendo; `http://localhost:5000/api/salud` debe responder `{"estado":"ok"}`; `http://localhost:5000/api/productos` debe responder con el catálogo; y en `http://localhost:5173` debe cargarse la portada con el botón de inicio de sesión. Si el backend falla al arrancar, revisa primero `DATABASE_URL` y `MONGO_URI`; si las funciones de correo no llegan, revisa `GMAIL_USER` y `GMAIL_APP_PASSWORD`; si el pago no inicia, revisa las variables de PayPal, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY` y `FRONTEND_URL`; si la vinculación de PayPal falla, revisa `PAYPAL_LLAVE_CIFRADO` y que el `redirect_uri` (`${BACKEND_URL}/api/pagos/paypal/vincular/callback`) esté dado de alta en la aplicación de developer.paypal.com; si el registro rechaza la identificación, revisa `STRUCTOCR_API_KEY`; y si la publicación de productos responde *"La moderación de imágenes no está disponible"*, revisa `GOOGLE_VISION_API_KEY` (requiere la Cloud Vision API habilitada en Google Cloud).
 
 ---
 
@@ -299,7 +300,7 @@ Es el corazón del marketplace: cada comprador entra a la fila de un producto, l
 - **Aviso al llegar al turno (RQNF16):** cuando alguien llega a la posición 1 y al vendedor le queda menos tiempo de atención que el tiempo límite de pago, la ficha del producto muestra el aviso con el próximo bloque; el comprador decide entre **"Pagar ahora"** (paga sin atención ni chat hasta el próximo bloque) o **"Esperar a la próxima apertura"**.
 - **Guardar el lugar (RQF18 y RQNF18):** al elegir esperar, la fila queda en estado `esperando_apertura` con el reloj pausado y conserva su posición; el trabajo `revisionPagos` la reanuda automáticamente (con correo de aviso) en cuanto el bloque de atención vuelve a abrir. Solo la posición 1 puede elegir, y una fila pausada no puede pagar (`crearOrden` responde 403 hasta que se reactive).
 
-En el backend: `backend/src/middleware/comprador.ts` (identificador anónimo), `backend/src/routes/colaRoutes.ts` con `backend/src/controllers/colaController.ts` (entrar, consultar y salir de la fila, esperar la apertura y responder la confirmación, sobre PostgreSQL) y `backend/src/services/filaService.ts` (expiración de turnos, pausa y reactivación por apertura); `backend/src/routes/pagoRoutes.ts` con `backend/src/controllers/pagoController.ts`, `backend/src/services/paypalService.ts` (creación y captura de la orden de pago, registro de la venta y calificación entre las partes, más el flujo OAuth 2.0 de vinculación de la cuenta del vendedor), `backend/src/controllers/paypalVinculacionController.ts` (redirección a la pasarela oficial, callback e intercambio del `code` por el Token de Acceso), `backend/src/services/cifradoService.ts` (AES-256-GCM para guardar el token cifrado, RQNF4) y `backend/src/services/mercadopagoService.ts` (preferencia de Checkout Pro, consulta del pago y webhook); `backend/src/middleware/sancion.ts` (bloqueo de sancionados); y los trabajos `backend/src/jobs/revisionPagos.ts` (cada minuto libera los turnos vencidos y reanuda las filas que esperaban apertura) y `backend/src/jobs/revisionHorarios.ts` (revisión diaria del horario).
+En el backend: `backend/src/middleware/comprador.ts` (identificador anónimo), `backend/src/routes/colaRoutes.ts` con `backend/src/controllers/colaController.ts` (entrar, consultar y salir de la fila, esperar la apertura y responder la confirmación, sobre PostgreSQL) y `backend/src/services/filaService.ts` (expiración de turnos, pausa y reactivación por apertura); `backend/src/routes/pagoRoutes.ts` con `backend/src/controllers/pagoController.ts`, `backend/src/services/paypalService.ts` (creación y captura de la orden de pago, registro de la venta y calificación entre las partes, más el flujo OAuth 2.0 de vinculación de la cuenta del vendedor), `backend/src/controllers/paypalVinculacionController.ts` (redirección a la pasarela oficial, callback e intercambio del `code` por el Token de Acceso), `backend/src/services/cifradoService.ts` (AES-256-GCM para guardar el token cifrado, RQNF4) y `backend/src/services/mercadopagoService.ts` (creación del pago con Checkout API, consulta del pago y webhook); `backend/src/middleware/sancion.ts` (bloqueo de sancionados); y los trabajos `backend/src/jobs/revisionPagos.ts` (cada minuto libera los turnos vencidos y reanuda las filas que esperaban apertura) y `backend/src/jobs/revisionHorarios.ts` (revisión diaria del horario).
 
 En el frontend: `frontend/Ichiba/src/components/ColaBubble` (burbuja flotante con la fila activa, RQNF19), `FilaActivaComprador`, `AdvertenciaEncuentroModal` (aviso de seguridad antes de quedarse en la posición uno) y `SelectorHorario`; las páginas `PagoExitoso` (donde se muestra la palabra clave de 4 dígitos), `ProductoCompleto` (aviso de apertura, botones "Pagar ahora" / "Esperar a la próxima apertura" y elección de pasarela), `MisPedidos` (seguimiento del escrow y disputas) y `HorarioVendedor`; el contexto `ColasProvider`; y los servicios `colaService.ts` y `pagoService.ts`.
 
@@ -314,7 +315,7 @@ El dinero nunca va directo al vendedor: queda **retenido en garantía** hasta qu
 5. **Cancelaciones y reembolsos automáticos**: el trabajo `backend/src/jobs/revisionEntregas.ts` (cada minuto) cancela y reembolsa al comprador cuando el comprador no sube su comprobante en 24 h (RQNF23), cuando el vendedor no confirma el comprobante antes de que termine su siguiente bloque de atención (RQNF24), cuando no registra la entrega en el plazo (RQNF28) o cuando hay inactividad prolongada en el chat por cualquiera de las partes (RQNF31: 3 bloques de atención sin mensajes).
 6. **Retención preventiva** (RQNF32): si la venta tiene reportes vivos o una disputa abierta, el dinero no se libera ni se reembolsa automáticamente: queda `retenido` y lo resuelve un administrador desde el BackOffice.
 
-Cada paso envía sus correos (palabra clave, comprobante recibido, código de entrega, comprobante rechazado, entrega completada y venta cancelada; ver el inventario de correos en `INVENTARIO.md`). Suite de pruebas: `backend/scripts/probar-escrow.ts` (60 pruebas).
+Cada paso envía sus correos (palabra clave, comprobante recibido, código de entrega, comprobante rechazado, entrega completada y venta cancelada; ver el inventario de correos en `INVENTARIO.md`). Suite de pruebas: `backend/scripts/probar-escrow.ts` (61 pruebas).
 
 ### Puntos, cancelación de cuentas y lista negra (Fase 2)
 
@@ -404,11 +405,11 @@ En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx` (pantalla protegida 
 
 ## 5. Pruebas automatizadas
 
-El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el backend real contra PostgreSQL y MongoDB locales, con simuladores de PayPal, Mercado Pago y Cloud Vision donde hace falta) y una prueba de moderación. Todas se ejecutan desde `backend/` con `node --harmony-temporal --import tsx scripts/<archivo>.ts` (o `npx tsx`):
+El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el backend real contra PostgreSQL y MongoDB locales, con simuladores de PayPal, Mercado Pago y Cloud Vision donde hace falta) y una prueba de moderación. Todas se ejecutan desde `backend/` con `node --harmony-temporal --import tsx scripts/<archivo>.ts` (el flag `--harmony-temporal` es obligatorio: Prisma lo necesita para leer las fechas `timestamptz` de PostgreSQL):
 
 | Suite | Archivo | Pruebas | Qué cubre |
 | --- | --- | --- | --- |
-| Fase 1 | `scripts/probar-escrow.ts` | 60 | Palabra clave, comprobante, confirmación/rechazo, código de entrega, liberación y reembolsos del escrow |
+| Fase 1 | `scripts/probar-escrow.ts` | 61 | Palabra clave, comprobante, confirmación/rechazo, código de entrega, liberación y reembolsos del escrow |
 | Fase 2 | `scripts/probar-puntos-cancelacion.ts` | 48 | Puntos de reputación, cancelación a los 8 puntos, lista negra, purga y retiro de filas |
 | Fase 3 | `scripts/probar-informes.ts` | 26 | Informes mensuales por vendedor y globales, PDF y purga a los 13 meses |
 | Fase 4 | `scripts/probar-suscripciones.ts` | 11 | Suscripciones GraphQL del BackOffice por WebSocket |
@@ -418,7 +419,7 @@ El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el ba
 | Fase 7c | `scripts/probar-fila-apertura.ts` | 30 | Fila fuera de horario, aviso, "pagar ahora", esperar apertura y reactivación |
 | Moderación | `scripts/probar-moderacion-vision.ts` | 38 | RQNF7, RQNF8, RQF8 y RQF9: validaciones de publicación y Cloud Vision simulada |
 
-**Total: 292 pruebas de las suites + 38 de moderación.** Cada suite imprime al final una línea `Suite ...: X/Y pruebas pasaron`; esa es la señal de éxito (no el código de salida de PowerShell, que puede reportar error por la salida de diagnóstico de Node). Las suites usan puertos propios para no chocar con el servidor de desarrollo (el backend normal usa el 5000): escrow 5097, puntos 5098, informes 5099, suscripciones 5100, MCP 5101, sanciones 5102, disputas 5103 y fila/apertura 5104; los simuladores (mocks) usan los puertos 59091 a 59100.
+**Total: 293 pruebas de las suites + 38 de moderación.** Cada suite imprime al final una línea `Suite ...: X/Y pruebas pasaron`; esa es la señal de éxito (no el código de salida de PowerShell, que puede reportar error por la salida de diagnóstico de Node). Las suites usan puertos propios para no chocar con el servidor de desarrollo (el backend normal usa el 5000): escrow 5097, puntos 5098, informes 5099, suscripciones 5100, MCP 5101, sanciones 5102, disputas 5103 y fila/apertura 5104; los simuladores (mocks) usan los puertos 59091 a 59100.
 
 ---
 
@@ -430,7 +431,7 @@ Los robots viven en `.github/workflows/` y se ejecutan en GitHub Actions:
 
 Se dispara en **cada push a `main`** y en cada pull request. Hace dos trabajos:
 
-1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (292 pruebas). Si alguna falla, el pipeline queda en rojo.
+1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (293 pruebas). Si alguna falla, el pipeline queda en rojo.
 2. **Frontend**: compila la tienda React (`npm run build`) y el portal Astro (`npm run compilar`).
 
 ### Despliegue continuo (`despliegue.yml`)
@@ -477,7 +478,7 @@ Cuando quieras relanzar un despliegue, entra a **Actions → Despliegue continuo
 | Probar el envío de correo | `backend` | `npm run correo-test -- [correo]` |
 | Arrancar el servidor MCP (stdio) | `backend` | `npm run mcp` |
 | Ver contenido de MongoDB | `backend` | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` |
-| Correr una suite de pruebas | `backend` | `npx tsx scripts/probar-escrow.ts` (y las demás de la sección 5) |
+| Correr una suite de pruebas | `backend` | `node --harmony-temporal --import tsx scripts/probar-escrow.ts` (y las demás de la sección 5) |
 | Instalar dependencias del frontend | `frontend/Ichiba` | `npm install` |
 | Levantar el frontend React | `frontend/Ichiba` | `npm run dev` |
 | Compilar el frontend | `frontend/Ichiba` | `npm run build` |

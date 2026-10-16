@@ -90,7 +90,7 @@ jobs:
       - name: Verificación de tipos (TypeScript)
         run: npx tsc --noEmit
 
-      - name: "Suite Fase 1: escrow (60 pruebas)"
+      - name: "Suite Fase 1: escrow (61 pruebas)"
         run: node --harmony-temporal --import tsx scripts/probar-escrow.ts
 
       - name: "Suite Fase 2: puntos y cancelación (48 pruebas)"

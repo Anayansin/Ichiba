@@ -129,7 +129,7 @@ para responder preguntas.
 | API | URL | Credential / variable | Cliente propio | Se usa en |
 |---|---|---|---|---|
 | **PayPal Checkout v2** (sandbox) | `https://api-m.sandbox.paypal.com` (cambiable con `PAYPAL_API_BASE`) | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | `backend/src/services/paypalService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
-| **MercadoPago Checkout Pro** | `https://api.mercadopago.com` (cambiable con `MERCADOPAGO_API_BASE`) | `MERCADOPAGO_ACCESS_TOKEN` | `backend/src/services/mercadopagoService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
+| **MercadoPago Checkout API** (Payment Brick embebido) | `https://api.mercadopago.com` (cambiable con `MERCADOPAGO_API_BASE`) | `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY` (esta última es pública: la usa el navegador) | `backend/src/services/mercadopagoService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
 | **StructOCR** (lectura de INE) | `POST https://api.structocr.com/v1/national-id` con header `x-api-key` | `STRUCTOCR_API_KEY` | `backend/src/services/structOcrService.ts` | Registro de vendedor en `usuarioController.ts` (cuesta 4 créditos por uso) |
 | **Gmail SMTP** (vía nodemailer `service: "gmail"`) | smtp.gmail.com:465/587 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` (contraseña de aplicación) | `backend/src/services/emailService.ts` | Ver todos los correos en la sección 6 |
 | **Google Cloud Vision API** (moderación de fotografías) | `https://vision.googleapis.com` (cambiable con `GOOGLE_VISION_ENDPOINT`, solo para pruebas) | `GOOGLE_VISION_API_KEY` | `backend/src/services/visionService.ts` | Publicación de productos (`productoController.ts`) y comprobantes de pago (`pagoController.ts`) |
@@ -165,31 +165,44 @@ Son **6 APIs externas** (PayPal, MercadoPago, StructOCR, Gmail, Cloud Vision y e
    con mensaje amigable.
 5. `GET /v1/oauth2/token` (Basic con client:secret) se usa para autenticar cada llamada.
 
-### Flujo de MercadoPago
+### Flujo de MercadoPago (Checkout API)
 
 1. `POST /api/pagos/crear-orden` → el backend mira en MongoDB el `metodoPago`
-   del vendedor. Si es `mercadopago` llama a `crearPreferenciaMercadoPago()`
-   (`POST /checkout/preferences`, ítem único en **MXN**, `external_reference`
-   = `mp:<productoId>`, `back_urls.success` = `${FRONTEND_URL}/pago-exitoso?fuente=mercadopago`)
-   y devuelve el `init_point` de MercadoPago en el mismo campo `linkAprobacion`
-   que usa PayPal, así el frontend no distingue pasarelas.
-2. El comprador paga en la página alojada de MercadoPago (tarjeta, OXXO, SPEI,
-   saldo). **No hay paso de captura**: el cobro queda aprobado al momento.
-3. De vuelta, `POST /api/pagos/confirmar-mercadopago` con `paymentId` →
-   `obtenerPagoMercadoPago()` (`GET /v1/payments/:id`) es la única fuente de
-   verdad: si `status === "approved"` registra la venta; `pending`/`rejected`
-   responden **400** con mensaje amigable.
-4. `POST /api/pagos/webhook-mercadopago` (IPN): público, responde 200 de
+   del vendedor. Si es `mercadopago` valida el turno de la fila y devuelve los
+   datos para el formulario embebido: la **llave pública** de la cuenta
+   (`MERCADOPAGO_PUBLIC_KEY`), el **monto** actual del producto fijado por el
+   servidor, el correo del comprador para prellenarlo y el aviso de atención
+   (RQNF24.1).
+2. El navegador monta el **Payment Brick** de MercadoPago dentro de la página
+   del producto (`ProductoCompleto.tsx` + `utils/mercadoPagoSdk.ts`): tarjeta,
+   OXXO y SPEI en un formulario propio de Ichiba (colores de la marca vía
+   `customization.visual.style.customVariables`). El saldo de MercadoPago no
+   se ofrece porque exige una preferencia (Checkout Pro). La tarjeta se
+   tokeniza en el navegador: Ichiba nunca ve el número.
+3. Al enviar el formulario, `POST /api/pagos/mercadopago/procesar` →
+   `crearPagoMercadoPago()` (`POST /v1/payments`, ítem único en **MXN**,
+   `external_reference` = `mp:<productoId>`, `metadata` con el comprador,
+   `notification_url` si `BACKEND_URL` es https):
+   - **Aprobado** (tarjeta): registra la venta con su palabra clave.
+   - **Pendiente** (OXXO/SPEI): responde `pendiente` con el enlace del
+     comprobante; la venta se registrará por webhook al acreditarse.
+   - **Rechazado**: responde **400** con el motivo (`status_detail`) para que
+     el comprador corrija.
+4. `POST /api/pagos/confirmar-mercadopago` con `paymentId` →
+   `obtenerPagoMercadoPago()` (`GET /v1/payments/:id`) sigue siendo la fuente
+   de verdad idempotente: sirve para verificar un OXXO/SPEI ya pagado (botón
+   "Ya pagué, verificar") y para reconsultar pagos antiguos.
+5. `POST /api/pagos/webhook-mercadopago` (IPN): público, responde 200 de
    inmediato y **reconsulta a la API** (nunca confía en el cuerpo), así el
-   pago sigue confirmando aunque el comprador cierre el navegador. Solo se
-   registra `notification_url` si `BACKEND_URL` es **https** (MercadoPago no
-   alcanza localhost) y solo se envía `auto_return` si `FRONTEND_URL` es https.
-5. Ambas pasarelas comparten `registrarVentaExitosa()` con clave de
+   pago pendiente sigue confirmando aunque el comprador cierre el navegador.
+   Solo se registra `notification_url` si `BACKEND_URL` es **https**
+   (MercadoPago no alcanza localhost).
+6. Ambas pasarelas comparten `registrarVentaExitosa()` con clave de
    idempotencia `referenciaExterna` (`mp:<payment_id>` vs el id de orden de
    PayPal).
 
 **Diferencia con PayPal:** en PayPal el dinero va a la cuenta del vendedor
-(`payee` = `paypalEmail`); en Checkout Pro el dinero entra a la cuenta dueña
+(`payee` = `paypalEmail`); en MercadoPago el dinero entra a la cuenta dueña
 de `MERCADOPAGO_ACCESS_TOKEN`. Pagarle a cada vendedor exigiría el programa
 Marketplace de MercadoPago (comentario en `mercadopagoService.ts`).
 
@@ -402,7 +415,7 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | Fase 7c — fila y apertura | `npx tsx scripts/probar-fila-apertura.ts` | 30 | 5104 |
 | Moderación | `npx tsx scripts/probar-moderacion-vision.ts` | 38 | — |
 
-Total: **292 pruebas en las 8 suites** (+38 de moderación). Los simuladores
+Total: **293 pruebas en las 8 suites** (+38 de moderación). Los simuladores
 (mocks) de PayPal, MercadoPago y Cloud Vision de las suites usan los puertos
 59091 a 59100. Cada suite imprime `Suite ...: X/Y pruebas pasaron`; esa línea
 es la señal de éxito.
@@ -457,7 +470,7 @@ y `backend/.env.example` (este último explica cada variable).
   reembolsos), puntos y cancelación, sanciones progresivas, disputas y adeudos,
   informes mensuales en PDF, suscripciones GraphQL en vivo, servidor MCP
   (18 herramientas) y CI/CD.
-- Las **8 suites (292 pruebas)** y la de moderación (38) corren también en
+- Las **8 suites (293 pruebas)** y la de moderación (38) corren también en
   GitHub Actions (`.github/workflows/integracion-continua.yml`).
 - **Pendiente manual:** configurar los secretos de CI/CD en GitHub
   (`RAILWAY_TOKEN`, `VERCEL_TOKEN`, `RAILWAY_SERVICE`, `VERCEL_ORG_ID`,

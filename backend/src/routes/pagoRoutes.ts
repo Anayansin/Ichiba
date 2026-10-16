@@ -3,6 +3,7 @@ import {
   crearOrden,
   capturarOrden,
   confirmarMercadoPago,
+  procesarPagoMercadoPago,
   webhookMercadoPago,
   registrarComprobante,
   confirmarComprobante,
@@ -64,6 +65,15 @@ router.post(
   rechazarAdminEnCompra,
   requiereCompradorId,
   confirmarMercadoPago,
+);
+
+// Checkout API: el comprador envía el formulario embebido (Payment Brick) y
+// el cobro se crea contra la API de MercadoPago sin salir de Ichiba.
+router.post(
+  "/mercadopago/procesar",
+  rechazarAdminEnCompra,
+  requiereCompradorId,
+  procesarPagoMercadoPago,
 );
 
 // Webhook (IPN): MercadoPago lo llama desde su infraestructura, por eso no

@@ -11,7 +11,7 @@
  * Levanta:
  *  - un mock local de PayPal (orden AUTHORIZE, autorización, captura,
  *    anulación y reembolso),
- *  - un mock local de MercadoPago (preferencias, pagos y reembolsos),
+ *  - un mock local de MercadoPago (pagos y reembolsos),
  *  - un mock local de Cloud Vision (etiquetas para publicar productos y
  *    SafeSearch para moderar comprobantes),
  *  - un backend de prueba en el puerto 5097 (correos a consola), y
@@ -56,6 +56,7 @@ process.env.PAYPAL_API_BASE = `http://127.0.0.1:${PUERTO_MOCK_PAYPAL}`;
 process.env.PAYPAL_CLIENT_ID = "cliente-de-prueba";
 process.env.PAYPAL_CLIENT_SECRET = "secreto-de-prueba";
 process.env.MERCADOPAGO_ACCESS_TOKEN = "token-de-prueba";
+process.env.MERCADOPAGO_PUBLIC_KEY = "llave-publica-de-prueba";
 process.env.MERCADOPAGO_API_BASE = `http://127.0.0.1:${PUERTO_MOCK_MP}`;
 process.env.GOOGLE_VISION_API_KEY = "clave-de-prueba";
 process.env.GOOGLE_VISION_ENDPOINT = `http://127.0.0.1:${PUERTO_MOCK_VISION}/v1/images:annotate`;
@@ -96,10 +97,12 @@ const safeSearchMock = {
 };
 
 const mercadoPagoMock = {
-  secuenciaPreferencias: 0,
-  preferencias: [] as any[],
+  secuenciaPagos: 0,
+  pagos: [] as any[],
   reembolsos: [] as string[],
   pago: null as any,
+  /** Estado que devolverá el próximo POST /v1/payments (OXXO = pendiente). */
+  estadoCrearPago: "approved" as string,
 };
 
 function responder(
@@ -275,13 +278,26 @@ const servidorMercadoPago = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", "http://127.0.0.1");
   const ruta = url.pathname;
 
-  if ((req.method ?? "GET") === "POST" && ruta === "/checkout/preferences") {
+  if ((req.method ?? "GET") === "POST" && ruta === "/v1/payments") {
     const cuerpo = await leerCuerpo(req);
-    mercadoPagoMock.preferencias.push(cuerpo);
-    const id = `PREF-${++mercadoPagoMock.secuenciaPreferencias}`;
+    mercadoPagoMock.pagos.push(cuerpo);
+    const id = `PAY-MP-${++mercadoPagoMock.secuenciaPagos}`;
+    const estado = mercadoPagoMock.estadoCrearPago;
     return responder(res, 201, {
       id,
-      init_point: `https://www.mercadopago.com.mx/checkout/v1/redirect?pref_id=${id}`,
+      status: estado,
+      status_detail:
+        estado === "approved" ? "accredited" : "pending_waiting_payment",
+      external_reference: cuerpo.external_reference,
+      transaction_amount: cuerpo.transaction_amount,
+      metadata: cuerpo.metadata,
+      transaction_details:
+        estado === "approved"
+          ? {}
+          : {
+              external_resource_url:
+                "https://www.mercadopago.com.mx/voucher-mock",
+            },
     });
   }
 
@@ -1671,48 +1687,83 @@ try {
       body: JSON.stringify({ productoId: pmp1.id }),
     });
     const orden = (await rOrden.json().catch(() => null)) as any;
-    const preferencia = mercadoPagoMock.preferencias.at(-1);
     verificar(
-      "MercadoPago: la preferencia lleva la referencia mp: y el comprador en metadatos",
+      "MercadoPago: la orden entrega la llave pública y el monto para el formulario embebido",
       rOrden.ok &&
         orden?.metodo === "mercadopago" &&
-        String(orden?.linkAprobacion ?? "").startsWith(
-          "https://www.mercadopago.com.mx/",
-        ) &&
-        preferencia?.external_reference === `mp:${pmp1.id}` &&
-        preferencia?.metadata?.compradorId === COMPRADOR_K,
-      `status=${rOrden.status} preferencia=${JSON.stringify(preferencia).slice(0, 250)}`,
+        orden?.llavePublica === "llave-publica-de-prueba" &&
+        orden?.monto === 321 &&
+        orden?.correoComprador === "karla.compradora@ejemplo.test",
+      `status=${rOrden.status} orden=${JSON.stringify(orden).slice(0, 250)}`,
     );
 
-    mercadoPagoMock.pago = {
-      status: "approved",
-      external_reference: `mp:${pmp1.id}`,
-      transaction_amount: 321,
-      metadata: { productoId: pmp1.id, compradorId: COMPRADOR_K },
-    };
-    const rConfirmar = await fetch(
-      `${BASE}/api/pagos/confirmar-mercadopago`,
+    // Checkout API: un OXXO queda pendiente con su comprobante (sin venta).
+    mercadoPagoMock.estadoCrearPago = "pending";
+    const rPendiente = await fetch(
+      `${BASE}/api/pagos/mercadopago/procesar`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-comprador-id": COMPRADOR_K,
         },
-        body: JSON.stringify({ paymentId: "PAY-MP-1" }),
+        body: JSON.stringify({
+          productoId: pmp1.id,
+          payment_method_id: "oxxo",
+          payer: { email: "karla.compradora@ejemplo.test" },
+        }),
       },
     );
-    const confirmado = (await rConfirmar.json().catch(() => null)) as any;
-    registrarVenta(confirmado?.ventaId, "mp:PAY-MP-1");
+    const pendiente = (await rPendiente.json().catch(() => null)) as any;
+    const pagoPendiente = mercadoPagoMock.pagos.at(-1);
+    mercadoPagoMock.estadoCrearPago = "approved";
     verificar(
-      "MercadoPago: el pago aprobado registra la venta en el escrow con su palabra clave",
-      rConfirmar.ok &&
-        confirmado?.estado === "pendiente_comprobante" &&
-        /^\d{4}$/.test(String(confirmado?.codigoPago ?? "")),
-      `status ${rConfirmar.status}: ${JSON.stringify(confirmado)}`,
+      "MercadoPago: un pago pendiente (OXXO) responde con su comprobante y sin venta",
+      rPendiente.ok &&
+        pendiente?.estado === "pendiente" &&
+        String(pendiente?.urlVoucher ?? "").includes("voucher") &&
+        pendiente?.ventaId == null &&
+        pagoPendiente?.payment_method_id === "oxxo" &&
+        pagoPendiente?.external_reference === `mp:${pmp1.id}`,
+      `status=${rPendiente.status} pendiente=${JSON.stringify(pendiente)} pago=${JSON.stringify(pagoPendiente).slice(0, 250)}`,
     );
 
-    if (typeof confirmado?.ventaId === "number") {
-      const ventaIdMP = confirmado.ventaId as number;
+    // La tarjeta llega tokenizada por el Brick y el cobro registra la venta.
+    const rProcesar = await fetch(
+      `${BASE}/api/pagos/mercadopago/procesar`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-comprador-id": COMPRADOR_K,
+        },
+        body: JSON.stringify({
+          productoId: pmp1.id,
+          token: "tok-tarjeta-prueba",
+          payment_method_id: "visa",
+          installments: 1,
+          payer: { email: "karla.compradora@ejemplo.test" },
+        }),
+      },
+    );
+    const procesado = (await rProcesar.json().catch(() => null)) as any;
+    const pagoCreado = mercadoPagoMock.pagos.at(-1);
+    registrarVenta(procesado?.ventaId, "mp:PAY-MP-2");
+    verificar(
+      "MercadoPago: el pago aprobado del formulario registra la venta en el escrow con su palabra clave",
+      rProcesar.ok &&
+        procesado?.estado === "aprobado" &&
+        procesado?.estadoVenta === "pendiente_comprobante" &&
+        /^\d{4}$/.test(String(procesado?.codigoPago ?? "")) &&
+        pagoCreado?.token === "tok-tarjeta-prueba" &&
+        pagoCreado?.transaction_amount === 321 &&
+        pagoCreado?.external_reference === `mp:${pmp1.id}` &&
+        pagoCreado?.metadata?.compradorId === COMPRADOR_K,
+      `status=${rProcesar.status} procesado=${JSON.stringify(procesado)} pago=${JSON.stringify(pagoCreado).slice(0, 250)}`,
+    );
+
+    if (typeof procesado?.ventaId === "number") {
+      const ventaIdMP = procesado.ventaId as number;
       await actualizarVenta(ventaIdMP, { retenido: true });
       await actualizarVenta(ventaIdMP, {
         createdAt: new Date(Date.now() - 25 * HORA),
@@ -1723,8 +1774,8 @@ try {
       verificar(
         "RQNF23 MercadoPago: la cancelación automática usa el reembolso de su API",
         ventaMP?.estado === "reembolsada" &&
-          ventaMP?.reembolsoId === "REFUND-PAY-MP-1" &&
-          mercadoPagoMock.reembolsos.includes("PAY-MP-1") &&
+          ventaMP?.reembolsoId === "REFUND-PAY-MP-2" &&
+          mercadoPagoMock.reembolsos.includes("PAY-MP-2") &&
           acciones.some((accion) => accion.includes(`Venta ${ventaIdMP}`)),
         `estado=${ventaMP?.estado} reembolso=${ventaMP?.reembolsoId} acciones=${JSON.stringify(acciones)}`,
       );
@@ -1743,44 +1794,31 @@ try {
 
   if (pmp2 && tokenMP) {
     await entrarAFila(pmp2.id, COMPRADOR_L, "laura.compradora@ejemplo.test");
-    const rOrden = await fetch(`${BASE}/api/pagos/crear-orden`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-comprador-id": COMPRADOR_L,
-      },
-      body: JSON.stringify({ productoId: pmp2.id }),
-    });
-    const orden = (await rOrden.json().catch(() => null)) as any;
-
-    if (!rOrden.ok || !orden?.orderId) {
-      // En MercadoPago la respuesta trae preferenceId, no orderId.
-    }
-    mercadoPagoMock.pago = {
-      status: "approved",
-      external_reference: `mp:${pmp2.id}`,
-      transaction_amount: 450,
-      metadata: { productoId: pmp2.id, compradorId: COMPRADOR_L },
-    };
-    const rConfirmar = await fetch(
-      `${BASE}/api/pagos/confirmar-mercadopago`,
+    const rProcesar = await fetch(
+      `${BASE}/api/pagos/mercadopago/procesar`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-comprador-id": COMPRADOR_L,
         },
-        body: JSON.stringify({ paymentId: "PAY-MP-2" }),
+        body: JSON.stringify({
+          productoId: pmp2.id,
+          token: "tok-tarjeta-prueba-2",
+          payment_method_id: "master",
+          installments: 1,
+          payer: { email: "laura.compradora@ejemplo.test" },
+        }),
       },
     );
-    const confirmado = (await rConfirmar.json().catch(() => null)) as any;
-    registrarVenta(confirmado?.ventaId, "mp:PAY-MP-2");
+    const confirmado = (await rProcesar.json().catch(() => null)) as any;
+    registrarVenta(confirmado?.ventaId, "mp:PAY-MP-3");
 
     if (typeof confirmado?.ventaId !== "number") {
       verificar(
         "RQNF27 MercadoPago: el ciclo completo cierra sin captura de PayPal",
         false,
-        `confirmar: ${rConfirmar.status} ${JSON.stringify(confirmado)}`,
+        `procesar: ${rProcesar.status} ${JSON.stringify(confirmado)}`,
       );
     } else {
       const ventaIdMP2 = confirmado.ventaId as number;

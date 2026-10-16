@@ -1,20 +1,22 @@
 /**
- * Cliente de la API de MercadoPago (Checkout Pro).
+ * Cliente de la API de MercadoPago (Checkout API / Payment Brick).
  *
- * Checkout Pro crea una "preferencia" de pago y devuelve `init_point`: la
- * página alojada de MercadoPago donde el comprador paga con tarjeta, OXXO,
- * SPEI o saldo de MercadoPago. A diferencia de PayPal aquí NO hay un paso de
- * "captura": el cobro queda aprobado al momento y se confirma consultándolo
- * con `obtenerPago()`, lo que además hace la confirmación idempotente.
+ * El formulario de pago vive DENTRO de Ichiba: el navegador monta el Payment
+ * Brick (tarjeta, OXXO, SPEI) con la llave pública de la cuenta y, al
+ * enviarlo, el método elegido y la tarjeta tokenizada llegan aquí para crear
+ * el pago con `POST /v1/payments`. A diferencia de Checkout Pro ya no hay
+ * preferencia ni `init_point`: el cobro se crea directamente y su estado
+ * (aprobado, pendiente, rechazado) es la respuesta.
  *
  * DIFERENCIA IMPORTANTE CON PAYPAL: en PayPal el dinero va directo a la
- * cuenta del vendedor, porque se envía su correo como `payee`. En Checkout
- * Pro el dinero entra en la cuenta dueña de este Access Token; pagarle a
- * cada vendedor exigiría el programa Marketplace de MercadoPago. Mientras
- * eso no se active, este cobro es del propietario de la credencial.
+ * cuenta del vendedor, porque se envía su correo como `payee`. En MercadoPago
+ * el dinero entra en la cuenta dueña de este Access Token; pagarle a cada
+ * vendedor exigiría el programa Marketplace de MercadoPago. Mientras eso no
+ * se active, este cobro es del propietario de la credencial.
  *
  * Las credenciales viven en backend/.env (nunca en git):
  *   MERCADOPAGO_ACCESS_TOKEN  obligatorio, de mercadopago.com/developers
+ *   MERCADOPAGO_PUBLIC_KEY    obligatorio para el Payment Brick (es pública)
  *   MERCADOPAGO_API_BASE      opcional, por defecto https://api.mercadopago.com
  *   BACKEND_URL               opcional; si existe se notifica por webhook (IPN)
  */
@@ -39,18 +41,28 @@ function configuracionMercadoPago(): VariablesMercadoPago {
   return { accessToken, apiBase };
 }
 
-/** URL pública del frontend, sin barra final. */
-function frontUrl(): string {
-  return (process.env.FRONTEND_URL ?? "http://localhost:5173").replace(
-    /\/+$/,
-    "",
-  );
+/**
+ * Llave pública de la cuenta: la usa el navegador para montar el Payment
+ * Brick. No es un secreto (viaja al comprador en cada pago), pero sin ella el
+ * formulario embebido no puede renderizarse.
+ */
+export function llavePublicaMercadoPago(): string {
+  const llave = process.env.MERCADOPAGO_PUBLIC_KEY;
+
+  if (!llave) {
+    throw new Error(
+      "Falta la variable MERCADOPAGO_PUBLIC_KEY en backend/.env (llave " +
+        "pública de MercadoPago; se usa para montar el formulario de pago).",
+    );
+  }
+
+  return llave;
 }
 
 /**
  * URL pública del backend. Solo existe si se define `BACKEND_URL`; se usa
- * para el webhook y para servir la foto del producto dentro de la página de
- * pago (las imágenes las entrega el backend, no el frontend).
+ * para el webhook (MercadoPago rechaza o ignora URLs que no pueda alcanzar,
+ * como localhost).
  */
 function backUrl(): string | null {
   const valor = process.env.BACKEND_URL?.trim().replace(/\/+$/, "");
@@ -104,74 +116,59 @@ async function llamarApi(
   return leerRespuesta(respuesta, contexto);
 }
 
-export type DatosPreferencia = {
+export type DatosPagoMercadoPago = {
   productoId: string;
   compradorId: string;
   titulo: string;
-  descripcion: string;
   precio: number;
-  /** Ruta relativa (`/uploads/...`) o URL absoluta de la primera foto. */
-  imagen?: string | null;
+  /** Lo que mandó el Payment Brick: método elegido, tarjeta tokenizada, etc. */
+  pago: {
+    token?: string;
+    payment_method_id?: string;
+    issuer_id?: string | number;
+    installments?: string | number;
+    payer?: {
+      email?: string;
+      identification?: { type?: string; number?: string };
+    };
+  };
 };
 
 /**
- * Crea la preferencia de pago y devuelve `init_point`, el enlace al que hay
- * que redirigir al comprador (el mismo campo `linkAprobacion` que usa
- * PayPal, así el frontend no distingue entre pasarelas).
+ * Crea el pago con el formulario del Brick. La tarjeta llega tokenizada
+ * (nunca vemos el número); OXXO/SPEI llegan sin token y quedan pendientes
+ * hasta que el comprador pague. La referencia `mp:<productoId>` y los
+ * metadatos del comprador permiten registrar la venta tanto aquí como desde
+ * el webhook.
  */
-export async function crearPreferenciaMercadoPago(datos: DatosPreferencia) {
-  const baseFront = frontUrl();
+export async function crearPagoMercadoPago(datos: DatosPagoMercadoPago) {
   const baseBack = backUrl();
+  const pago = datos.pago ?? {};
 
-  // `auto_return` redirige solo al comprador al terminar, pero MercadoPago
-  // solo lo acepta con URLs https: en desarrollo (localhost) se omite y el
-  // comprador pulsa el botón de vuelta al sitio.
-  const puedeAutoReturn = baseFront.startsWith("https://");
-
-  let imagenAbsoluta: string | undefined;
-  if (datos.imagen) {
-    if (/^https?:\/\//i.test(datos.imagen)) {
-      imagenAbsoluta = datos.imagen;
-    } else if (baseBack) {
-      imagenAbsoluta = `${baseBack}${datos.imagen.startsWith("/") ? "" : "/"}${datos.imagen}`;
-    }
+  if (!pago.payment_method_id) {
+    throw new Error("El formulario de pago no indicó el método de pago");
   }
 
   const cuerpo: Record<string, unknown> = {
-    items: [
-      {
-        id: datos.productoId,
-        title: datos.titulo.slice(0, 256),
-        description: datos.descripcion.slice(0, 600),
-        quantity: 1,
-        unit_price: datos.precio,
-        currency_id: "MXN",
-        ...(imagenAbsoluta ? { picture_url: imagenAbsoluta } : {}),
-      },
-    ],
-    back_urls: {
-      success: `${baseFront}/pago-exitoso?fuente=mercadopago`,
-      failure: `${baseFront}/producto/${datos.productoId}`,
-      pending: `${baseFront}/producto/${datos.productoId}`,
-    },
-    // MercadoPago lo devuelve tal cual en la vuelta: con él recuperamos el
-    // producto sin depender de la sesión del navegador.
+    // El importe lo fija el servidor con el precio actual del producto.
+    transaction_amount: datos.precio,
+    description: datos.titulo.slice(0, 256),
+    payment_method_id: pago.payment_method_id,
+    ...(pago.token ? { token: pago.token } : {}),
+    ...(pago.issuer_id !== undefined ? { issuer_id: pago.issuer_id } : {}),
+    ...(pago.installments !== undefined
+      ? { installments: Number(pago.installments) }
+      : {}),
+    ...(pago.payer ? { payer: pago.payer } : {}),
     external_reference: `mp:${datos.productoId}`,
-    metadata: {
-      productoId: datos.productoId,
-      compradorId: datos.compradorId,
-    },
+    metadata: { productoId: datos.productoId, compradorId: datos.compradorId },
     statement_descriptor: "ICHIBA",
-    expires: false,
-    ...(puedeAutoReturn ? { auto_return: "approved" } : {}),
-    // Solo se notifica por webhook si el backend es público: MercadoPago
-    // rechaza o ignora URLs que no pueda alcanzar (como localhost).
     ...(baseBack && baseBack.startsWith("https://")
       ? { notification_url: `${baseBack}/api/pagos/webhook-mercadopago` }
       : {}),
   };
 
-  return llamarApi("POST", "/checkout/preferences", "Crear preferencia", cuerpo);
+  return llamarApi("POST", "/v1/payments", "Crear pago", cuerpo);
 }
 
 /**
@@ -193,7 +190,7 @@ export function pagoAprobado(pago: { status?: string } | null): boolean {
 
 /**
  * RQNF23 / RQNF24 / RQNF28 / RQNF31: devuelve al comprador el dinero de un
- * pago ya acreditado. En Checkout Pro el cobro entra a la cuenta dueña de la
+ * pago ya acreditado. En MercadoPago el cobro entra a la cuenta dueña de la
  * credencial, así que este reembolso es el mecanismo para "soltar" el escrow
  * interno cuando la transacción se cancela (en PayPal se usa la anulación de
  * la autorización antes de capturar, o el reembolso de la captura).
