@@ -1,4 +1,5 @@
 import api from "./api";
+import type { ReputacionVendedor } from "./usuarioServices";
 
 export async function crearOrdenPago(productoId: string) {
   const response = await api.post("/pagos/crear-orden", { productoId });
@@ -105,8 +106,8 @@ export type ResumenVentasDelVendedor = {
     puntosReputacion: number;
     puntosCancelacion: number;
   };
-  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
-  reputacion: number | null;
+  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
+  reputacion: ReputacionVendedor;
   resumen: { porRevisar: number; enEntrega: number; completadas: number };
   ventas: VentaDelVendedor[];
 };

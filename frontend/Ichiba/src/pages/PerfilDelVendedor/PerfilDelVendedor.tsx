@@ -26,6 +26,8 @@ function VendedorPerfil() {
     return <p className="vendedor-perfil__cargando">Vendedor no encontrado</p>;
 
   const fueraDeHorario = perfil.vendedorDisponibleAhora === false;
+  // RQNF10.1: promedio de calificaciones de ventas completadas.
+  const reputacion = perfil.reputacion?.promedio ?? null;
 
   return (
     <div className="vendedor-perfil">
@@ -61,7 +63,7 @@ function VendedorPerfil() {
         {/* RQNF10.1: promedio de calificaciones de ventas completadas. */}
         <div className="vendedor-perfil__stat-card">
           <span className="vendedor-perfil__stat-numero">
-            {perfil.reputacion === null ? "—" : perfil.reputacion.toFixed(1)}
+            {reputacion === null ? "—" : reputacion.toFixed(1)}
           </span>
           <span className="vendedor-perfil__stat-label">
             Calificación promedio de compradores

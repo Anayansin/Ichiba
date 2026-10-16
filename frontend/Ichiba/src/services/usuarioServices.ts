@@ -48,6 +48,14 @@ export async function registrarUsuario(datos: DatosRegistro) {
   return response.data;
 }
 
+/** RQNF10.1: reputación calculada por el backend a partir de las ventas. */
+export type ReputacionVendedor = {
+  /** Promedio de 1 a 5 con un decimal, o null si aún no hay calificaciones. */
+  promedio: number | null;
+  /** Cuántas calificaciones de compradores recibió. */
+  totalCalificaciones: number;
+};
+
 export type PerfilUsuario = {
   id: number;
   nombreCompleto: string;
@@ -66,8 +74,8 @@ export type PerfilUsuario = {
   puntosReputacion?: number;
   /** RQNF10.3: puntos con los que se cancela la cuenta (8). */
   puntosCancelacion?: number;
-  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
-  reputacion?: number | null;
+  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
+  reputacion?: ReputacionVendedor | null;
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {
@@ -97,8 +105,8 @@ export type PerfilPublico = {
     estadoCuenta?: string;
   };
   productos: Producto[];
-  /** RQNF10.1: promedio de calificaciones recibidas (null si aún no hay). */
-  reputacion: number | null;
+  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
+  reputacion: ReputacionVendedor | null;
   vendedorDisponibleAhora: boolean;
   proximoBloque: string | null;
 };

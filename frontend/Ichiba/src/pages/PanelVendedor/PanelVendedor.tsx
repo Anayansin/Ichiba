@@ -304,7 +304,8 @@ function PanelVendedor() {
   const puntosCancelacion =
     ventasData?.cuenta.puntosCancelacion ?? perfil.puntosCancelacion ?? 8;
   // RQNF10.1: promedio de calificaciones recibidas en ventas completadas.
-  const reputacion = ventasData?.reputacion ?? perfil.reputacion ?? null;
+  const reputacion =
+    ventasData?.reputacion.promedio ?? perfil.reputacion?.promedio ?? null;
   const ventasPorRevisar =
     ventasData?.ventas.filter((v) => v.estado === "pendiente_confirmacion") ??
     [];
