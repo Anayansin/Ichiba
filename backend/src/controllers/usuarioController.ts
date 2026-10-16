@@ -37,7 +37,8 @@ const MENSAJE_RECUPERACION_ENVIADA =
   "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
 
 function generarCodigoRecuperacion(): string {
-  // RQNF1.3: el código de verificación tiene 6 dígitos.
+  // El código de recuperación es de 6 dígitos (RQNF1.3 aplica al código de
+  // confirmación del registro, que es de 4).
   return crypto.randomInt(100000, 999999).toString();
 }
 

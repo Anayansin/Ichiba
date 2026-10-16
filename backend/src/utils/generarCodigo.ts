@@ -1,4 +1,4 @@
 export function generarCodigo(): string {
-  // RQNF1.3: el código de verificación tiene 6 dígitos.
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // RQNF1.3: el código de confirmación del registro es numérico de 4 dígitos.
+  return Math.floor(1000 + Math.random() * 9000).toString();
 }

@@ -65,7 +65,7 @@ export async function enviarCorreoRecuperacion(
         <p>Recibimos una solicitud para cambiar la contraseña de tu cuenta.</p>
         <p>Tu código de recuperación es:</p>
         <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px;">${codigo}</p>
-        <p style="color: #888; font-size: 12px;">Este código expira en 15 minutos. Si no solicitaste este cambio, ignora este correo.</p>
+        <p style="color: #888; font-size: 12px;">Este código expira en 10 minutos. Si no solicitaste este cambio, ignora este correo.</p>
       </div>
     `,
   });

@@ -73,8 +73,8 @@ function VerificacionModal({ onCompletado }: VerificacionModalProps) {
               <input
                 type="text"
                 inputMode="numeric"
-                maxLength={6}
-                placeholder="000000"
+                maxLength={4}
+                placeholder="0000"
                 className="verificacion-input"
                 value={codigoCorreo}
                 onChange={(e) =>
