@@ -17,6 +17,8 @@ export type Producto = {
   horarioEntregaFin?: string;
   tiempoLimitePago?: number;
   activo: boolean;
+  /** true si el vendedor está dentro de su horario de atención (catálogo paginado). */
+  vendedorAtendiendo?: boolean;
   /** Método de pago del vendedor (lo envía GET /productos/:id). */
   metodoPagoVendedor?: "paypal" | "mercadopago";
 };
@@ -44,15 +46,50 @@ export type FiltroProductos = {
   precioMax?: number;
 };
 
-export async function fetchProductos(
-  filtro: FiltroProductos = {},
-): Promise<Producto[]> {
-  const params = Object.fromEntries(
+/** Respuesta paginada del catálogo (GET /productos?pagina=...&porPagina=...). */
+export type PaginaProductos = {
+  productos: Producto[];
+  pagina: number;
+  porPagina: number;
+  total: number;
+  totalPaginas: number;
+  hayMas: boolean;
+};
+
+function parametrosDeFiltro(filtro: FiltroProductos) {
+  return Object.fromEntries(
     Object.entries(filtro).filter(
       ([, valor]) => valor !== undefined && valor !== null && valor !== "",
     ),
   );
-  const response = await api.get("/productos", { params });
+}
+
+export async function fetchProductos(
+  filtro: FiltroProductos = {},
+): Promise<Producto[]> {
+  const response = await api.get("/productos", {
+    params: parametrosDeFiltro(filtro),
+  });
+  return response.data;
+}
+
+/**
+ * Pide una página del catálogo. Se usa desde el scroll infinito de Inicio:
+ * la primera página se carga al entrar y las siguientes cuando el centinela
+ * entra en el viewport.
+ */
+export async function fetchProductosPaginados(
+  filtro: FiltroProductos = {},
+  pagina = 1,
+  porPagina = 12,
+): Promise<PaginaProductos> {
+  const response = await api.get("/productos", {
+    params: {
+      ...parametrosDeFiltro(filtro),
+      pagina,
+      porPagina,
+    },
+  });
   return response.data;
 }
 

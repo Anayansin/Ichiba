@@ -16,7 +16,6 @@ import {
 } from "../../services/promocionalService";
 import {
   fetchMisVentasVendedor,
-  fetchMisVentasComprador,
   type VentaConProducto,
 } from "../../services/mensajeService";
 import { mensajeDeError } from "../../utils/errores";
@@ -34,7 +33,6 @@ function Estadisticas() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [promocionales, setPromocionales] = useState<Promocional[]>([]);
   const [ventas, setVentas] = useState<VentaConProducto[]>([]);
-  const [compras, setCompras] = useState<VentaConProducto[]>([]);
   const [categoriaPopular, setCategoriaPopular] =
     useState<CategoriaPopular | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -49,18 +47,16 @@ function Estadisticas() {
       fetchMisProductos(),
       fetchMisPromocionales().catch(() => [] as Promocional[]),
       fetchMisVentasVendedor().catch(() => [] as VentaConProducto[]),
-      fetchMisVentasComprador().catch(() => [] as VentaConProducto[]),
       fetchCategoriaPopular().catch(
         () => ({ categoria: null, totalInteres: 0 }) as CategoriaPopular,
       ),
     ])
       .then(
-        ([datosPerfil, misProductos, misPromocionales, ventasPropias, comprasRealizadas, popular]) => {
+        ([datosPerfil, misProductos, misPromocionales, ventasPropias, popular]) => {
           setPerfil(datosPerfil);
           setProductos(misProductos);
           setPromocionales(misPromocionales);
           setVentas(ventasPropias);
-          setCompras(comprasRealizadas);
           setCategoriaPopular(popular);
         },
       )
@@ -94,7 +90,6 @@ function Estadisticas() {
   const promocionalesInactivos = promocionales.filter((p) => !p.activo);
 
   const montoVendido = ventas.reduce((total, venta) => total + venta.monto, 0);
-  const montoComprado = compras.reduce((total, venta) => total + venta.monto, 0);
 
   const conteoPorCategoria = productos.reduce<Record<string, number>>(
     (acumulador, producto) => {
@@ -128,11 +123,6 @@ function Estadisticas() {
           <span className="mis-estadisticas__numero">{ventas.length}</span>
           <span className="mis-estadisticas__etiqueta">Ventas realizadas</span>
           <span className="mis-estadisticas__detalle">{dinero(montoVendido)}</span>
-        </div>
-        <div className="mis-estadisticas__tarjeta">
-          <span className="mis-estadisticas__numero">{compras.length}</span>
-          <span className="mis-estadisticas__etiqueta">Compras realizadas</span>
-          <span className="mis-estadisticas__detalle">{dinero(montoComprado)}</span>
         </div>
         <div className="mis-estadisticas__tarjeta">
           <span className="mis-estadisticas__numero">{perfil.ventasExitosas}</span>

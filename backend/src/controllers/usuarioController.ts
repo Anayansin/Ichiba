@@ -647,7 +647,15 @@ export async function actualizarPreferencias(
           message: "La preferencia de notificaciones críticas no es válida",
         });
       }
-      cambios.recibirNotificacionesCriticas = recibirNotificacionesCriticas;
+      // Las notificaciones críticas son obligatorias desde el registro
+      // (estado de la cuenta, fila virtual y pagos): no se pueden apagar.
+      if (recibirNotificacionesCriticas !== true) {
+        return res.status(400).json({
+          message:
+            "Las notificaciones críticas son obligatorias y no se pueden desactivar",
+        });
+      }
+      cambios.recibirNotificacionesCriticas = true;
     }
 
     if (recibirNotificacionesPublicitarias !== undefined) {

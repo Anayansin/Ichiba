@@ -376,11 +376,31 @@ function Chats() {
             </div>
 
             {ventaActiva?.estado === "en_entrega" && (
-              <p className="chats__nota-entrega">
-                📦 Estás en la etapa de entrega: coordinen aquí el lugar, la
-                fecha y la hora. Al entregar el producto, dale tu código de
-                confirmación al vendedor para cerrar la transacción.
-              </p>
+              <div className="chats__entrega">
+                <p className="chats__nota-entrega">
+                  📦 Estás en la etapa de entrega: coordinen aquí el lugar, la
+                  fecha y la hora.{" "}
+                  {esVendedor
+                    ? "Cuando el comprador reciba el producto, pídele su código de confirmación de 4 dígitos y regístralo en tu panel, en «Ventas y entregas»."
+                    : "Dale tu código de confirmación al vendedor únicamente cuando recibas el producto; con él se libera el dinero retenido."}
+                </p>
+
+                {/* RQNF24.4 / RQNF26: el código es del comprador; el vendedor
+                    nunca lo ve aquí, solo lo captura cuando se lo dan. */}
+                {!esVendedor && ventaActiva?.codigoEntrega && (
+                  <div className="chats__codigo-entrega">
+                    <span className="chats__codigo-titulo">
+                      Tu código de confirmación de entrega
+                    </span>
+                    <span className="chats__codigo-digitos">
+                      {ventaActiva.codigoEntrega}
+                    </span>
+                    <span className="chats__codigo-nota">
+                      Compártelo con el vendedor solo al recibir el producto.
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
 
             {puedeCalificar && (

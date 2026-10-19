@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import { textoCategoria } from "../../configuracion/categorias";
 import {
-  fetchProductos,
+  fetchProductosPaginados,
   fetchCategoriaPopular,
 } from "../../services/productoService";
 import "./Nosotros.css";
@@ -23,8 +23,8 @@ function Nosotros({ onOpenLogin }: NosotrosProps) {
       .then((data) => setCategoriaPopular(data.categoria))
       .catch(() => setCategoriaPopular(null));
 
-    fetchProductos()
-      .then((data) => setProductosActivos(data.length))
+    fetchProductosPaginados({}, 1, 1)
+      .then((data) => setProductosActivos(data.total))
       .catch(() => setProductosActivos(null));
   }, []);
 

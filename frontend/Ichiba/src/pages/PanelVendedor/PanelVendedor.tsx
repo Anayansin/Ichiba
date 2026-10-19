@@ -262,11 +262,11 @@ function PanelVendedor() {
   }, [parametros]);
 
   // Rellena las preferencias con lo que ya tiene guardado el vendedor.
+  // Las notificaciones críticas son obligatorias: siempre se envían activas.
   useEffect(() => {
     if (!perfil) return;
     setPreferencias({
-      recibirNotificacionesCriticas:
-        perfil.recibirNotificacionesCriticas ?? true,
+      recibirNotificacionesCriticas: true,
       recibirNotificacionesPublicitarias:
         perfil.recibirNotificacionesPublicitarias ?? false,
     });
@@ -361,7 +361,10 @@ function PanelVendedor() {
     setAvisoPreferencias("");
 
     try {
-      const respuesta = await guardarPreferenciasNotificacion(preferencias);
+      const respuesta = await guardarPreferenciasNotificacion({
+        ...preferencias,
+        recibirNotificacionesCriticas: true,
+      });
       setAvisoPreferencias(respuesta.message || "Preferencias guardadas");
     } catch (err) {
       setError(
@@ -591,7 +594,14 @@ function PanelVendedor() {
         </div>
 
         <div className="panel-vendedor__venta-acciones">
+          <label
+            className="panel-vendedor__codigo-label"
+            htmlFor={`codigo-entrega-${venta.ventaId}`}
+          >
+            Código de confirmación de entrega que te dio el comprador
+          </label>
           <input
+            id={`codigo-entrega-${venta.ventaId}`}
             type="text"
             inputMode="numeric"
             maxLength={4}
@@ -616,8 +626,9 @@ function PanelVendedor() {
               : "📦 Registrar entrega y liberar el dinero"}
           </button>
           <p className="panel-vendedor__venta-nota">
-            Al entregar el producto, pídele al comprador su código de
-            confirmación. Con el código correcto se libera el dinero retenido.
+            El comprador tiene ese código en su cuenta; solo él puede dárselo.
+            No aparece en tu panel ni en el chat. Con el código correcto se
+            libera el dinero retenido.
           </p>
         </div>
       </div>
@@ -990,7 +1001,9 @@ function PanelVendedor() {
           </div>
         )}
 
-        <h3 className="panel-vendedor__subtitulo">Entregas en curso</h3>
+        <h3 className="panel-vendedor__subtitulo">
+          Confirmar entregas (agrega el código que te dio el comprador)
+        </h3>
         {ventasEnEntrega.length === 0 ? (
           <p className="panel-vendedor__sin-productos">
             No tienes entregas en curso.
@@ -1115,24 +1128,22 @@ function PanelVendedor() {
         <div className="panel-vendedor__preferencias">
           <h2>Preferencias de notificaciones</h2>
         <p className="panel-vendedor__preferencias-nota">
-          Elige qué correos quieres recibir de Ichiba. Puedes cambiarlas cuando
-          quieras.
+          Las notificaciones críticas son obligatorias desde tu registro.
+          Solo puedes elegir si quieres recibir el aviso de comentarios.
         </p>
 
-        <label className="panel-vendedor__preferencia">
-          <input
-            type="checkbox"
-            checked={preferencias.recibirNotificacionesCriticas}
-            onChange={(e) =>
-              setPreferencias((anteriores) => ({
-                ...anteriores,
-                recibirNotificacionesCriticas: e.target.checked,
-              }))
-            }
-          />
-          Notificaciones críticas: el estado de mi cuenta, la fila virtual y
-          mis pagos.
-        </label>
+        <div className="panel-vendedor__preferencia panel-vendedor__preferencia--fija">
+          <span
+            className="panel-vendedor__preferencia-candado"
+            aria-hidden="true"
+          >
+            🔒
+          </span>
+          <span>
+            <strong>Notificaciones críticas (obligatorias):</strong> el estado
+            de tu cuenta, la fila virtual y tus pagos.
+          </span>
+        </div>
 
         <label className="panel-vendedor__preferencia">
           <input

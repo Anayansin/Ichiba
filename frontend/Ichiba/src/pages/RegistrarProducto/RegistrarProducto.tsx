@@ -6,11 +6,11 @@ import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError, campoDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
-  CONDICIONES_USO,
   METODOS_ENTREGA,
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
+import { NOTA_COMISIONES_VENDEDOR } from "../../configuracion/comisiones";
 import {
   CATEGORIAS_PRODUCTO,
   textoCategoria,
@@ -38,7 +38,6 @@ function RegistrarProducto() {
   const [categoria, setCategoria] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
-  const [condicionUso, setCondicionUso] = useState(CONDICIONES_USO[0].valor);
   const [metodoEntrega, setMetodoEntrega] = useState(METODOS_ENTREGA[0].valor);
   const [horarioEntregaInicio, setHorarioEntregaInicio] = useState("09:00");
   const [horarioEntregaFin, setHorarioEntregaFin] = useState("18:00");
@@ -173,7 +172,9 @@ function RegistrarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
-      formData.append("condicionUso", condicionUso);
+      // El formulario tiene un solo campo de "Condiciones de uso"; se envía
+      // también en `condicionUso` porque el backend lo usa para las etiquetas.
+      formData.append("condicionUso", condicion);
       formData.append("metodoEntrega", metodoEntrega);
       formData.append("horarioEntregaInicio", horarioEntregaInicio);
       formData.append("horarioEntregaFin", horarioEntregaFin);
@@ -242,9 +243,7 @@ function RegistrarProducto() {
           />
           <small className="registrar-producto-nota">
             El precio debe estar entre $10 y $5,000. Si tu artículo vale más de
-            $5,000, publícalo como promocional. La plataforma cobra una comisión
-            del COMISION_PENDIENTE_DEFINIR% por cada venta, además de la
-            comisión del método de pago.
+            $5,000, publícalo como promocional. {NOTA_COMISIONES_VENDEDOR}
           </small>
         </div>
 
@@ -304,21 +303,6 @@ function RegistrarProducto() {
         </div>
 
         <div className="form-group">
-          <label>Condición de uso</label>
-          <select
-            className="registrar-producto-input"
-            value={condicionUso}
-            onChange={(e) => setCondicionUso(e.target.value)}
-          >
-            {CONDICIONES_USO.map((opcion) => (
-              <option key={opcion.valor} value={opcion.valor}>
-                {opcion.texto}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
           <label>Método de entrega</label>
           <select
             className="registrar-producto-input"
@@ -357,8 +341,9 @@ function RegistrarProducto() {
             />
           </div>
           <small className="registrar-producto-nota">
-            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
-            de tu disponibilidad de trabajo.
+            El horario de coordinación de entrega debe estar entre las 05:00 y
+            las 23:59 y es independiente de tu horario de atención al público;
+            puedes proponer otro rango si lo necesitas.
           </small>
         </div>
 

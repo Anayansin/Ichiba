@@ -22,13 +22,21 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 import { categoriaProductoValida } from "../configuracion/categorias.js";
-import { validarHorarioEntrega } from "../utils/validarHorario.js";
+import {
+  estaAtendiendo,
+  validarHorarioEntrega,
+  type BloqueHorario,
+} from "../utils/validarHorario.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 
 const ESTADOS_FILA_EN_CURSO: ("activa" | "esperando_confirmacion")[] = [
   "activa",
   "esperando_confirmacion",
 ];
+
+/** Tamaño de página por defecto y máximo para el catálogo público. */
+const PRODUCTOS_POR_PAGINA_DEFECTO = 12;
+const PRODUCTOS_POR_PAGINA_MAXIMO = 50;
 
 /**
  * RQNF7.4: 30 minutos mínimo, 3 horas máximo y una hora por defecto cuando
@@ -393,13 +401,115 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
   }
 }
 
+/** Lee un entero positivo de la query; si no es válido usa el valor por defecto. */
+function enteroPositivoDeConsulta(valor: unknown, valorPorDefecto: number) {
+  const numero = Number(valor);
+  return Number.isInteger(numero) && numero > 0 ? numero : valorPorDefecto;
+}
+
+/**
+ * Paginación del catálogo. `pagina` empieza en 1 y `porPagina` se limita a
+ * 50 para que una petición no pueda traer todo el catálogo de golpe.
+ */
+function paginacionDeConsulta(req: Request) {
+  const pagina = enteroPositivoDeConsulta(req.query.pagina, 1);
+  const porPagina = Math.min(
+    enteroPositivoDeConsulta(
+      req.query.porPagina,
+      PRODUCTOS_POR_PAGINA_DEFECTO,
+    ),
+    PRODUCTOS_POR_PAGINA_MAXIMO,
+  );
+
+  return { pagina, porPagina };
+}
+
+/** Forma mínima del espejo de usuario en MongoDB que necesita el catálogo. */
+type VendedorConHorarios = {
+  usuarioId?: number;
+  horarios?: BloqueHorario[];
+};
+
+/**
+ * Agrega `vendedorAtendiendo` a los productos de una página según el horario
+ * vigente de cada vendedor (en hora del centro, GMT-6). Un vendedor sin
+ * horarios definidos se considera disponible siempre (RQNF15).
+ */
+async function conAtencionDelVendedor<T extends { vendedorId: unknown }>(
+  productos: T[],
+) {
+  if (productos.length === 0) return [];
+
+  const idsVendedores = [
+    ...new Set(
+      productos
+        .map((producto) => Number(producto.vendedorId))
+        .filter((id) => Number.isInteger(id) && id > 0),
+    ),
+  ];
+
+  const vendedores = idsVendedores.length
+    ? ((await Usuario.find({ usuarioId: { $in: idsVendedores } })
+        .select("usuarioId horarios")
+        .lean()) as unknown as VendedorConHorarios[])
+    : [];
+
+  const ahora = new Date();
+  const atencionPorVendedor = new Map<number, boolean>();
+  for (const vendedor of vendedores) {
+    atencionPorVendedor.set(
+      Number(vendedor.usuarioId),
+      estaAtendiendo(vendedor.horarios, ahora),
+    );
+  }
+
+  return productos.map((producto) => ({
+    ...producto,
+    vendedorAtendiendo:
+      atencionPorVendedor.get(Number(producto.vendedorId)) ?? true,
+  }));
+}
+
+/**
+ * Catálogo público. Sin `pagina` ni `porPagina` conserva la respuesta
+ * histórica (arreglo completo) para no romper a los consumidores existentes.
+ * Con cualquiera de los dos parámetros devuelve una página y los metadatos
+ * que necesita el scroll infinito del frontend.
+ */
 export async function getProductos(req: Request, res: Response) {
   try {
-    const productos = await Producto.find(filtroDeCatalogo(req));
-    res.json(productos);
+    const filtro = filtroDeCatalogo(req);
+    const usaPaginacion =
+      req.query.pagina !== undefined || req.query.porPagina !== undefined;
+
+    if (!usaPaginacion) {
+      const productos = await Producto.find(filtro);
+      return res.json(productos);
+    }
+
+    const { pagina, porPagina } = paginacionDeConsulta(req);
+    const [productos, total] = await Promise.all([
+      Producto.find(filtro)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip((pagina - 1) * porPagina)
+        .limit(porPagina)
+        .lean(),
+      Producto.countDocuments(filtro),
+    ]);
+
+    const productosConAtencion = await conAtencionDelVendedor(productos);
+
+    return res.json({
+      productos: productosConAtencion,
+      pagina,
+      porPagina,
+      total,
+      totalPaginas: Math.ceil(total / porPagina),
+      hayMas: pagina * porPagina < total,
+    });
   } catch (error) {
     console.error("Error real:", error);
-    res.status(500).json({ message: "Error al obtener productos" });
+    return res.status(500).json({ message: "Error al obtener productos" });
   }
 }
 

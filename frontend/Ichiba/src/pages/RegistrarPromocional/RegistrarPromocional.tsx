@@ -264,7 +264,7 @@ function RegistrarPromocional() {
         </div>
 
         <div className="form-group">
-          <label>Condición de uso</label>
+          <label>Condiciones de uso</label>
           <select
             className="registrar-producto-input"
             value={condicionUso}
@@ -309,7 +309,6 @@ function RegistrarPromocional() {
               checked={chatHabilitado}
               onChange={(e) => setChatHabilitado(e.target.checked)}
             />
-            <span className="registrar-promocional-switch__pista" />
             <span className="registrar-promocional-switch__texto">
               {chatHabilitado ? "Chat habilitado" : "Chat deshabilitado"}
             </span>
@@ -332,7 +331,6 @@ function RegistrarPromocional() {
                 setZonaComentariosHabilitada(e.target.checked)
               }
             />
-            <span className="registrar-promocional-switch__pista" />
             <span className="registrar-promocional-switch__texto">
               {zonaComentariosHabilitada
                 ? "Comentarios habilitados"

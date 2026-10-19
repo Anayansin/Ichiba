@@ -110,6 +110,37 @@
   text-align: center;
 }
 
+.registro-comisiones {
+  background-color: #fff8e6;
+  border-left: 4px solid #e69500;
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  color: #5c4300;
+  font-size: 0.85rem;
+}
+
+.registro-comisiones__titulo {
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.registro-comisiones__lista {
+  margin: 0 0 0.6rem 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.5;
+}
+
+.registro-comisiones__nota {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b5600;
+  line-height: 1.5;
+}
+
 .registro-obligatorio {
   color: #d90429;
   font-weight: 700;

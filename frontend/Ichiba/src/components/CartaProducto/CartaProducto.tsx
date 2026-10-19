@@ -7,12 +7,31 @@ type CartaProductoProps = {
   nombre: string;
   precio: number;
   imagenes: string[];
+  /** true si el vendedor está dentro de su horario de atención. */
+  atendiendo?: boolean;
 };
 
-function CartaProducto({ id, nombre, precio, imagenes }: CartaProductoProps) {
+function CartaProducto({
+  id,
+  nombre,
+  precio,
+  imagenes,
+  atendiendo = true,
+}: CartaProductoProps) {
+  const claseAtencion = atendiendo
+    ? "CartaProducto--atendiendo"
+    : "CartaProducto--no-atendiendo";
+
   return (
     <Link to={`/producto/${id}`} className="CartaProducto__Link">
-      <div className="CartaProducto">
+      <div
+        className={`CartaProducto ${claseAtencion}`}
+        title={
+          atendiendo
+            ? "El vendedor está en horario de atención"
+            : "El vendedor está fuera de horario de atención"
+        }
+      >
         <img
           src={`${URL_BACKEND}${imagenes[0]}`}
           alt={nombre}

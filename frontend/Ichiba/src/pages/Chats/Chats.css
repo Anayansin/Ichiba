@@ -376,14 +376,54 @@
 }
 
 /* RQNF4: aviso de la etapa de entrega (código de confirmación) */
+.chats__entrega {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 1.2rem 0.6rem;
+}
+
 .chats__nota-entrega {
-  margin: 0 1.2rem 0.6rem;
+  margin: 0;
   padding: 0.6rem 0.8rem;
   background: #e8f0fe;
   color: #1a56b0;
   border: 1px solid #c6d8f7;
   border-radius: 8px;
   font-size: 0.85rem;
+}
+
+/* El código de entrega solo lo ve el comprador; se muestra en grande. */
+.chats__codigo-entrega {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.8rem 1rem;
+  background: #fff8e6;
+  border: 2px dashed #e69500;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.chats__codigo-titulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #8a5a00;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chats__codigo-digitos {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.6rem;
+  color: #8a5a00;
+}
+
+.chats__codigo-nota {
+  font-size: 0.78rem;
+  color: #6b5600;
 }
 
 /* RQNF24.2 / RQNF26 / RQNF29: el chat bloqueado muestra el motivo */

@@ -39,6 +39,7 @@ function PagoExitoso() {
   const [mensaje, setMensaje] = useState("");
   const [ventaId, setVentaId] = useState<number | null>(null);
   const [codigoPago, setCodigoPago] = useState("");
+  const [codigoEntrega, setCodigoEntrega] = useState("");
   const [estadoVenta, setEstadoVenta] = useState<string>("");
   const [mostrarAdvertencia, setMostrarAdvertencia] = useState(false);
 
@@ -119,6 +120,20 @@ function PagoExitoso() {
         } else {
           // El comprobante ya estaba registrado (u otro estado posterior).
           setEtapa("enviado");
+        }
+
+        // RQNF24.4: en la etapa de entrega se muestra aquí mismo el código
+        // de confirmación del comprador, para que no tenga que buscarlo.
+        if (datos?.estado === "en_entrega") {
+          fetchDetalleDeVenta(id)
+            .then((detalle) => {
+              if (detalle.rol === "comprador" && detalle.codigoEntrega) {
+                setCodigoEntrega(detalle.codigoEntrega);
+              }
+            })
+            .catch(() => {
+              // El código también aparece en «Mis pedidos» y en el chat.
+            });
         }
       })
       .catch((err) => {
@@ -246,7 +261,7 @@ function PagoExitoso() {
             producto con tu código de entrega (escrow).
           </p>
 
-          {codigoPago && (
+          {codigoPago && !codigoEntrega && (
             <div className="pago-exitoso__clave">
               <p className="pago-exitoso__clave-titulo">
                 Tu palabra clave del pago es
@@ -255,6 +270,21 @@ function PagoExitoso() {
               <p className="pago-exitoso__clave-nota">
                 La usarás en tu comprobante. No la compartas con nadie más que
                 con el vendedor a través de Ichiba.
+              </p>
+            </div>
+          )}
+
+          {/* RQNF24.4 / RQNF26: el código de entrega es del comprador; con él
+              el vendedor libera el dinero retenido. */}
+          {codigoEntrega && (
+            <div className="pago-exitoso__entrega">
+              <p className="pago-exitoso__clave-titulo">
+                Tu código de confirmación de entrega es
+              </p>
+              <p className="pago-exitoso__entrega-digitos">{codigoEntrega}</p>
+              <p className="pago-exitoso__clave-nota">
+                Dáselo al vendedor únicamente cuando recibas el producto. El
+                vendedor no lo conoce: solo se lo mostrarás tú.
               </p>
             </div>
           )}
@@ -340,7 +370,7 @@ function PagoExitoso() {
             <>
               <p className="pago-exitoso__exito">
                 {estadoVenta === "en_entrega"
-                  ? "El chat de coordinación está abierto y tu código de entrega te espera en «Mis pedidos»: dáselo al vendedor solo cuando recibas el producto."
+                  ? "El chat de coordinación está abierto. Tu código de confirmación de entrega aparece aquí arriba y también en «Mis pedidos»: dáselo al vendedor solo cuando recibas el producto."
                   : estadoVenta === "completada"
                     ? "La entrega quedó registrada y el dinero fue liberado al vendedor. ¡Gracias por usar Ichiba!"
                     : estadoVenta === "cancelada" ||

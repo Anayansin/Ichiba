@@ -90,7 +90,7 @@ function TerminosModal({ onAceptar, onCerrar }: TerminosModalProps) {
               setError("");
             }}
           />
-          Acepto los terminos y condiciones de Ichiba
+          Acepto los términos y condiciones de Ichiba
         </label>
 
         <div className="terminos-modal__notificaciones">

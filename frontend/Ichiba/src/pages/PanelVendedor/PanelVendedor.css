@@ -293,6 +293,19 @@
   cursor: pointer;
 }
 
+.panel-vendedor__preferencia--fija {
+  cursor: default;
+  background-color: #f4f7f9;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+.panel-vendedor__preferencia-candado {
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
 .panel-vendedor__preferencia input {
   margin-top: 0.15rem;
   accent-color: #d90429;
@@ -455,6 +468,12 @@
   font-family: inherit;
   font-size: 0.85rem;
   resize: vertical;
+}
+
+.panel-vendedor__codigo-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #444;
 }
 
 .panel-vendedor__codigo-entrega {

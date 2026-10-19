@@ -27,6 +27,26 @@
   transform: scale(1.05);
 }
 
+/*
+ * RQNF15: al pasar el cursor, el marco avisa si el vendedor está dentro de su
+ * horario de atención (verde) o fuera de él (rojo). La tarjeta se muestra
+ * siempre; el color solo aparece en hover. El borde grueso y el halo del mismo
+ * color hacen evidente la diferencia a simple vista.
+ */
+.CartaProducto.CartaProducto--atendiendo:hover {
+  border: 3px solid #16a34a;
+  box-shadow:
+    0 0 0 4px rgba(22, 163, 74, 0.4),
+    12px 17px 51px rgba(22, 163, 74, 0.55);
+}
+
+.CartaProducto.CartaProducto--no-atendiendo:hover {
+  border: 3px solid #d90429;
+  box-shadow:
+    0 0 0 4px rgba(217, 4, 41, 0.4),
+    12px 17px 51px rgba(217, 4, 41, 0.55);
+}
+
 .CartaProducto:active {
   transform: scale(0.95) rotateZ(1.7deg);
 }

@@ -11,7 +11,6 @@ import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError, campoDeError } from "../../utils/errores";
 import {
   CONDICIONES_PRODUCTO,
-  CONDICIONES_USO,
   METODOS_ENTREGA,
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
@@ -55,7 +54,6 @@ function EditarProducto() {
   const [categoria, setCategoria] = useState(categorias[0]);
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
-  const [condicionUso, setCondicionUso] = useState(CONDICIONES_USO[0].valor);
   const [metodoEntrega, setMetodoEntrega] = useState(METODOS_ENTREGA[0].valor);
   const [horarioInicio, setHorarioInicio] = useState("09:00");
   const [horarioFin, setHorarioFin] = useState("18:00");
@@ -79,8 +77,9 @@ function EditarProducto() {
         setPrecio(String(data.precio));
         setCategoria(categoriaCanonica(data.categoria));
         setDescripcion(data.descripcion);
-        setCondicion(data.condicion ?? CONDICIONES_PRODUCTO[0].valor);
-        setCondicionUso(data.condicionUso ?? CONDICIONES_USO[0].valor);
+        setCondicion(
+          data.condicion ?? data.condicionUso ?? CONDICIONES_PRODUCTO[0].valor,
+        );
         setMetodoEntrega(data.metodoEntrega ?? METODOS_ENTREGA[0].valor);
         setHorarioInicio(data.horarioEntregaInicio ?? "09:00");
         setHorarioFin(data.horarioEntregaFin ?? "18:00");
@@ -196,7 +195,9 @@ function EditarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
-      formData.append("condicionUso", condicionUso);
+      // Un solo campo de "Condiciones de uso" en el formulario; el backend
+      // también guarda `condicionUso` para sus etiquetas.
+      formData.append("condicionUso", condicion);
       formData.append("metodoEntrega", metodoEntrega);
       formData.append("horarioEntregaInicio", horarioInicio);
       formData.append("horarioEntregaFin", horarioFin);
@@ -311,21 +312,6 @@ function EditarProducto() {
         </div>
 
         <div className="form-group">
-          <label>Condición de uso</label>
-          <select
-            className="editar-producto-input"
-            value={condicionUso}
-            onChange={(e) => setCondicionUso(e.target.value)}
-          >
-            {CONDICIONES_USO.map((opcion) => (
-              <option key={opcion.valor} value={opcion.valor}>
-                {opcion.texto}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
           <label>Método de entrega</label>
           <select
             className="editar-producto-input"
@@ -364,8 +350,9 @@ function EditarProducto() {
             />
           </div>
           <small className="editar-producto-nota">
-            El horario de entrega debe estar entre las 05:00 y las 23:59, dentro
-            de tu disponibilidad de trabajo.
+            El horario de coordinación de entrega debe estar entre las 05:00 y
+            las 23:59 y es independiente de tu horario de atención al público;
+            puedes proponer otro rango si lo necesitas.
           </small>
         </div>
 

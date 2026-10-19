@@ -543,6 +543,35 @@ function RegistarCuenta() {
           </select>
         </div>
 
+        <div className="registro-comisiones">
+          <p className="registro-comisiones__titulo">
+            Comisiones que debes conocer
+          </p>
+          <ul className="registro-comisiones__lista">
+            <li>
+              <strong>Ichiba:</strong> 5% + IVA (5.8% en total) de comisión
+              por uso de la plataforma en cada venta.
+            </li>
+            <li>
+              <strong>PayPal:</strong> aproximadamente 3.95% + $4.00 MXN por
+              transacción, más IVA. En pagos internacionales la comisión puede
+              ser mayor.
+            </li>
+            <li>
+              <strong>Mercado Pago:</strong> aproximadamente 3.49% + $4.00 MXN
+              por transacción aprobada con disponibilidad inmediata, más IVA.
+              Si aceptas plazos de 14 o 30 días la comisión baja; OXXO y meses
+              sin intereses pueden tener un costo adicional.
+            </li>
+          </ul>
+          <p className="registro-comisiones__nota">
+            Estas comisiones se descuentan del monto que recibes cuando se
+            confirma la entrega; el comprador paga el precio que publicaste.
+            Las tasas de las pasarelas son aproximadas y pueden cambiar según
+            sus propias políticas.
+          </p>
+        </div>
+
         {metodoPago === "paypal" && (
           <div className="form-group">
             <label htmlFor="campo-datos-pago">

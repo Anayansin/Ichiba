@@ -225,10 +225,30 @@ export async function fetchMisVentasComoComprador(
 ) {
   try {
     const compradorId = req.compradorId as string;
+    // Seguridad: se eligen solo los campos que el chat necesita. El
+    // comprador conserva sus códigos (palabra clave y entrega), pero nada
+    // más del escrow.
     const ventas = await Venta.find({ compradorId })
+      .select(
+        "productoId monto createdAt estado codigoPago codigoEntrega canceladoMotivo entregaLimite ventaIdPg calificacionComprador",
+      )
       .populate("productoId", "nombre imagenes")
       .sort({ createdAt: -1 });
-    res.json(ventas);
+
+    res.json(
+      ventas.map((venta) => {
+        const datos = venta.toObject();
+        return {
+          ...datos,
+          // RQNF24.4: el código de entrega solo se muestra en la etapa de
+          // entrega; antes aún no existe para el comprador.
+          codigoEntrega:
+            venta.estado === "en_entrega"
+              ? (venta.codigoEntrega ?? null)
+              : null,
+        };
+      }),
+    );
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener tus compras" });
@@ -241,7 +261,13 @@ export async function fetchMisVentasComoVendedor(
 ) {
   try {
     const vendedorId = req.usuarioId as string;
+    // Seguridad: el vendedor nunca recibe los códigos secretos del comprador
+    // (palabra clave del pago ni código de confirmación de entrega). Él los
+    // captura a mano cuando el comprador se los da en persona.
     const ventas = await Venta.find({ vendedorId })
+      .select(
+        "productoId monto createdAt estado canceladoMotivo entregaLimite ventaIdPg calificacionVendedor",
+      )
       .populate("productoId", "nombre imagenes")
       .sort({ createdAt: -1 });
     res.json(ventas);

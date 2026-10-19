@@ -53,6 +53,8 @@ const productoSchema = new Schema(
 // Índices que sostienen el buscador del catálogo (filtro por categoría,
 // por vendedor y combinación con productos activos).
 productoSchema.index({ activo: 1, categoria: 1 });
+productoSchema.index({ activo: 1, createdAt: -1 });
+productoSchema.index({ activo: 1, categoria: 1, createdAt: -1 });
 productoSchema.index({ vendedorId: 1 });
 productoSchema.index({ nombre: 1 });
 

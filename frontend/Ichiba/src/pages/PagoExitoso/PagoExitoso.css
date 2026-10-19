@@ -52,6 +52,27 @@
   color: #777;
 }
 
+/* Código de confirmación de entrega: es del comprador, no del vendedor. */
+.pago-exitoso__entrega {
+  background: #fff8e6;
+  border: 2px dashed #e69500;
+  border-radius: 12px;
+  padding: 1rem 2rem;
+  margin: 1rem 0;
+}
+
+.pago-exitoso__entrega .pago-exitoso__clave-titulo {
+  color: #8a5a00;
+}
+
+.pago-exitoso__entrega-digitos {
+  margin: 0.3rem 0;
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: 0.6rem;
+  color: #8a5a00;
+}
+
 .pago-exitoso__aviso {
   background-color: #fff4e5;
   border-left: 4px solid #e69500;

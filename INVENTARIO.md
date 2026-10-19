@@ -121,6 +121,8 @@ para responder preguntas.
 `src/context/` → `AuthContext/AuthProvider` (sesión, `localStorage`),
 `ColasContext/ColasProvider` (posición en filas).
 `src/configuracion/` → `categorias.ts`, `categoriasReporte.ts`.
+`frontend/Ichiba/src/configuracion/comisiones.ts` → comisión de Ichiba (5% + IVA) y
+comisiones aproximadas de PayPal y Mercado Pago por transacción.
 
 ---
 
@@ -307,7 +309,7 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 
 | Prefijo | Archivo de rutas | Endpoints |
 |---|---|---|
-| `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` (verificado) · `PATCH /:id/estado` (verificado) · `DELETE /:id` (verificado) |
+| `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.; paginación con `pagina`/`porPagina` y `vendedorAtendiendo` por horario) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` (verificado) · `PATCH /:id/estado` (verificado) · `DELETE /:id` (verificado) |
 | `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` (autentica en MongoDB con bcryptjs) · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
 | `/api/verificacion` | `verificacionRoutes.ts` | `POST /correo/enviar` · `POST /correo/verificar` |
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /paypal/vincular` · `GET /paypal/vincular/callback` · `GET /paypal/vinculacion` · `POST /confirmar-mercadopago` · `POST /webhook-mercadopago` · `POST /:ventaId/comprobante` · `GET /comprobante/:ventaId/imagen` · `POST /:ventaId/confirmar-comprobante` · `POST /:ventaId/rechazar-comprobante` · `POST /:ventaId/confirmar-entrega` · `GET /vendedor/ventas` · `GET /mis-compras` · `POST /:ventaId/disputa` · `GET /disputas/mis-disputas` · `GET /vendedor/disputas` · `POST /disputas/:disputaId/responder` · `GET /disputas/:disputaId/evidencia/:lado/:indice` · `GET /:ventaId/detalle` · `POST /:ventaId/calificar` |
@@ -355,6 +357,9 @@ Errores de Multer se responden como JSON 400 con mensajes amigables
 - Validaciones propias: `utils/validarPassword.ts`, `utils/validarRfcCurp.ts`,
   `utils/validarHorario.ts`, `utils/generarCodigo.ts` (códigos de correo),
   `utils/filtroPalabras.ts`.
+- `frontend/Ichiba/src/utils/validacionEspanol.ts` traduce al español los
+  mensajes nativos de validación de todos los formularios (se activa una sola
+  vez desde `main.tsx`).
 
 ---
 
