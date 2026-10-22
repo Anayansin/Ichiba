@@ -289,3 +289,58 @@ body {
   background: #e6e6e6;
   color: #333;
 }
+
+/*
+ * En pantallas angostas la barra pasa a dos filas: logo y cuenta arriba, y
+ * todos los enlaces abajo. Antes el menú se salía del ancho y ocultaba
+ * "Categorías", "Nosotros", "Ayuda" y la lupa.
+ */
+@media (max-width: 760px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    padding: 0.9rem 1rem;
+  }
+
+  .header__logo {
+    font-size: 1.35rem;
+  }
+
+  .header__nav {
+    order: 3;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.55rem 1rem;
+  }
+
+  .header__link,
+  .header__menu p {
+    font-size: 0.92rem;
+  }
+
+  .header__menu-despliega {
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: min(260px, calc(100vw - 2rem));
+    padding: 1rem 1.2rem;
+  }
+
+  .header__submenu-despliega {
+    left: 0;
+    top: 100%;
+    min-width: min(240px, calc(100vw - 2rem));
+  }
+
+  .header--buscando .header__buscador--expandido {
+    order: 3;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .header__buscador-input {
+    width: 100%;
+    min-width: 0;
+  }
+}

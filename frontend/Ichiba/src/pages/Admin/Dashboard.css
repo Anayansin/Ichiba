@@ -154,3 +154,26 @@
 .admin-dashboard__tabla tr:last-child td {
   border-bottom: none;
 }
+
+/*
+ * En móvil las tablas de "últimas ventas/usuarios" no caben con su ancho
+ * mínimo natural y empujaban toda la página a un scroll horizontal. Con
+ * "table-layout: fixed" las columnas se reparten el ancho disponible y el
+ * texto largo se parte dentro de su celda.
+ */
+@media (max-width: 760px) {
+  .admin-dashboard__tablas {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-dashboard__tabla {
+    table-layout: fixed;
+  }
+
+  .admin-dashboard__tabla th,
+  .admin-dashboard__tabla td {
+    padding: 7px 6px;
+    font-size: 0.76rem;
+    overflow-wrap: anywhere;
+  }
+}
