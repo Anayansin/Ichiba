@@ -26,7 +26,7 @@ para responder preguntas.
 | `frontend/Ichiba/` | Aplicación React + Vite (puerto 5173) |
 | `front-astro/` | Proyecto Astro aparte (React dentro de Astro). **No** forma parte del flujo principal |
 | `.github/workflows/` | CI/CD: `integracion-continua.yml` (8 suites + compilaciones) y `despliegue.yml` (Railway + Vercel) |
-| `herramientas/` | Scripts de PowerShell para arrancar sin administrador |
+| `herramientas/` | Scripts de PowerShell para arrancar sin administrador (`INICIAR-ICHIBA.cmd` en la raíz los ejecuta con doble clic) |
 | `DOCUMENTACION.md` | Documentación general (arquitectura, BD, instalación, módulos) |
 | `INVENTARIO.md` | Este archivo |
 
@@ -39,11 +39,12 @@ para responder preguntas.
 | Node.js + npm | — | sistema | Ejecutar backend y frontend |
 | MongoDB **portable** | 8.0.14 | `%LOCALAPPDATA%\Programs\mongodb\bin\mongod.exe` | Base NoSQL (Mongoose). Datos: `...\mongodb\data`, log: `...\mongodb\log\mongod.log`. Puerto **27017**, base `ichiba` |
 | PostgreSQL **portable** | 17.6 | `%LOCALAPPDATA%\Programs\postgresql\bin\` (`pg_ctl`, `initdb`, `psql`, `createdb`) | Base relacional (Prisma). Datos: `...\postgresql\data`, log: `...\postgresql\log\postgres.log`. Puerto **5432**, base `mi_base_datos`, usuario `postgres` / `postgres` |
-| PowerShell | — | `herramientas\arrancar-bases.ps1`, `herramientas\arrancar-ichiba.ps1` | Arrancar bases y todo el proyecto **sin permisos de administrador** (ambos scripts son idempotentes) |
+| PowerShell | — | `herramientas\arrancar-bases.ps1`, `herramientas\arrancar-ichiba.ps1` e `INICIAR-ICHIBA.cmd` | Arrancar bases y todo el proyecto **sin permisos de administrador**; `arrancar-ichiba.ps1` además verifica la API y el acceso de administrador (ambos scripts son idempotentes) |
 | nodemon + tsx | — | `backend/package.json` | Recarga automática del backend en TS (`npm run dev`) |
 
 > Ninguno de los dos servicios de base de datos está instalado como servicio de
-> Windows: por eso el arranque siempre pasa por `herramientas\arrancar-ichiba.ps1`.
+> Windows: por eso el arranque siempre pasa por `INICIAR-ICHIBA.cmd` o
+> `herramientas\arrancar-ichiba.ps1`.
 
 ---
 
@@ -433,8 +434,9 @@ es la señal de éxito.
 ### PowerShell (desde la raíz)
 
 ```powershell
+INICIAR-ICHIBA.cmd                                                        # doble clic o ejecutar desde la raiz
 powershell -ExecutionPolicy Bypass -File herramientas\arrancar-bases.ps1   # solo bases
-powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1  # bases + backend + frontend
+powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1  # bases + backend + frontend + verificacion
 ```
 
 ### Puertos

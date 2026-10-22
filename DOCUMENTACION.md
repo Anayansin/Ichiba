@@ -94,11 +94,11 @@ Los robots de CI/CD del proyecto (sección 6): `integracion-continua.yml` (prueb
 
 #### `herramientas/`
 
-Dos scripts de PowerShell para arrancar el proyecto en Windows sin permisos de administrador: `arrancar-bases.ps1` (solo las bases de datos) y `arrancar-ichiba.ps1` (bases + backend + frontend).
+Dos scripts de PowerShell para arrancar el proyecto en Windows sin permisos de administrador: `arrancar-bases.ps1` (solo las bases de datos) y `arrancar-ichiba.ps1` (bases + backend + frontend, con verificación de salud y del acceso de administrador). En la raíz, `INICIAR-ICHIBA.cmd` ejecuta el segundo con doble clic.
 
 #### Raíz del proyecto
 
-Además de las carpetas anteriores, la raíz contiene `.gitignore`, el archivo `proyecto.code-workspace` de VS Code (que agrupa `backend`, `front-astro` y `frontend/Ichiba`), `DOCUMENTACION.md` (este archivo), `INVENTARIO.md` (inventario de herramientas y APIs) y `requisitos.md` (requisitos del proyecto con su trazabilidad al final).
+Además de las carpetas anteriores, la raíz contiene `.gitignore`, `INICIAR-ICHIBA.cmd` (doble clic para levantar bases, backend y frontend en Windows), el archivo `proyecto.code-workspace` de VS Code (que agrupa `backend`, `front-astro` y `frontend/Ichiba`), `DOCUMENTACION.md` (este archivo), `INVENTARIO.md` (inventario de herramientas y APIs) y `requisitos.md` (requisitos del proyecto con su trazabilidad al final).
 
 ---
 
@@ -253,10 +253,11 @@ Astro sirve las páginas en `http://localhost:4321`. Para publicar, usa `npm run
 
 ### Orden recomendado para levantar el proyecto
 
-1. PostgreSQL y MongoDB en ejecución (o `powershell -ExecutionPolicy Bypass -File herramientas\arrancar-bases.ps1`).
-2. Backend (`npm run dev` en `backend`), porque los frontends dependen de la API.
-3. Frontend React (`npm run dev` en `frontend/Ichiba`).
-4. Sitio de Astro (`npm run desarrollo` en `front-astro`), si se necesita.
+1. En Windows, la forma más simple es hacer doble clic en `INICIAR-ICHIBA.cmd` (o ejecutar `powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1`). El script arranca PostgreSQL, MongoDB, el backend y el frontend, comprueba que la API responda y verifica el acceso de administrador.
+2. Si prefieres hacerlo a mano: PostgreSQL y MongoDB en ejecución (o `powershell -ExecutionPolicy Bypass -File herramientas\arrancar-bases.ps1`).
+3. Backend (`npm run dev` en `backend`), porque los frontends dependen de la API.
+4. Frontend React (`npm run dev` en `frontend/Ichiba`).
+5. Sitio de Astro (`npm run desarrollo` en `front-astro`), si se necesita.
 
 ### Verificación rápida
 
@@ -399,7 +400,7 @@ Concentra el control de la plataforma por parte de cuentas con tipo `admin`. El 
 
 En el backend: `backend/src/middleware/esAdmin.ts` (verifica el tipo de administrador contra PostgreSQL) y `backend/src/middleware/admin.ts` (usado por las rutas de reportes); `backend/src/middleware/vendedor.ts` (el administrador no publica ni compra; las cuentas canceladas solo completan entregas con `requiereVendedorDeEntregas`); `backend/src/routes/adminRoutes.ts`, montado en `/api/admin`, con `backend/src/controllers/adminController.ts` y el motor compartido `backend/src/services/backofficeService.ts` (el mismo que usa el MCP); `backend/src/services/listaNegraService.ts` sobre el modelo `backend/src/models/ListaNegra.ts`.
 
-En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx` (pantalla protegida con menú interno) y sus secciones `Dashboard.tsx`, `GestionUsuarios.tsx`, `RevisionReportes.tsx`, `Disputas.tsx`, `Adeudos.tsx`, `InformesGlobales.tsx`, `ListaNegra.tsx` y `Trazabilidad.tsx` con `ModalConversacion.tsx`; también `frontend/Ichiba/src/pages/AdminReportes` (historial de reportes) y el servicio `frontend/Ichiba/src/services/adminService.ts`.
+En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx` (pantalla protegida con menú interno en cuadrícula que muestra las ocho secciones completas, también en móvil, y guarda la sección activa en `?seccion=`) y sus secciones `Dashboard.tsx`, `GestionUsuarios.tsx`, `RevisionReportes.tsx`, `Disputas.tsx`, `Adeudos.tsx`, `InformesGlobales.tsx`, `ListaNegra.tsx` y `Trazabilidad.tsx` con `ModalConversacion.tsx`; también `frontend/Ichiba/src/pages/AdminReportes` (historial de reportes) y el servicio `frontend/Ichiba/src/services/adminService.ts`.
 
 ### Otros módulos
 
@@ -507,7 +508,7 @@ Cuando quieras relanzar un despliegue, entra a **Actions → Despliegue continuo
 | Instalar dependencias del sitio de Astro | `front-astro` | `npm install` |
 | Levantar el sitio de Astro | `front-astro` | `npm run desarrollo` |
 | Compilar el sitio de Astro | `front-astro` | `npm run compilar` |
-| Arrancar bases y todo el proyecto (Windows) | raíz | `powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1` |
+| Arrancar bases y todo el proyecto (Windows) | raíz | doble clic en `INICIAR-ICHIBA.cmd` o `powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1` |
 
 ---
 
