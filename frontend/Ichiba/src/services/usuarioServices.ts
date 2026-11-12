@@ -48,6 +48,29 @@ export async function registrarUsuario(datos: DatosRegistro) {
   return response.data;
 }
 
+/**
+ * RQNF1.9: pide a los administradores que revisen un alta que el sistema
+ * denegó (datos en la lista negra o ya usados por otra cuenta).
+ */
+export type SolicitudRevisionRegistro = {
+  nombreCompleto: string;
+  correo: string;
+  telefono?: string;
+  rfc?: string;
+  mensaje?: string;
+  motivo?: string;
+};
+
+export async function solicitarRevisionRegistro(
+  datos: SolicitudRevisionRegistro,
+) {
+  const response = await api.post(
+    "/usuarios/registro/solicitar-revision",
+    datos,
+  );
+  return response.data;
+}
+
 /** RQNF10.1: reputación calculada por el backend a partir de las ventas. */
 export type ReputacionVendedor = {
   /** Promedio de 1 a 5 con un decimal, o null si aún no hay calificaciones. */

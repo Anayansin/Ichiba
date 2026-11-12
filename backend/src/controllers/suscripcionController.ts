@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { SuscripcionCategoria } from "../models/SuscripcionCategoria.js";
 import { CATEGORIAS_NOTIFICACION } from "../models/Suscripcion.js";
-import { FORMATO_CORREO } from "../models/usuario.js";
+import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
 
 export async function suscribirseCategoria(req: Request, res: Response) {
   try {

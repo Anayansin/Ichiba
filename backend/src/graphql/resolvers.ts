@@ -1,8 +1,7 @@
-import { Cola } from "../models/Cola.js";
 import { Mensaje } from "../models/Mensaje.js";
 import { Producto } from "../models/producto.js";
-import { Usuario } from "../models/usuario.js";
 import { Venta } from "../models/Venta.js";
+import clientePrisma from "../configuracion/prisma.js";
 import {
   expirarTurnoSiVencido,
   iniciarTemporizadorPago,
@@ -18,6 +17,7 @@ import {
   CANAL_LISTA_NEGRA,
   CANAL_REPORTES_PENDIENTES,
   CANAL_RESUMEN_ADMIN,
+  CANAL_SOLICITUDES_REGISTRO,
   CANAL_USUARIOS_ADMIN,
   suscribirseAlCanal,
 } from "./suscripciones.js";
@@ -156,8 +156,9 @@ export const resolutoresGraphQL = {
     ) => {
       const compradorId = obtenerCompradorId(contexto, argumentos.compradorId);
       await limpiarFilasHuerfanas(compradorId);
-      return Cola.find({ compradorId, estado: "activa" }).sort({
-        posicion: 1,
+      return clientePrisma.cola.findMany({
+        where: { compradorId, estado: "activa" },
+        orderBy: { posicion: "asc" },
       });
     },
     estadoDeMiFila: async (
@@ -166,10 +167,8 @@ export const resolutoresGraphQL = {
       contexto: ContextoGraphQL | undefined,
     ) => {
       const compradorId = obtenerCompradorId(contexto, argumentos.compradorId);
-      const fila = await Cola.findOne({
-        productoId: argumentos.productoId,
-        compradorId,
-        estado: "activa",
+      const fila = await clientePrisma.cola.findFirst({
+        where: { productoId: argumentos.productoId, compradorId, estado: "activa" },
       });
 
       if (!fila) {
@@ -193,17 +192,26 @@ export const resolutoresGraphQL = {
       contexto: ContextoGraphQL | undefined,
     ) => {
       const usuarioId = obtenerUsuarioIdAutenticado(contexto);
-      const usuario = await Usuario.findById(usuarioId).select("-password");
-      return usuario;
+      const usuario = await clientePrisma.usuario.findUnique({
+        where: { id: Number(usuarioId) },
+      });
+      if (!usuario) return null;
+      const { password: _password, ...resto } = usuario;
+      return resto;
     },
     perfilPublico: async (
       _objetoPadre: unknown,
       argumentos: ArgumentosPerfilPublico,
     ) => {
-      const usuario = await Usuario.findById(argumentos.id).select(
-        "nombreCompleto ventasExitosas reportes",
-      );
-      return usuario;
+      const usuario = await clientePrisma.usuario.findUnique({
+        where: { id: Number(argumentos.id) },
+      });
+      if (!usuario) return null;
+      return {
+        nombreCompleto: usuario.nombreCompleto,
+        ventasExitosas: usuario.ventasExitosas,
+        reportes: usuario.totalReportes,
+      };
     },
     mensajesComoComprador: async (
       _objetoPadre: unknown,
@@ -270,19 +278,20 @@ export const resolutoresGraphQL = {
       const compradorId = obtenerCompradorId(contexto, argumentos.compradorId);
       await limpiarFilasHuerfanas(compradorId);
 
-      const yaEstaEnEstaFila = await Cola.findOne({
-        productoId: argumentos.productoId,
-        compradorId,
-        estado: "activa",
+      const yaEstaEnEstaFila = await clientePrisma.cola.findFirst({
+        where: {
+          productoId: argumentos.productoId,
+          compradorId,
+          estado: "activa",
+        },
       });
 
       if (yaEstaEnEstaFila) {
         throw new Error("Ya estás en la fila de este producto");
       }
 
-      const filasActivasDelComprador = await Cola.countDocuments({
-        compradorId,
-        estado: "activa",
+      const filasActivasDelComprador = await clientePrisma.cola.count({
+        where: { compradorId, estado: "activa" },
       });
 
       if (filasActivasDelComprador >= limiteFilasActivas) {
@@ -291,26 +300,27 @@ export const resolutoresGraphQL = {
         );
       }
 
-      const ultimaOcupada = await Cola.findOne({
-        productoId: argumentos.productoId,
-        estado: "activa",
-      })
-        .sort({ posicion: -1 })
-        .select("posicion");
+      const ultimaOcupada = await clientePrisma.cola.findFirst({
+        where: { productoId: argumentos.productoId, estado: "activa" },
+        orderBy: { posicion: "desc" },
+        select: { posicion: true },
+      });
 
       const posicion = (ultimaOcupada?.posicion ?? 0) + 1;
-      const nuevaFila = new Cola({
-        productoId: argumentos.productoId,
-        compradorId,
-        posicion,
+
+      const nuevaFila = await clientePrisma.cola.create({
+        data: { productoId: argumentos.productoId, compradorId, posicion },
       });
 
       if (posicion === 1) {
         await iniciarTemporizadorPago(nuevaFila);
+        await clientePrisma.cola.update({
+          where: { id: Number(nuevaFila.id) },
+          data: { pagoExpiraEn: nuevaFila.pagoExpiraEn },
+        });
       }
 
-      const filaGuardada = await nuevaFila.save();
-      return filaGuardada;
+      return { ...nuevaFila, _id: String(nuevaFila.id) };
     },
     salirDeFila: async (
       _objetoPadre: unknown,
@@ -318,17 +328,21 @@ export const resolutoresGraphQL = {
       contexto: ContextoGraphQL | undefined,
     ) => {
       const compradorId = obtenerCompradorId(contexto, argumentos.compradorId);
-      const fila = await Cola.findOne({ _id: argumentos.id, compradorId });
+      const fila = await clientePrisma.cola.findFirst({
+        where: { id: Number(argumentos.id), compradorId },
+      });
 
       if (!fila) {
         return null;
       }
 
-      fila.estado = "finalizada";
-      fila.motivoCierre = "salio_voluntariamente";
-      await fila.save();
-      await reacomodarFila(fila.productoId.toString(), fila.posicion);
-      return fila;
+      await clientePrisma.cola.update({
+        where: { id: fila.id },
+        data: { estado: "finalizada", motivoCierre: "salio_voluntariamente" },
+      });
+
+      await reacomodarFila(fila.productoId, fila.posicion);
+      return { ...fila, _id: String(fila.id) };
     },
     enviarMensajeComoComprador: async (
       _objetoPadre: unknown,
@@ -404,6 +418,11 @@ export const resolutoresGraphQL = {
     // RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
     disputasActualizadas: {
       subscribe: () => suscribirseAlCanal(CANAL_DISPUTAS),
+      resolve: (evento: unknown) => evento,
+    },
+    // RQNF1.9: solicitudes de revisión de altas denegadas.
+    solicitudesRegistro: {
+      subscribe: () => suscribirseAlCanal(CANAL_SOLICITUDES_REGISTRO),
       resolve: (evento: unknown) => evento,
     },
   },

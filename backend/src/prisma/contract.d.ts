@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'5108b8929e6722be58d52ac16970443767367605d0b92eb24d42fc640d305526'>;
+  StorageHashBase<'4cbf2f0eddc04e3a26d7adcfa62ee397ffecbf866919efe8c6aca12842fa9f91'>;
 export type ExecutionHash =
   ExecutionHashBase<'ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037'>;
 export type ProfileHash =
@@ -304,13 +304,20 @@ export type FieldOutputTypes = {
       readonly ineCodigoReverso: CodecTypes['pg/text@1']['output'] | null;
       readonly ineFrente: CodecTypes['pg/text@1']['output'];
       readonly ineReverso: CodecTypes['pg/text@1']['output'];
+      readonly metodoPago: CodecTypes['pg/text@1']['output'];
+      readonly motivoSuspension: CodecTypes['pg/text@1']['output'] | null;
       readonly nombreCompleto: CodecTypes['pg/text@1']['output'];
       readonly password: CodecTypes['pg/text@1']['output'];
       readonly paypalEmail: CodecTypes['pg/text@1']['output'];
       readonly puntosReputacion: CodecTypes['pg/float8@1']['output'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
+      readonly revisionAdministrativa: CodecTypes['pg/bool@1']['output'];
       readonly rfc: CodecTypes['pg/text@1']['output'];
+      readonly saldoPendiente: CodecTypes['pg/float8@1']['output'];
+      readonly sancionHasta: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly sancionPermanente: CodecTypes['pg/bool@1']['output'];
+      readonly suspendido: CodecTypes['pg/bool@1']['output'];
       readonly telefono: CodecTypes['pg/text@1']['output'];
       readonly tipo: CodecTypes['pg/text@1']['output'];
       readonly totalReportes: CodecTypes['pg/int4@1']['output'];
@@ -405,13 +412,20 @@ export type FieldInputTypes = {
       readonly ineCodigoReverso: CodecTypes['pg/text@1']['input'] | null;
       readonly ineFrente: CodecTypes['pg/text@1']['input'];
       readonly ineReverso: CodecTypes['pg/text@1']['input'];
+      readonly metodoPago: CodecTypes['pg/text@1']['input'];
+      readonly motivoSuspension: CodecTypes['pg/text@1']['input'] | null;
       readonly nombreCompleto: CodecTypes['pg/text@1']['input'];
       readonly password: CodecTypes['pg/text@1']['input'];
       readonly paypalEmail: CodecTypes['pg/text@1']['input'];
       readonly puntosReputacion: CodecTypes['pg/float8@1']['input'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['input'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['input'];
+      readonly revisionAdministrativa: CodecTypes['pg/bool@1']['input'];
       readonly rfc: CodecTypes['pg/text@1']['input'];
+      readonly saldoPendiente: CodecTypes['pg/float8@1']['input'];
+      readonly sancionHasta: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly sancionPermanente: CodecTypes['pg/bool@1']['input'];
+      readonly suspendido: CodecTypes['pg/bool@1']['input'];
       readonly telefono: CodecTypes['pg/text@1']['input'];
       readonly tipo: CodecTypes['pg/text@1']['input'];
       readonly totalReportes: CodecTypes['pg/int4@1']['input'];
@@ -506,13 +520,20 @@ export type StorageColumnTypes = {
       readonly ineCodigoReverso: CodecTypes['pg/text@1']['output'] | null;
       readonly ineFrente: CodecTypes['pg/text@1']['output'];
       readonly ineReverso: CodecTypes['pg/text@1']['output'];
+      readonly metodoPago: CodecTypes['pg/text@1']['output'];
+      readonly motivoSuspension: CodecTypes['pg/text@1']['output'] | null;
       readonly nombreCompleto: CodecTypes['pg/text@1']['output'];
       readonly password: CodecTypes['pg/text@1']['output'];
       readonly paypalEmail: CodecTypes['pg/text@1']['output'];
       readonly puntosReputacion: CodecTypes['pg/float8@1']['output'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
+      readonly revisionAdministrativa: CodecTypes['pg/bool@1']['output'];
       readonly rfc: CodecTypes['pg/text@1']['output'];
+      readonly saldoPendiente: CodecTypes['pg/float8@1']['output'];
+      readonly sancionHasta: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+      readonly sancionPermanente: CodecTypes['pg/bool@1']['output'];
+      readonly suspendido: CodecTypes['pg/bool@1']['output'];
       readonly telefono: CodecTypes['pg/text@1']['output'];
       readonly tipo: CodecTypes['pg/text@1']['output'];
       readonly totalReportes: CodecTypes['pg/int4@1']['output'];
@@ -607,13 +628,20 @@ export type StorageColumnInputTypes = {
       readonly ineCodigoReverso: CodecTypes['pg/text@1']['input'] | null;
       readonly ineFrente: CodecTypes['pg/text@1']['input'];
       readonly ineReverso: CodecTypes['pg/text@1']['input'];
+      readonly metodoPago: CodecTypes['pg/text@1']['input'];
+      readonly motivoSuspension: CodecTypes['pg/text@1']['input'] | null;
       readonly nombreCompleto: CodecTypes['pg/text@1']['input'];
       readonly password: CodecTypes['pg/text@1']['input'];
       readonly paypalEmail: CodecTypes['pg/text@1']['input'];
       readonly puntosReputacion: CodecTypes['pg/float8@1']['input'];
       readonly recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['input'];
       readonly recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['input'];
+      readonly revisionAdministrativa: CodecTypes['pg/bool@1']['input'];
       readonly rfc: CodecTypes['pg/text@1']['input'];
+      readonly saldoPendiente: CodecTypes['pg/float8@1']['input'];
+      readonly sancionHasta: CodecTypes['pg/timestamptz-temporal@1']['input'] | null;
+      readonly sancionPermanente: CodecTypes['pg/bool@1']['input'];
+      readonly suspendido: CodecTypes['pg/bool@1']['input'];
       readonly telefono: CodecTypes['pg/text@1']['input'];
       readonly tipo: CodecTypes['pg/text@1']['input'];
       readonly totalReportes: CodecTypes['pg/int4@1']['input'];
@@ -711,13 +739,20 @@ export namespace Models {
     ineCodigoReverso: CodecTypes['pg/text@1']['output'] | null;
     ineFrente: CodecTypes['pg/text@1']['output'];
     ineReverso: CodecTypes['pg/text@1']['output'];
+    metodoPago: CodecTypes['pg/text@1']['output'];
+    motivoSuspension: CodecTypes['pg/text@1']['output'] | null;
     nombreCompleto: CodecTypes['pg/text@1']['output'];
     password: CodecTypes['pg/text@1']['output'];
     paypalEmail: CodecTypes['pg/text@1']['output'];
     puntosReputacion: CodecTypes['pg/float8@1']['output'];
     recibirNotificacionesCriticas: CodecTypes['pg/bool@1']['output'];
     recibirNotificacionesPublicitarias: CodecTypes['pg/bool@1']['output'];
+    revisionAdministrativa: CodecTypes['pg/bool@1']['output'];
     rfc: CodecTypes['pg/text@1']['output'];
+    saldoPendiente: CodecTypes['pg/float8@1']['output'];
+    sancionHasta: CodecTypes['pg/timestamptz-temporal@1']['output'] | null;
+    sancionPermanente: CodecTypes['pg/bool@1']['output'];
+    suspendido: CodecTypes['pg/bool@1']['output'];
     telefono: CodecTypes['pg/text@1']['output'];
     tipo: CodecTypes['pg/text@1']['output'];
     totalReportes: CodecTypes['pg/int4@1']['output'];
@@ -1114,6 +1149,20 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                 };
+                readonly metodoPago: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'paypal'>;
+                  };
+                };
+                readonly motivoSuspension: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly nombreCompleto: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -1152,10 +1201,51 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/bool@1', false>;
                   };
                 };
+                readonly revisionAdministrativa: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
                 readonly rfc: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                };
+                readonly saldoPendiente: {
+                  readonly nativeType: 'float8';
+                  readonly codecId: 'pg/float8@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/float8@1', 0>;
+                  };
+                };
+                readonly sancionHasta: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                  readonly nullable: true;
+                };
+                readonly sancionPermanente: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly suspendido: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
                 };
                 readonly telefono: {
                   readonly nativeType: 'text';
@@ -1695,6 +1785,14 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly metodoPago: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly motivoSuspension: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly nombreCompleto: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1719,9 +1817,32 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
+              readonly revisionAdministrativa: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly rfc: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly saldoPendiente: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/float8@1' };
+              };
+              readonly sancionHasta: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-temporal@1';
+                };
+              };
+              readonly sancionPermanente: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly suspendido: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
               readonly telefono: {
                 readonly nullable: false;
@@ -1796,6 +1917,8 @@ type ContractBase = Omit<
                 readonly ineCodigoReverso: { readonly column: 'ineCodigoReverso' };
                 readonly ineFrente: { readonly column: 'ineFrente' };
                 readonly ineReverso: { readonly column: 'ineReverso' };
+                readonly metodoPago: { readonly column: 'metodoPago' };
+                readonly motivoSuspension: { readonly column: 'motivoSuspension' };
                 readonly nombreCompleto: { readonly column: 'nombreCompleto' };
                 readonly password: { readonly column: 'password' };
                 readonly paypalEmail: { readonly column: 'paypalEmail' };
@@ -1806,7 +1929,12 @@ type ContractBase = Omit<
                 readonly recibirNotificacionesPublicitarias: {
                   readonly column: 'recibirNotificacionesPublicitarias';
                 };
+                readonly revisionAdministrativa: { readonly column: 'revisionAdministrativa' };
                 readonly rfc: { readonly column: 'rfc' };
+                readonly saldoPendiente: { readonly column: 'saldoPendiente' };
+                readonly sancionHasta: { readonly column: 'sancionHasta' };
+                readonly sancionPermanente: { readonly column: 'sancionPermanente' };
+                readonly suspendido: { readonly column: 'suspendido' };
                 readonly telefono: { readonly column: 'telefono' };
                 readonly tipo: { readonly column: 'tipo' };
                 readonly totalReportes: { readonly column: 'totalReportes' };

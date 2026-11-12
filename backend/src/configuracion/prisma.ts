@@ -11,6 +11,8 @@ type ArgumentosConsulta = {
   orderBy?: Condicion | Condicion[];
   select?: Record<string, boolean>;
   include?: unknown;
+  skip?: number;
+  limit?: number;
 };
 
 type ArgumentosModificar = {
@@ -115,14 +117,61 @@ function coincideValor(actual: unknown, esperado: unknown): boolean {
   return String(actual) === String(esperado);
 }
 
+/** Valor comparable para rangos de fechas y números. */
+function aComparable(valor: unknown): number | string | null {
+  if (valor === null || valor === undefined) return null;
+  if (valor instanceof Date) return valor.getTime();
+  if (typeof valor === "number") return valor;
+  if (typeof valor === "bigint") return Number(valor);
+  if (typeof valor === "string") {
+    const fecha = Date.parse(valor);
+    return Number.isNaN(fecha) ? valor : fecha;
+  }
+  return String(valor);
+}
+
+/** Comparación sin distinguir mayúsculas (modo "insensitive"). */
+function coincideTexto(actual: unknown, esperado: unknown): boolean {
+  if (actual === null || actual === undefined) return false;
+  return (
+    String(actual).toLowerCase().trim() ===
+    String(esperado ?? "")
+      .toLowerCase()
+      .trim()
+  );
+}
+
 function coincideCampo(fila: DatosFila, campo: string, esperado: unknown): boolean {
   const actual = fila[campo];
   if (esObjeto(esperado)) {
     if (Array.isArray(esperado.in)) {
       return esperado.in.some((valor: unknown) => coincideValor(actual, valor));
     }
-    if ("equals" in esperado) return coincideValor(actual, esperado.equals);
+    if ("equals" in esperado) {
+      if (esperado.mode === "insensitive") {
+        return coincideTexto(actual, esperado.equals);
+      }
+      return coincideValor(actual, esperado.equals);
+    }
     if ("not" in esperado) return !coincideValor(actual, esperado.not);
+    if ("ne" in esperado) return !coincideValor(actual, esperado.ne);
+    if ("contains" in esperado) {
+      if (actual === null || actual === undefined) return false;
+      return String(actual)
+        .toLowerCase()
+        .includes(String(esperado.contains).toLowerCase());
+    }
+    for (const operacion of ["gte", "lte", "gt", "lt"] as const) {
+      if (operacion in esperado) {
+        const valor = aComparable(actual);
+        const limite = aComparable(esperado[operacion]);
+        if (valor === null || limite === null) return false;
+        if (operacion === "gte") return valor >= limite;
+        if (operacion === "lte") return valor <= limite;
+        if (operacion === "gt") return valor > limite;
+        return valor < limite;
+      }
+    }
   }
   return coincideValor(actual, esperado);
 }
@@ -218,7 +267,16 @@ async function consultar(modelo: any, args: ArgumentosConsulta) {
 
   const filasOrdenadas = ordenarFilas(filas, args.orderBy);
 
-  return filasOrdenadas.map((fila) => proyectarFila(fila, args.select));
+  // Paginación (skip/limit) como en Prisma: se aplica después del orden.
+  let resultados = filasOrdenadas;
+  if (typeof args.skip === "number" && args.skip > 0) {
+    resultados = resultados.slice(args.skip);
+  }
+  if (typeof args.limit === "number" && args.limit >= 0) {
+    resultados = resultados.slice(0, args.limit);
+  }
+
+  return resultados.map((fila) => proyectarFila(fila, args.select));
 }
 
 function datosLimpios(data: Condicion): Condicion {

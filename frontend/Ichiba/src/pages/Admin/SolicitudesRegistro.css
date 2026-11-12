@@ -1,0 +1,222 @@
+.solicitudes-registro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.solicitudes-registro__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.solicitudes-registro__cabecera h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.solicitudes-registro__cabecera span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.solicitudes-registro__nota {
+  margin: 0;
+  color: #555;
+  font-size: 0.85rem;
+  background: #f7f9fa;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+}
+
+.solicitudes-registro__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.solicitudes-registro__item {
+  background: #ffffff;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.solicitudes-registro__datos {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.solicitudes-registro__datos > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.solicitudes-registro__datos strong {
+  font-size: 0.98rem;
+  color: #222;
+}
+
+.solicitudes-registro__etiquetas {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.solicitudes-registro__motivo,
+.solicitudes-registro__estado {
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.solicitudes-registro__motivo {
+  background: #fdecec;
+  color: #b3001b;
+}
+
+.solicitudes-registro__estado {
+  background: #f7f9fa;
+  color: #555;
+}
+
+.solicitudes-registro__campos,
+.solicitudes-registro__mensaje,
+.solicitudes-registro__respuesta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.solicitudes-registro__mensaje {
+  font-style: italic;
+  color: #333;
+}
+
+.solicitudes-registro__respuesta {
+  color: #14683a;
+}
+
+.solicitudes-registro__respuesta-caja {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.solicitudes-registro__respuesta-caja input {
+  flex: 1 1 220px;
+  border: 1px solid #cdcdcd;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.88rem;
+  color: #222;
+}
+
+.solicitudes-registro__respuesta-caja input:focus {
+  outline: none;
+  border-color: #d90429;
+}
+
+.solicitudes-registro__respuesta-caja button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: #f7f9fa;
+  color: #333;
+}
+
+.solicitudes-registro__resolver {
+  background: #d90429 !important;
+  color: #ffffff !important;
+}
+
+.solicitudes-registro__descartar {
+  background: #fdecec !important;
+  color: #b3001b !important;
+}
+
+.solicitudes-registro__respuesta-caja button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.solicitudes-registro__paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.solicitudes-registro__paginacion span {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.solicitudes-registro__paginacion button {
+  background: #ffffff;
+  border: 1px solid #cdcdcd;
+  border-radius: 999px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+}
+
+.solicitudes-registro__paginacion button:hover:not(:disabled) {
+  border-color: #d90429;
+  color: #d90429;
+}
+
+.solicitudes-registro__paginacion button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.solicitudes-registro__error {
+  margin: 0;
+  background: #fdecec;
+  color: #b3001b;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.solicitudes-registro__aviso {
+  margin: 0;
+  background: #e9f7ef;
+  color: #14683a;
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.solicitudes-registro__vacio {
+  color: #666;
+  font-size: 0.95rem;
+  background: #ffffff;
+  border: 1px dashed #e1e8ed;
+  border-radius: 12px;
+  padding: 1.2rem;
+}

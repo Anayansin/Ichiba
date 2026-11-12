@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import clientePrisma from "../configuracion/prisma.js";
 import { Adeudo, type CausaAdeudo } from "../models/Adeudo.js";
 import { Producto } from "../models/producto.js";
-import { Usuario } from "../models/usuario.js";
 import { ErrorBackoffice } from "./errorBackoffice.js";
 import {
   enviarCorreoAdeudoLiquidado,
@@ -70,37 +69,30 @@ function serializarAdeudo(
   };
 }
 
-/** Nombre y correo del vendedor (espejo de MongoDB y respaldo en PostgreSQL). */
+/** Nombre y correo del vendedor (PostgreSQL, fuente de verdad). */
 export async function contactoDelVendedor(
   usuarioId: number,
 ): Promise<{ correo: string; nombre: string } | null> {
-  const espejo = await Usuario.findOne({ usuarioId }).lean();
-  if (espejo?.correo) {
-    return {
-      correo: String(espejo.correo),
-      nombre: String(espejo.nombreCompleto ?? ""),
-    };
-  }
-
-  const enPg = await clientePrisma.usuario.findUnique({
+  const cuenta = await clientePrisma.usuario.findUnique({
     where: { id: usuarioId },
     select: { correo: true, nombreCompleto: true },
   });
-  if (!enPg?.correo) return null;
+  if (!cuenta?.correo) return null;
   return {
-    correo: String(enPg.correo),
-    nombre: String(enPg.nombreCompleto ?? ""),
+    correo: String(cuenta.correo),
+    nombre: String(cuenta.nombreCompleto ?? ""),
   };
 }
 
 /** Nombre visible de un administrador (para registrar quién liquidó). */
 async function nombreDelAdmin(adminId: number | null): Promise<string> {
   if (adminId === null) return "Administración de Ichiba";
-  const espejo = await Usuario.findOne({ usuarioId: adminId })
-    .select("nombreCompleto")
-    .lean();
-  return espejo?.nombreCompleto
-    ? String(espejo.nombreCompleto)
+  const cuenta = await clientePrisma.usuario.findUnique({
+    where: { id: adminId },
+    select: { nombreCompleto: true },
+  });
+  return cuenta?.nombreCompleto
+    ? String(cuenta.nombreCompleto)
     : `Administrador #${adminId}`;
 }
 
@@ -138,16 +130,23 @@ export async function registrarAdeudo(datos: {
     causa: datos.causa,
   });
 
-  // El espejo del BackOffice refleja el saldo acumulado y la suspensión: el
-  // vendedor solo podrá terminar entregas en curso hasta liquidar (RQNF38).
-  const actualizado = await Usuario.findOneAndUpdate(
-    { usuarioId: datos.usuarioId },
-    {
-      $inc: { saldoPendiente: Number(datos.venta.monto) },
-      $set: { suspendido: true, motivoSuspension: "saldo_pendiente" },
+  // La cuenta refleja el saldo acumulado y la suspensión: el vendedor solo
+  // podrá terminar entregas en curso hasta liquidar (RQNF38).
+  const cuenta = await clientePrisma.usuario.findUnique({
+    where: { id: datos.usuarioId },
+    select: { saldoPendiente: true },
+  });
+  const saldoPendiente =
+    Number(cuenta?.saldoPendiente ?? 0) + Number(datos.venta.monto);
+
+  const actualizado = await clientePrisma.usuario.update({
+    where: { id: datos.usuarioId },
+    data: {
+      saldoPendiente,
+      suspendido: true,
+      motivoSuspension: "saldo_pendiente",
     },
-    { new: true },
-  ).lean();
+  });
 
   const contacto = await contactoDelVendedor(datos.usuarioId);
   if (contacto) {
@@ -156,7 +155,7 @@ export async function registrarAdeudo(datos: {
         producto: producto?.nombre ?? "",
         monto: Number(datos.venta.monto),
         motivo: datos.motivo,
-        saldoTotal: Number(actualizado?.saldoPendiente ?? datos.venta.monto),
+        saldoTotal: saldoPendiente,
       });
     } catch (error) {
       console.error(
@@ -279,27 +278,29 @@ export async function liquidarAdeudoAdmin(
   await adeudo.save();
 
   const usuarioId = Number(adeudo.usuarioId);
-  const espejo = await Usuario.findOne({ usuarioId }).lean();
-  const saldoActual = Number(espejo?.saldoPendiente ?? 0);
+  const cuenta = await clientePrisma.usuario.findUnique({
+    where: { id: usuarioId },
+    select: { saldoPendiente: true, suspendido: true, motivoSuspension: true },
+  });
+  const saldoActual = Number(cuenta?.saldoPendiente ?? 0);
   const saldoNuevo = Math.max(0, saldoActual - Number(adeudo.monto));
 
   let reactivado = false;
   const actualizacion: Record<string, unknown> = { saldoPendiente: saldoNuevo };
   if (
     saldoNuevo === 0 &&
-    espejo?.suspendido === true &&
-    String(espejo?.motivoSuspension ?? "") === "saldo_pendiente"
+    cuenta?.suspendido === true &&
+    String(cuenta?.motivoSuspension ?? "") === "saldo_pendiente"
   ) {
     actualizacion.suspendido = false;
     actualizacion.motivoSuspension = null;
     reactivado = true;
   }
 
-  const actualizado = await Usuario.findOneAndUpdate(
-    { usuarioId },
-    { $set: actualizacion },
-    { new: true },
-  ).lean();
+  const actualizado = await clientePrisma.usuario.update({
+    where: { id: usuarioId },
+    data: actualizacion,
+  });
 
   const contacto = await contactoDelVendedor(usuarioId);
   if (contacto) {

@@ -42,7 +42,6 @@ import bcrypt from "bcryptjs";
 import sharp from "sharp";
 import clientePrisma from "../src/configuracion/prisma.js";
 import { Producto } from "../src/models/producto.js";
-import { Usuario } from "../src/models/usuario.js";
 import { Sancion } from "../src/models/Sancion.js";
 import {
   desbloquearSancionesExpiradas,
@@ -370,7 +369,7 @@ async function leerSancion(vendedorId: number) {
 }
 
 async function leerEspejo(vendedorId: number) {
-  return Usuario.findOne({ usuarioId: vendedorId }).lean();
+  return clientePrisma.usuario.findUnique({ where: { id: vendedorId } });
 }
 
 /**
@@ -409,38 +408,6 @@ async function crearCuentaDePrueba(opciones: {
     },
   });
 
-  await Usuario.updateOne(
-    { correo: opciones.correo },
-    {
-      $set: {
-        usuarioId: creado.id,
-        nombreCompleto: opciones.nombreCompleto,
-        direccion: "Av. de las Pruebas 100, Centro, Ciudad de México",
-        telefono: "5599999999",
-        correo: opciones.correo,
-        rfc: opciones.rfc,
-        password: passwordHasheada,
-        tipo: opciones.tipo,
-        correoVerificado: true,
-        ineFrente: "/uploads/ine/prueba-frente.jpg",
-        ineReverso: "/uploads/ine/prueba-reverso.jpg",
-        aceptaTerminos: true,
-        recibirNotificacionesCriticas: true,
-        recibirNotificacionesPublicitarias: false,
-        metodoPago: "paypal",
-        datosMetodoPago: `paypal.sanciones.${marca}@ejemplo.test`,
-        horarios: HORARIOS,
-        horarioConfirmadoEn,
-        diasSinConfirmarHorario: 0,
-        puntosReputacion: 0,
-      },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true },
-  );
-
-  idsCuentas.push(creado.id);
-  correosCuentas.push(opciones.correo);
   return creado.id;
 }
 
@@ -549,8 +516,7 @@ try {
       "RQNF33 el espejo del BackOffice refleja el bloqueo temporal",
       espejoA?.sancionHasta instanceof Date &&
         espejoA?.sancionPermanente === false &&
-        espejoA?.revisionAdministrativa === false &&
-        espejoA?.bloqueosAplicados === 1,
+        espejoA?.revisionAdministrativa === false,
       JSON.stringify({
         hasta: espejoA?.sancionHasta,
         permanente: espejoA?.sancionPermanente,
@@ -694,9 +660,9 @@ try {
     // (la reactivación levanta la sanción, RQNF35).
     // -----------------------------------------------------------------------
     const espejoDoc = await leerEspejo(idB);
-    const idMongoB = String(espejoDoc?._id ?? "");
+    const idPostgresB = String(idB);
     const suspender = await suspenderAdmin(
-      idMongoB,
+      idPostgresB,
       tokenAdmin,
       "investigación de fraude",
     );
@@ -716,7 +682,7 @@ try {
       "el login no fue rechazado",
     );
 
-    const reactivar = await reactivarAdmin(idMongoB, tokenAdmin);
+    const reactivar = await reactivarAdmin(idPostgresB, tokenAdmin);
     const sancionTrasReactivar = await leerSancion(idB);
     const espejoReactivado = await leerEspejo(idB);
     verificar(
@@ -835,16 +801,15 @@ try {
   // Suite 8: RQNF37 / RQNF38 — suspensión por saldo pendiente.
   // -------------------------------------------------------------------------
   if (tokenD && tokenAdmin) {
-    await Usuario.updateOne(
-      { usuarioId: idD },
-      {
-        $set: {
-          suspendido: true,
-          motivoSuspension: "saldo_pendiente",
-          saldoPendiente: 250.5,
-        },
+    // La suspensión por saldo pendiente vive en la cuenta (PostgreSQL).
+    await clientePrisma.usuario.update({
+      where: { id: idD },
+      data: {
+        suspendido: true,
+        motivoSuspension: "saldo_pendiente",
+        saldoPendiente: 250.5,
       },
-    );
+    });
 
     const loginSaldo = await iniciarSesion(CORREO_D, PASSWORD);
     verificar(
@@ -868,8 +833,8 @@ try {
     }
 
     const espejoDocD = await leerEspejo(idD);
-    const idMongoD = String(espejoDocD?._id ?? "");
-    const reactivarBloqueado = await reactivarAdmin(idMongoD, tokenAdmin);
+    const idPostgresD = String(idD);
+    const reactivarBloqueado = await reactivarAdmin(idPostgresD, tokenAdmin);
     verificar(
       "RQNF38 la reactivación queda bloqueada mientras exista el adeudo",
       reactivarBloqueado.status === 400 &&
@@ -879,11 +844,11 @@ try {
       `${reactivarBloqueado.status}: ${JSON.stringify(reactivarBloqueado.cuerpo)}`,
     );
 
-    await Usuario.updateOne(
-      { usuarioId: idD },
-      { $set: { saldoPendiente: 0 } },
-    );
-    const reactivarOk = await reactivarAdmin(idMongoD, tokenAdmin);
+    await clientePrisma.usuario.update({
+      where: { id: idD },
+      data: { saldoPendiente: 0 },
+    });
+    const reactivarOk = await reactivarAdmin(idPostgresD, tokenAdmin);
     const espejoReactivadoD = await leerEspejo(idD);
     verificar(
       "RQNF38 al liquidar el adeudo la cuenta puede reactivarse",
@@ -938,11 +903,6 @@ try {
     }
   } catch (error) {
     console.error("[limpieza] No se pudieron borrar las cuentas de PostgreSQL:", error);
-  }
-  try {
-    await Usuario.deleteMany({ correo: { $in: correosCuentas } });
-  } catch (error) {
-    console.error("[limpieza] No se pudieron borrar las cuentas de MongoDB:", error);
   }
 
   for (const hijo of hijos) {

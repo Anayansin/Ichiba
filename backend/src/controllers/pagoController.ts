@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Producto } from "../models/producto.js";
-import { Usuario } from "../models/usuario.js";
 import { Venta } from "../models/Venta.js";
 import { Disputa } from "../models/Disputa.js";
 import { VinculoPayPal } from "../models/VinculoPayPal.js";
@@ -48,6 +47,7 @@ import {
 } from "../services/filaService.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { calcularReputacionVendedor } from "../services/reputacionService.js";
+import { comisionDeVenta } from "../services/comisionService.js";
 import {
   PUNTOS_CANCELACION,
   purgarCuentaSiCorresponde,
@@ -104,16 +104,15 @@ async function metodoDePagoDelVendedor(
   correo: string,
 ): Promise<"paypal" | "mercadopago"> {
   try {
-    const espejo = (await Usuario.findOne({ correo })
-      .select("metodoPago")
-      .lean()) as { metodoPago?: string } | null;
+    const cuenta = await clientePrisma.usuario.findFirst({
+      where: { correo: { equals: correo.trim(), mode: "insensitive" } },
+      select: { metodoPago: true },
+    });
 
-    return espejo?.metodoPago === "mercadopago"
-      ? "mercadopago"
-      : "paypal";
+    return cuenta?.metodoPago === "mercadopago" ? "mercadopago" : "paypal";
   } catch (error) {
     console.error(
-      "[mongo] No se pudo leer el método de pago del vendedor:",
+      "[pago] No se pudo leer el método de pago del vendedor:",
       (error as { message?: string })?.message ?? error,
     );
     return "paypal";
@@ -1032,6 +1031,11 @@ export async function detalleDeVenta(req: Request, res: Response) {
       estado: venta.estado,
       rol,
       monto: Number(venta.monto),
+      // RNF-PAG-19 / RNF-PAG-20: el vendedor ve la comisión y su neto. El
+      // comprador no necesita este desglose.
+      ...(rol === "vendedor"
+        ? { comision: comisionDeVenta(Number(venta.monto), venta.estado) }
+        : {}),
       producto: producto
         ? {
             id: String(producto._id),
@@ -1159,6 +1163,29 @@ export async function ventasDelVendedor(
     });
     const reputacion = await calcularReputacionVendedor(vendedorId);
 
+    // RNF-PAG-19 / RNF-PAG-20: totales de comisión para el encabezado del
+    // panel. Solo se suman las ventas completadas (cobradas) y las que aún
+    // pueden completarse (estimadas); las reembolsadas no generan comisión.
+    const comisiones = ventas.reduce(
+      (acumulado, venta) => {
+        const desglose = comisionDeVenta(Number(venta.monto), venta.estado);
+        if (desglose.cobrada) {
+          acumulado.cobradas += desglose.total;
+          acumulado.netoRecibido += desglose.netoVendedor;
+        } else if (!desglose.reembolsada) {
+          acumulado.porCobrar += desglose.total;
+          acumulado.netoPorRecibir += desglose.netoVendedor;
+        }
+        return acumulado;
+      },
+      {
+        cobradas: 0,
+        porCobrar: 0,
+        netoRecibido: 0,
+        netoPorRecibir: 0,
+      },
+    );
+
     res.json({
       cuenta: {
         estadoCuenta: cuenta?.estadoCuenta ?? "activa",
@@ -1174,6 +1201,12 @@ export async function ventasDelVendedor(
           .length,
         completadas: ventas.filter((venta) => venta.estado === "completada")
           .length,
+        comisiones: {
+          cobradas: Number(comisiones.cobradas.toFixed(2)),
+          porCobrar: Number(comisiones.porCobrar.toFixed(2)),
+          netoRecibido: Number(comisiones.netoRecibido.toFixed(2)),
+          netoPorRecibir: Number(comisiones.netoPorRecibir.toFixed(2)),
+        },
       },
       ventas: visibles.map((venta) => {
         const producto = mapaProductos.get(String(venta.productoId));
@@ -1181,6 +1214,7 @@ export async function ventasDelVendedor(
           ventaId: Number(venta.id),
           estado: venta.estado,
           monto: Number(venta.monto),
+          comision: comisionDeVenta(Number(venta.monto), venta.estado),
           producto: producto
             ? { nombre: producto.nombre, imagenes: producto.imagenes ?? [] }
             : null,

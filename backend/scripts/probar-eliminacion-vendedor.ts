@@ -70,7 +70,9 @@ async function main() {
   // ---------------------------------------------------------------
   // Protección: no tocar vendedores reales con antigüedad >= 28 días.
   // ---------------------------------------------------------------
-  const existentes = await Usuario.find({ tipo: "vendedor" }).lean();
+  const existentes = await clientePrisma.usuario.findMany({
+    where: { tipo: "vendedor" },
+  });
   const antiguos = existentes.filter((u) => {
     const fecha = u.horarioConfirmadoEn ?? u.createdAt;
     return (Date.now() - new Date(fecha).getTime()) / 86_400_000 >= 28;

@@ -2,7 +2,7 @@ import { Response, NextFunction } from "express";
 import { RequestConComprador } from "./comprador.js";
 import { RequestConUsuario } from "./auth.js";
 import { Sancion } from "../models/Sancion.js";
-import { Usuario } from "../models/usuario.js";
+import clientePrisma from "../configuracion/prisma.js";
 import { estadoBloqueo, EstadoBloqueo, sancionDe } from "../services/sancionService.js";
 
 function responderBloqueo(res: Response, estado: EstadoBloqueo) {
@@ -32,10 +32,10 @@ function responderBloqueo(res: Response, estado: EstadoBloqueo) {
 }
 
 /**
- * RQNF37 / RQNF38: suspensión administrativa registrada en el BackOffice
- * (espejo de MongoDB). La suspensión por saldo pendiente permite únicamente
- * terminar entregas en curso, así que algunas rutas (chat de coordinación)
- * la toleran con `permitirSuspensionPorSaldo`.
+ * RQNF37 / RQNF38: suspensión administrativa registrada en el BackOffice y
+ * guardada en la cuenta (PostgreSQL). La suspensión por saldo pendiente
+ * permite únicamente terminar entregas en curso, así que algunas rutas (chat
+ * de coordinación) la toleran con `permitirSuspensionPorSaldo`.
  */
 function responderSuspension(
   res: Response,
@@ -79,18 +79,24 @@ async function validarSancion(
       return responderBloqueo(res, estado);
     }
 
-    // 2) Suspensión administrativa del BackOffice (RQNF37 / RQNF38).
+    // 2) Suspensión administrativa del BackOffice (RQNF37 / RQNF38). La
+    // suspensión vive en la cuenta (PostgreSQL, fuente de verdad).
     if (sujetoTipo === "usuario") {
       const id = Number(sujetoId);
       if (Number.isInteger(id)) {
-        const espejo = await Usuario.findOne({ usuarioId: id })
-          .select("suspendido motivoSuspension saldoPendiente")
-          .lean();
+        const cuenta = await clientePrisma.usuario.findUnique({
+          where: { id },
+          select: {
+            suspendido: true,
+            motivoSuspension: true,
+            saldoPendiente: true,
+          },
+        });
 
-        if (espejo?.suspendido) {
-          const esSaldo = String(espejo.motivoSuspension ?? "") === "saldo_pendiente";
+        if (cuenta?.suspendido) {
+          const esSaldo = String(cuenta.motivoSuspension ?? "") === "saldo_pendiente";
           if (!(opciones?.permitirSuspensionPorSaldo && esSaldo)) {
-            return responderSuspension(res, espejo);
+            return responderSuspension(res, cuenta);
           }
         }
       }

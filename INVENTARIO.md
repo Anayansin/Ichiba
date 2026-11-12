@@ -15,7 +15,7 @@ para responder preguntas.
 |---|---|
 | `backend/` | API Express + TypeScript (puerto 5000) |
 | `backend/src/` | Código del servidor (rutas, controladores, servicios, jobs) |
-| `backend/scripts/` | Scripts de mantenimiento (`seed.ts`, `crear-admin.ts`, `probar-correo.ts`, `inspeccionar-mongo.ts`) y las **9 suites de pruebas** (`probar-escrow.ts`, `probar-puntos-cancelacion.ts`, `probar-informes.ts`, `probar-suscripciones.ts`, `probar-mcp.ts`, `probar-sanciones.ts`, `probar-disputas.ts`, `probar-fila-apertura.ts`, `probar-moderacion-vision.ts`) |
+| `backend/scripts/` | Scripts de mantenimiento (`seed.ts`, `crear-admin.ts`, `probar-correo.ts`, `inspeccionar-mongo.ts`) y las **10 suites de pruebas** (`probar-escrow.ts`, `probar-puntos-cancelacion.ts`, `probar-informes.ts`, `probar-suscripciones.ts`, `probar-mcp.ts`, `probar-sanciones.ts`, `probar-disputas.ts`, `probar-fila-apertura.ts`, `probar-moderacion-vision.ts`, `probar-comision.ts`) |
 | `backend/src/mcp/` | Servidor MCP del BackOffice (18 herramientas): por stdio (`npm run mcp`) y por HTTP en `/mcp` (solo administradores) |
 | `backend/prisma/schema.prisma` | Espejo informativo de PostgreSQL (la fuente de verdad es `backend/src/prisma/contract.prisma`) |
 | `backend/src/prisma/` | Contrato Prisma 8 (`contract.prisma`, `contract.json`, `contract.d.ts`) y cliente `db.ts` |
@@ -83,7 +83,7 @@ para responder preguntas.
 | Archivo | Qué controla |
 |---|---|
 | `auth.ts` → `verificarToken` | Valida el JWT (`Authorization: Bearer …`) |
-| `admin.ts` → `requiereAdmin`, `esAdmin.ts` → `esAdmin` | Solo usuarios `tipo: "admin"` |
+| `admin.ts` → `requiereAdmin`, `esAdmin.ts` → `esAdmin` | Solo usuarios con rol `admin` vigente en PostgreSQL; ambos middlewares consultan la misma fuente |
 | `vendedor.ts` → `requiereVendedor`, `rechazarAdminEnCompra`, `requiereVendedorDeEntregas` | El administrador es solo de supervisión: no publica, no confirma horarios ni vincula PayPal (`requiereVendedor` → 403) y no entra a filas ni paga (`rechazarAdminEnCompra`, revisa el token de las rutas de compra que usan `x-comprador-id`). `requiereVendedorDeEntregas` (RQF12) deja que una cuenta cancelada solo complete entregas con pago confirmado |
 | `comprador.ts` → `requiereCompradorId` | Usa el header `x-comprador-id` (compradores no se registran) |
 | `sancion.ts` | `requiereCompradorSinSancion`, `requiereUsuarioSinSancion`, `obtenerEstadoDeSancion` |
@@ -135,7 +135,7 @@ comisiones aproximadas de PayPal y Mercado Pago por transacción.
 | **MercadoPago Checkout API** (Payment Brick embebido) | `https://api.mercadopago.com` (cambiable con `MERCADOPAGO_API_BASE`) | `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY` (esta última es pública: la usa el navegador) | `backend/src/services/mercadopagoService.ts` | `backend/src/controllers/pagoController.ts` → rutas `/api/pagos/*` |
 | **StructOCR** (lectura de INE) | `POST https://api.structocr.com/v1/national-id` con header `x-api-key` | `STRUCTOCR_API_KEY` | `backend/src/services/structOcrService.ts` | Registro de vendedor en `usuarioController.ts` (cuesta 4 créditos por uso) |
 | **Gmail SMTP** (vía nodemailer `service: "gmail"`) | smtp.gmail.com:465/587 | `GMAIL_USER`, `GMAIL_APP_PASSWORD` (contraseña de aplicación) | `backend/src/services/emailService.ts` | Ver todos los correos en la sección 6 |
-| **Google Cloud Vision API** (moderación de fotografías) | `https://vision.googleapis.com` (cambiable con `GOOGLE_VISION_ENDPOINT`, solo para pruebas) | `GOOGLE_VISION_API_KEY` | `backend/src/services/visionService.ts` | Publicación de productos (`productoController.ts`) y comprobantes de pago (`pagoController.ts`) |
+| **Google Cloud Vision API** (moderación de fotografías) | `https://vision.googleapis.com` (cambiable con `GOOGLE_VISION_ENDPOINT`, solo para pruebas) | `GOOGLE_VISION_API_KEY` | `backend/src/services/visionService.ts` | Publicación de productos (`productoController.ts`), comprobantes de pago (`pagoController.ts`) e imágenes del chat (`mensajeController.ts`) |
 | PayPal (panel) | developer.paypal.com → Sandbox → Accounts | — | — | Crear la cuenta compradora de prueba para aprobar pagos |
 
 Son **6 APIs externas** (PayPal, MercadoPago, StructOCR, Gmail, Cloud Vision y el panel de PayPal).
@@ -273,11 +273,11 @@ Gmail/PayPal/StructOCR/Twilio (pendiente de limpiar con `git filter-repo`).
 - Migraciones generadas: `backend/migrations/{app,snapshots}`.
 - Campo de pago del vendedor: **`paypalEmail`** guarda la cuenta de cobro (fallback) y la **vinculación OAuth** vive en MongoDB (`VinculoPayPal`: Merchant ID + Token de Acceso **cifrado** con AES-256-GCM); el **método** (`paypal` | `mercadopago`) también vive en MongoDB (`usuario.metodoPago`) y lo lee `pagoController.ts` al crear la orden.
 
-### MongoDB (lecturas de UI, chat, filas y espejos)
+### MongoDB (catálogo, chat y documentos)
 
 - Conexión: `backend/src/configuracion/db.ts` (`MONGO_URI`, base `ichiba`).
-- Modelos en `backend/src/models/`: `usuario`, `producto`, `Promocional`, `Comentario`, `Cola`, `Venta`, `Mensaje`, `Reporte`, `Sancion`, `Suscripcion`, `SuscripcionCategoria`, `ListaNegra`, `VinculoPayPal` (token de PayPal cifrado, RQNF4), `InformeVendedor` e `InformeGlobal` (informes mensuales, RQNF13/RQNF14), `Disputa` (RQF40) y `Adeudo` (RQNF37/RQNF38).
-- **Espejos:** al registrarse se escribe el usuario también en Mongo (`usuarioController.ts`) y la venta se escribe en las dos. Admin, GraphQL y chats leen Mongo.
+- Modelos en `backend/src/models/`: `producto`, `Promocional`, `Comentario`, `Venta` (índice de conversaciones del chat), `Mensaje`, `Sancion`, `Suscripcion`, `SuscripcionCategoria`, `ListaNegra`, `SolicitudRegistroBloqueado` (solicitudes de revisión de altas denegadas, RQNF1.9), `VinculoPayPal` (token de PayPal cifrado, RQNF4), `InformeVendedor` e `InformeGlobal` (informes mensuales, RQNF13/RQNF14), `Disputa` (RQF40) y `Adeudo` (RQNF37/RQNF38).
+- **Sin espejos:** las cuentas, las filas, las ventas y los reportes viven solo en PostgreSQL. Las colecciones `usuarios`, `colas` y `reportes` se eliminaron (`npm run depurar-mongodb`).
 - Copias de controladores previos a la migración: `src/controllers/*.mongo.backup.ts` (referencia, no se importan).
 
 ### Inspección
@@ -286,6 +286,45 @@ Gmail/PayPal/StructOCR/Twilio (pendiente de limpiar con `git filter-repo`).
 cd backend
 npx tsx scripts/inspeccionar-mongo.ts usuario   # lista colecciones y 5 docs
 ```
+
+### Edición manual de las bases
+
+Para ver y editar las tablas y los documentos con ventana (sin terminal) quedaron
+instaladas **MongoDB Compass**, **DBeaver Community** (las dos bases en la misma app),
+**pgAdmin 4** y **mongosh**; además `psql` quedó en el PATH. La guía de conexión paso a
+paso está en `herramientas/CONEXIONES-BD.md` y el mapa de qué base manda en cada dato,
+en `herramientas/ARQUITECTURA-BASES.md`.
+
+Las dos bases de datos locales se pueden tocar a mano sin instalar `psql` ni `mongosh`
+(en este equipo no están en el PATH). Con `npm run datos` tienes una consola que habla
+con PostgreSQL y con MongoDB:
+
+```powershell
+cd backend
+npm run datos -- tablas                                  # tablas de PostgreSQL con su conteo
+npm run datos -- sql "SELECT id, correo, tipo FROM usuario ORDER BY id"
+npm run datos -- sql "UPDATE usuario SET telefono = '5512345678' WHERE id = 3 RETURNING *"
+npm run datos -- colecciones                            # colecciones de MongoDB con su conteo
+npm run datos -- ver usuarios 3                         # muestra 3 documentos
+npm run datos -- editar usuarios "correo=ana@ejemplo.mx" "nombreCompleto=Ana Perez"
+npm run datos -- borrar usuarios "correo=ana@ejemplo.mx" --confirmar
+```
+
+En `editar`, un valor `null` borra ese campo. El filtro y los cambios también aceptan
+un JSON (`'{"correo":"ana@ejemplo.mx"}'`) o la ruta de un archivo `.json`.
+
+Si quieres usar los clientes oficiales: `psql.exe` está en
+`%LOCALAPPDATA%\Programs\postgresql\bin` (con `-U postgres -d mi_base_datos` y
+`$env:PGPASSWORD="postgres"`), y para MongoDB hay Compass
+(`%LOCALAPPDATA%\Programs\mongodb\bin\Install-Compass.ps1`) apuntando a
+`mongodb://127.0.0.1:27017/ichiba`. En producción, MongoDB Atlas se ve desde
+`cloud.mongodb.com` y PostgreSQL desde la pestaña *Data* de Railway.
+
+> **Cada dato tiene un solo dueño:** las cuentas, las filas, las ventas y los reportes
+> viven **solo en PostgreSQL**; el catálogo, los chats y los documentos (sanciones,
+> adeudos, disputas, lista negra, informes) viven **solo en MongoDB**. No hay espejos que
+> sincronizar: si editas una cuenta a mano, cambias PostgreSQL, y si editas un documento,
+> cambias MongoDB. El mapa completo está en `herramientas/ARQUITECTURA-BASES.md`.
 
 ---
 
@@ -311,14 +350,14 @@ Montados en `src/server.ts`; controlador en `src/controllers/<mismo nombre>.ts`.
 | Prefijo | Archivo de rutas | Endpoints |
 |---|---|---|
 | `/api/productos` | `productoRoutes.ts` | `GET /` (buscador con `q`, `categoria`, etc.; paginación con `pagina`/`porPagina` y `vendedorAtendiendo` por horario) · `GET /mios/lista` · `GET /estadisticas/categoria-popular` · `GET /:id` · `POST /` (verificado) · `PUT /:id` (verificado) · `PATCH /:id/estado` (verificado) · `DELETE /:id` (verificado) |
-| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`) · `POST /login` (autentica en MongoDB con bcryptjs) · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
+| `/api/usuarios` | `usuarioRoutes.ts` | `POST /registro` (con `ineFrente` e `ineReverso`; se deniega si los datos están en la lista negra o ya pertenecen a otra cuenta) · `POST /registro/solicitar-revision` (público: pide a los administradores revisar un alta denegada) · `POST /login` (autentica en MongoDB con bcryptjs) · `POST /recuperar/solicitar` · `POST /recuperar/verificar` · `POST /recuperar/restablecer` · `GET /perfil` · `PUT /preferencias` · `GET /:id/publico` · `PUT /confirmar-horario` |
 | `/api/verificacion` | `verificacionRoutes.ts` | `POST /correo/enviar` · `POST /correo/verificar` |
 | `/api/pagos` | `pagoRoutes.ts` | `POST /crear-orden` · `POST /capturar-orden/:orderId` · `POST /paypal/vincular` · `GET /paypal/vincular/callback` · `GET /paypal/vinculacion` · `POST /confirmar-mercadopago` · `POST /webhook-mercadopago` · `POST /:ventaId/comprobante` · `GET /comprobante/:ventaId/imagen` · `POST /:ventaId/confirmar-comprobante` · `POST /:ventaId/rechazar-comprobante` · `POST /:ventaId/confirmar-entrega` · `GET /vendedor/ventas` · `GET /mis-compras` · `POST /:ventaId/disputa` · `GET /disputas/mis-disputas` · `GET /vendedor/disputas` · `POST /disputas/:disputaId/responder` · `GET /disputas/:disputaId/evidencia/:lado/:indice` · `GET /:ventaId/detalle` · `POST /:ventaId/calificar` |
 | `/api/colas` | `colaRoutes.ts` | `POST /entrar` (bloqueado fuera del horario del vendedor, RQNF15) · `GET /mias` · `GET /producto/:productoId/estado` · `PATCH /:id/salir` · `PATCH /:id/esperar-apertura` (RQF18) · `PATCH /:id/responder-confirmacion` |
 | `/api/mensajes` | `mensajeRoutes.ts` | `GET /comprador/mis-ventas` · `GET|POST /comprador/:ventaId` · `GET /vendedor/mis-ventas` · `GET|POST /vendedor/:ventaId` |
 | `/api/promocionales` | `promocionalRoutes.ts` | `GET /` · `GET /mios/lista` · `GET /:id` · `GET /:id/comentarios` · `POST /:id/comentarios` (con `x-comprador-id`) · `POST /` (verificado) · `PUT /:id` · `PATCH /:id/estado` · `DELETE /:id` — las fotos de alto y edición usan `subirFotosProducto` (solo .png/.jpeg/.jpg, RQNF9.2) |
 | `/api/reportes` | `reporteRoutes.ts` | `POST /` · `POST /comprador` · `GET /` (admin) · `PATCH /:id/confirmar` (admin) |
-| `/api/admin` | `adminRoutes.ts` | `GET /resumen` · `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` · `GET /disputas` · `POST /disputas/:id/resolver` · `POST /ventas-retenidas/:ventaId/resolver` · `GET /adeudos` · `POST /adeudos/:id/liquidar` · `GET /informes` · `POST /informes/generar` · `GET /informes/:periodo/pdf` |
+| `/api/admin` | `adminRoutes.ts` | `GET /resumen` · `GET /usuarios` · `PATCH /usuarios/:id/suspender` · `PATCH /usuarios/:id/reactivar` · `GET /reportes/pendientes` · `PATCH /reportes/:id/resolver` · `GET /historial` · `GET /ventas/:ventaId/mensajes` · `GET /lista-negra` · `POST /lista-negra` · `DELETE /lista-negra/:id` · `GET /solicitudes-registro` · `POST /solicitudes-registro/:id/resolver` · `GET /disputas` · `POST /disputas/:id/resolver` · `POST /ventas-retenidas/:ventaId/resolver` · `GET /adeudos` · `POST /adeudos/:id/liquidar` · `GET /informes` · `POST /informes/generar` · `GET /informes/:periodo/pdf` |
 | `/api/notificaciones` | `notificacionRoutes.ts` | `POST /suscribir` |
 | `/api/suscripciones` | `suscripcionRoutes.ts` | `POST /` |
 | `/api/informes` | `informeRoutes.ts` | `GET /` (historial de informes del vendedor) · `GET /:periodo/pdf` (descarga del informe mensual, RQF13/RQNF13.3) |
@@ -379,9 +418,10 @@ Notas:
 - *Mis pedidos* (seguimiento del escrow, comprobante, código de entrega y
   disputas del comprador, RQF40) vive como sección dentro de `/ayuda`
   (`src/pages/MisPedidos/MisPedidos.tsx`).
-- El BackOffice (`/admin`) tiene ocho secciones internas: Inicio (dashboard en
+- El BackOffice (`/admin`) tiene nueve secciones internas: Inicio (dashboard en
   vivo), Gestión de usuarios, Reportes pendientes, Disputas y retenciones,
-  Adeudos de vendedores, Informes globales, Lista negra y Trazabilidad
+  Adeudos de vendedores, Informes globales, Lista negra, Solicitudes de
+  registro (altas denegadas por revisar, RQNF1.9) y Trazabilidad
   (`src/pages/Admin/*`).
 - El panel del vendedor incluye la vinculación de la cuenta de PayPal (RQF4) y
   la descarga de informes mensuales en PDF (RQF13).
@@ -404,14 +444,19 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | `npm run correo-test -- [correo]` | Prueba de envío de correo |
 | `npm run mcp` | Arranca el servidor MCP del BackOffice por stdio (Fase 5) |
 | `npm run contract:emit` | Regenera el contrato Prisma |
+| `npm run prueba-registro` | Comprueba el bloqueo del alta de cuenta (lista negra, datos ya usados y correo repetido) |
+| `npm run prueba-revision` | Prueba de extremo a extremo de la solicitud de revisión de un alta denegada (requiere el backend arriba) |
+| `npm run datos -- <comando>` | Consola de datos: `tablas`, `sql "<consulta>"`, `colecciones`, `ver <coleccion> [n]`, `editar <coleccion> "clave=valor" "clave=valor"`, `borrar <coleccion> "clave=valor" --confirmar` (PostgreSQL y MongoDB) |
+| `npx tsx scripts/depurar-mongodb.ts` | Elimina de MongoDB las colecciones que quedaron sin uso (`usuarios`, `colas`, `reportes`) |
 | `npx tsx scripts/inspeccionar-mongo.ts [coleccion]` | Ver contenido de Mongo |
-| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7, RQNF8, RQF8 y RQF9: formatos/dimensiones/validaciones de publicación (categorías obligatorias, precios, campos vacíos), moderación con Cloud Vision vía mock, alertas de palabras no permitidas con corrección y reenvío, y método de pago del vendedor en el detalle del producto (38 pruebas; levanta dos backends locales, con y sin llave) |
+| `npx tsx scripts/probar-moderacion-vision.ts` | E2E de RQNF7, RQNF8, RQF8 y RQF9: formatos/dimensiones/validaciones de publicación (categorías obligatorias, precios, campos vacíos), moderación con Cloud Vision vía mock, alertas de palabras no permitidas con corrección y reenvío, y método de pago del vendedor en el detalle del producto (48 pruebas; levanta dos backends locales, con y sin llave) |
 
 ### Suites de pruebas (desde `backend/`)
 
 | Suite | Comando | Pruebas | Puerto |
 |---|---|---|---|
-| Fase 1 — escrow | `npx tsx scripts/probar-escrow.ts` | 60 | 5097 |
+| Fase 0 — comisión y PayPal | `npx tsx scripts/probar-comision.ts` | 7 | aleatorio |
+| Fase 1 — escrow | `npx tsx scripts/probar-escrow.ts` | 64 | 5097 |
 | Fase 2 — puntos y cancelación | `npx tsx scripts/probar-puntos-cancelacion.ts` | 48 | 5098 |
 | Fase 3 — informes | `npx tsx scripts/probar-informes.ts` | 26 | 5099 |
 | Fase 4 — suscripciones GraphQL | `npx tsx scripts/probar-suscripciones.ts` | 11 | 5100 |
@@ -419,9 +464,11 @@ Componentes globales: `Header` (con buscador-lupa), `ColaBubble`,
 | Fase 7a — sanciones | `npx tsx scripts/probar-sanciones.ts` | 30 | 5102 |
 | Fase 7b — disputas y adeudos | `npx tsx scripts/probar-disputas.ts` | 65 | 5103 |
 | Fase 7c — fila y apertura | `npx tsx scripts/probar-fila-apertura.ts` | 30 | 5104 |
-| Moderación | `npx tsx scripts/probar-moderacion-vision.ts` | 38 | — |
+| Moderación | `npx tsx scripts/probar-moderacion-vision.ts` | 48 | — |
+| Bloqueo de alta (RQNF1.9) | `npx tsx scripts/probar-bloqueo-registro.ts` | 6 | — (MongoDB y PostgreSQL locales) |
+| Solicitud de revisión (RQNF1.9) | `npx tsx scripts/probar-solicitud-revision.ts` | 4 | 5000 (backend arriba) |
 
-Total: **293 pruebas en las 8 suites** (+38 de moderación). Los simuladores
+Total: **361 pruebas** (296 de las 8 suites E2E + 7 de comisión/PayPal + 48 de moderación + 10 de bloqueo y solicitud de registro). Los simuladores
 (mocks) de PayPal, MercadoPago y Cloud Vision de las suites usan los puertos
 59091 a 59100. Cada suite imprime `Suite ...: X/Y pruebas pasaron`; esa línea
 es la señal de éxito.
@@ -477,8 +524,9 @@ y `backend/.env.example` (este último explica cada variable).
   reembolsos), puntos y cancelación, sanciones progresivas, disputas y adeudos,
   informes mensuales en PDF, suscripciones GraphQL en vivo, servidor MCP
   (18 herramientas) y CI/CD.
-- Las **8 suites (293 pruebas)** y la de moderación (38) corren también en
-  GitHub Actions (`.github/workflows/integracion-continua.yml`).
+- Las **8 suites E2E (296 pruebas)** y la de comisión/PayPal (7) corren en
+  GitHub Actions (`.github/workflows/integracion-continua.yml`); la de
+  moderación (48) se ejecuta localmente porque levanta dos backends.
 - **Pendiente manual:** configurar los secretos de CI/CD en GitHub
   (`RAILWAY_TOKEN`, `VERCEL_TOKEN`, `RAILWAY_SERVICE`, `VERCEL_ORG_ID`,
   `VERCEL_PROJECT_ID`; ver `DOCUMENTACION.md`, sección 6) para que el despliegue

@@ -183,6 +183,59 @@ export async function quitarEntradaListaNegra(
 }
 
 // ---------------------------------------------------------------------------
+// RQNF1.9: solicitudes de revisión de altas denegadas.
+// ---------------------------------------------------------------------------
+
+export type SolicitudRegistroAdmin = {
+  id: string;
+  nombreCompleto: string;
+  correo: string;
+  telefono: string;
+  rfc: string;
+  /** "lista-negra" | "datos-en-uso" | "correo-en-uso". */
+  motivoBloqueo: string;
+  camposCoincidentes: string[];
+  mensaje: string;
+  /** "pendiente" | "en-revision" | "resuelta" | "descartada". */
+  estado: string;
+  respuesta: string;
+  revisadaPor: string;
+  revisadaEn: string | null;
+  fecha: string | null;
+};
+
+export type RespuestaSolicitudesRegistro = {
+  solicitudes: SolicitudRegistroAdmin[];
+  pagina: number;
+  porPagina: number;
+  total: number;
+  totalPaginas: number;
+};
+
+export async function fetchSolicitudesRegistro(
+  pagina: number,
+  porPagina: number,
+  estado?: string,
+): Promise<RespuestaSolicitudesRegistro> {
+  const response = await api.get("/admin/solicitudes-registro", {
+    params: { pagina, porPagina, estado },
+  });
+  return response.data;
+}
+
+export async function resolverSolicitudRegistro(
+  id: string,
+  estado: "en-revision" | "resuelta" | "descartada",
+  respuesta: string,
+): Promise<{ message: string; solicitud: SolicitudRegistroAdmin }> {
+  const response = await api.post(`/admin/solicitudes-registro/${id}/resolver`, {
+    estado,
+    respuesta,
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard del administrador: cifras en vivo (se recalculan en cada lectura).
 // ---------------------------------------------------------------------------
 

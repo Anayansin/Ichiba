@@ -131,10 +131,22 @@ export type CompraDelComprador = {
   calificacionComprador: number | null;
 };
 
+/** RNF-PAG-19 / RNF-PAG-20: comisión y neto que recibe el vendedor. */
+export type ComisionDeVenta = {
+  porcentaje: number;
+  base: number;
+  iva: number;
+  total: number;
+  netoVendedor: number;
+  cobrada: boolean;
+  reembolsada: boolean;
+};
+
 export type VentaDelVendedor = {
   ventaId: number;
   estado: EstadoVenta;
   monto: number;
+  comision: ComisionDeVenta;
   producto: { nombre: string; imagenes: string[] } | null;
   compradorId: string;
   comprobante: {
@@ -162,7 +174,17 @@ export type ResumenVentasDelVendedor = {
   };
   /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
   reputacion: ReputacionVendedor;
-  resumen: { porRevisar: number; enEntrega: number; completadas: number };
+  resumen: {
+    porRevisar: number;
+    enEntrega: number;
+    completadas: number;
+    comisiones: {
+      cobradas: number;
+      porCobrar: number;
+      netoRecibido: number;
+      netoPorRecibir: number;
+    };
+  };
   ventas: VentaDelVendedor[];
 };
 
@@ -247,6 +269,8 @@ export async function fetchDetalleDeVenta(ventaId: number) {
     estado: EstadoVenta;
     rol: "comprador" | "vendedor";
     monto: number;
+    /** Solo lo recibe el vendedor. */
+    comision?: ComisionDeVenta;
     producto: { id: string; nombre: string; imagenes: string[] } | null;
     codigoPago: string | null;
     codigoEntrega: string | null;

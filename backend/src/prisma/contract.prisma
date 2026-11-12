@@ -32,6 +32,17 @@ model usuario {
   ineCodigoReverso                String?
   recibirNotificacionesPublicitarias Boolean @default(false)
   paypalEmail                     String
+  // RQF3 / RQF12: pasarela con la que cobra el vendedor ("paypal" | "mercadopago").
+  metodoPago                      String    @default("paypal")
+  // RQNF33 / RQNF34: suspensión administrativa y su motivo.
+  suspendido                      Boolean   @default(false)
+  motivoSuspension                String?
+  // RQNF37: saldo que el vendedor tiene que liquidar (lo lleva el backoffice).
+  saldoPendiente                  Float     @default(0)
+  // RQNF34 / RQNF35: alcance del bloqueo vigente.
+  sancionHasta                    DateTime?
+  sancionPermanente               Boolean   @default(false)
+  revisionAdministrativa          Boolean   @default(false)
   horarios                        Json
   horarioConfirmadoEn             DateTime?
   diasSinConfirmarHorario         Int       @default(0)

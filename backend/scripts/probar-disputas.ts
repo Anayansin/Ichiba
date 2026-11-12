@@ -43,7 +43,6 @@ import { createClient, type Client } from "graphql-ws";
 import clientePrisma from "../src/configuracion/prisma.js";
 import { Producto } from "../src/models/producto.js";
 import { Venta } from "../src/models/Venta.js";
-import { Usuario } from "../src/models/usuario.js";
 import { Sancion } from "../src/models/Sancion.js";
 import { Disputa } from "../src/models/Disputa.js";
 import { Adeudo } from "../src/models/Adeudo.js";
@@ -453,40 +452,7 @@ async function crearCuentaDePrueba(opciones: {
     },
   });
 
-  await Usuario.updateOne(
-    { correo: opciones.correo },
-    {
-      $set: {
-        usuarioId: creado.id,
-        nombreCompleto: opciones.nombreCompleto,
-        direccion: "Av. de las Disputas 100, Centro, Ciudad de México",
-        telefono: "5599999999",
-        correo: opciones.correo,
-        rfc: opciones.rfc,
-        password: passwordHasheada,
-        tipo: opciones.tipo,
-        correoVerificado: true,
-        ineFrente: "/uploads/ine/prueba-frente.jpg",
-        ineReverso: "/uploads/ine/prueba-reverso.jpg",
-        aceptaTerminos: true,
-        recibirNotificacionesCriticas: true,
-        recibirNotificacionesPublicitarias: false,
-        metodoPago: "paypal",
-        datosMetodoPago: correoPaypal,
-        horarios: HORARIOS,
-        horarioConfirmadoEn,
-        diasSinConfirmarHorario: 0,
-        puntosReputacion: 0,
-        estadoCuenta: "activa",
-      },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true },
-  );
-
-  idsCuentas.push(creado.id);
-  correosCuentas.push(opciones.correo);
-  return creado.id;
+    return creado.id;
 }
 
 function cuerpoProducto(cambios: Record<string, string> = {}): FormData {
@@ -962,7 +928,7 @@ async function actualizarVenta(ventaId: number, datos: Record<string, unknown>) 
 }
 
 async function leerEspejo(usuarioId: number) {
-  return Usuario.findOne({ usuarioId }).lean();
+  return clientePrisma.usuario.findUnique({ where: { id: usuarioId } });
 }
 
 // --- Suscripciones GraphQL --------------------------------------------------
@@ -2133,11 +2099,6 @@ try {
     }
   } catch (error) {
     console.error("[limpieza] No se pudieron borrar las cuentas de PostgreSQL:", error);
-  }
-  try {
-    await Usuario.deleteMany({ correo: { $in: correosCuentas } });
-  } catch (error) {
-    console.error("[limpieza] No se pudieron borrar las cuentas de MongoDB:", error);
   }
 
   for (const hijo of hijos) {

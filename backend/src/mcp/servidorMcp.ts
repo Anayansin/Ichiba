@@ -1,6 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { Usuario } from "../models/usuario.js";
 import { CAUSAS_ADEUDO } from "../models/Adeudo.js";
 import {
   ErrorBackoffice,
@@ -94,21 +93,13 @@ async function ejecutar(
 }
 
 /**
- * Las herramientas aceptan tanto el id del espejo de MongoDB (24 caracteres
- * hexadecimales) como el id numérico de PostgreSQL; si llega el numérico se
- * traduce al del espejo, que es el que usan las operaciones del BackOffice.
+ * Las herramientas del BackOffice usan el id numérico de PostgreSQL (la
+ * fuente de verdad de las cuentas). Se acepta cualquier texto y se normaliza
+ * al id numérico cuando se puede.
  */
-async function resolverIdEspejoUsuario(id: string): Promise<string> {
+function normalizarIdUsuario(id: string): string {
   const texto = String(id ?? "").trim();
-  if (/^[0-9a-fA-F]{24}$/.test(texto)) return texto;
-
-  if (/^\d+$/.test(texto)) {
-    const espejo = await Usuario.findOne({ usuarioId: Number(texto) })
-      .select("_id")
-      .lean();
-    if (espejo) return String(espejo._id);
-  }
-
+  if (/^\d+$/.test(texto)) return texto;
   return texto;
 }
 
@@ -195,7 +186,7 @@ export function crearServidorMcp(): McpServer {
     async ({ id_usuario }) =>
       ejecutar(async () =>
         cambiarSuspensionUsuarioAdmin(
-          await resolverIdEspejoUsuario(id_usuario),
+          await normalizarIdUsuario(id_usuario),
           true,
         ),
       ),
@@ -216,7 +207,7 @@ export function crearServidorMcp(): McpServer {
     async ({ id_usuario }) =>
       ejecutar(async () =>
         cambiarSuspensionUsuarioAdmin(
-          await resolverIdEspejoUsuario(id_usuario),
+          await normalizarIdUsuario(id_usuario),
           false,
         ),
       ),

@@ -91,3 +91,12 @@ export type EventoDisputa = {
   abiertas: number;
   generadoEn: string;
 };
+
+/** RQNF1.9: solicitud de revisión de un alta denegada. */
+export type EventoSolicitudRegistro = {
+  tipo: string;
+  mensaje: string;
+  /** Solicitudes que siguen pendientes de revisión. */
+  pendientes: number;
+  generadoEn: string;
+};

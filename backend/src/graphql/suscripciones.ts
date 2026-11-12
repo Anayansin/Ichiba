@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import clientePrisma from "../configuracion/prisma.js";
 import { ListaNegra } from "../models/ListaNegra.js";
 import { Disputa } from "../models/Disputa.js";
+import { SolicitudRegistroBloqueado } from "../models/SolicitudRegistroBloqueado.js";
 import {
   usuarioPublicado,
   type UsuarioPublicado,
@@ -24,6 +25,8 @@ export const CANAL_RESUMEN_ADMIN = "resumenAdmin";
 export const CANAL_REPORTES_PENDIENTES = "reportesPendientes";
 export const CANAL_USUARIOS_ADMIN = "usuariosAdmin";
 export const CANAL_LISTA_NEGRA = "listaNegraActualizada";
+// RQNF1.9: solicitudes de revisión de un alta denegada.
+export const CANAL_SOLICITUDES_REGISTRO = "solicitudesRegistro";
 // RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
 export const CANAL_DISPUTAS = "disputasActualizadas";
 
@@ -79,6 +82,15 @@ export type EventoDisputaPublicado = {
   mensaje: string;
   /** Disputas que siguen abiertas tras el cambio. */
   abiertas: number;
+  generadoEn: string;
+};
+
+/** RQNF1.9: aviso de una solicitud de revisión de un alta denegada. */
+export type EventoSolicitudRegistroPublicado = {
+  tipo: "creada" | "revisada";
+  mensaje: string;
+  /** Solicitudes que siguen pendientes de revisión. */
+  pendientes: number;
   generadoEn: string;
 };
 
@@ -218,8 +230,7 @@ export async function publicarListaNegraActualizada(
 /**
  * RQF40 / RQNF32: evento de disputas y retenciones preventivas; incluye
  * cuántas disputas siguen abiertas tras el cambio.
- */
-export async function publicarDisputasActualizadas(
+ */export async function publicarDisputasActualizadas(
   tipo: TipoEventoDisputa,
   mensaje: string,
 ): Promise<void> {
@@ -234,6 +245,40 @@ export async function publicarDisputasActualizadas(
   } catch (error) {
     console.error(
       "[suscripciones] No se pudo publicar el evento de disputas:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+/**
+ * RQNF1.9: evento de solicitudes de revisión de altas denegadas; el BackOffice
+ * las ve al instante sin tener que recargar.
+ */
+export async function publicarSolicitudRevisionRegistrada(
+  solicitud: {
+    id: string;
+    correo: string;
+    nombreCompleto: string;
+    estado?: string;
+  },
+  tipo: "creada" | "revisada" = "creada",
+): Promise<void> {
+  try {
+    const pendientes = await SolicitudRegistroBloqueado.countDocuments({
+      estado: { $in: ["pendiente", "en-revision"] },
+    });
+    emisor.emit(CANAL_SOLICITUDES_REGISTRO, {
+      tipo,
+      mensaje:
+        tipo === "creada"
+          ? `Solicitud de revisión de registro: ${solicitud.nombreCompleto} (${solicitud.correo})`
+          : `Solicitud de revisión atendida: ${solicitud.nombreCompleto} (${solicitud.correo})`,
+      pendientes,
+      generadoEn: new Date().toISOString(),
+    } satisfies EventoSolicitudRegistroPublicado);
+  } catch (error) {
+    console.error(
+      "[suscripciones] No se pudo publicar el evento de solicitudes de registro:",
       error instanceof Error ? error.message : error,
     );
   }

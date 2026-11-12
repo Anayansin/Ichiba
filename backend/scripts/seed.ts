@@ -21,7 +21,6 @@ import path from "path";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { Producto } from "../src/models/producto.js";
-import { Usuario } from "../src/models/usuario.js";
 import { Promocional, CONDICIONES_USO_PROMOCIONAL } from "../src/models/Promocional.js";
 import {
   CATEGORIAS_PRODUCTO,
@@ -208,47 +207,6 @@ function conLimite<T>(promesa: Promise<T>, milisegundos = 5000): Promise<T> {
 }
 
 /** Copia la cuenta demo a MongoDB (panel de administración, GraphQL, chats). */
-async function reflejarVendedorDemoEnMongo(
-  id: number,
-  correo: string,
-  creado: boolean,
-) {
-  const cambios = {
-    usuarioId: id,
-    nombreCompleto: "Vendedor Demo",
-    direccion: "Av. Principal 123, Centro, Ciudad de México",
-    telefono: "5500000000",
-    correo,
-    rfc: "XXXX000101MCO",
-    // RQNF6: la autenticación consulta MongoDB, así que el espejo debe
-    // llevar el hash bcryptjs real de la contraseña del vendedor demo.
-    password: await bcrypt.hash(PASSWORD_VENDEDOR_SEMILLA, 10),
-    tipo: "vendedor",
-    ineFrente: "/uploads/ine/demo-frente.jpg",
-    ineReverso: "/uploads/ine/demo-reverso.jpg",
-    aceptaTerminos: true,
-    recibirNotificacionesCriticas: true,
-    recibirNotificacionesPublicitarias: false,
-    metodoPago: "paypal",
-    datosMetodoPago: "vendedor.demo@example.com",
-    horarios: HORARIOS_VENDEDOR_SEMILLA,
-    horarioConfirmadoEn: new Date(),
-    diasSinConfirmarHorario: 0,
-    correoVerificado: true,
-    ...(creado ? { createdAt: new Date() } : {}),
-  };
-
-  await Usuario.updateOne(
-    { correo },
-    { $set: cambios, $setOnInsert: { createdAt: new Date() } },
-    { upsert: true },
-  ).catch((errorMongo) => {
-    console.warn(
-      "[mongo] No se pudo crear el espejo del vendedor demo:",
-      errorMongo?.message ?? errorMongo,
-    );
-  });
-}
 
 async function obtenerVendedorSemilla(): Promise<Vendedor> {
   try {
@@ -260,8 +218,25 @@ async function obtenerVendedorSemilla(): Promise<Vendedor> {
     );
 
     if (existente) {
-      await reflejarVendedorDemoEnMongo(existente.id, CORREO_VENDEDOR_SEMILLA, false);
-      return { id: String(existente.id), nombre: existente.nombreCompleto };
+      // La cuenta demo siempre queda lista para publicar: se refresca la
+      // confirmación del horario del mes en curso (si no, el middleware de
+      // verificación la rechaza al cambiar de mes).
+      await conLimite(
+        clientePrisma.usuario.update({
+          where: { id: existente.id },
+          data: {
+            horarios: HORARIOS_VENDEDOR_SEMILLA,
+            horarioConfirmadoEn: new Date(),
+            diasSinConfirmarHorario: 0,
+            // La cuenta demo nunca queda suspendida ni con adeudos: así el
+            // entorno de desarrollo siempre puede publicar y vender.
+            suspendido: false,
+            motivoSuspension: null,
+            saldoPendiente: 0,
+          },
+        }),
+      );
+            return { id: String(existente.id), nombre: existente.nombreCompleto };
     }
 
     const passwordHasheada = await bcrypt.hash(PASSWORD_VENDEDOR_SEMILLA, 10);
@@ -291,8 +266,7 @@ async function obtenerVendedorSemilla(): Promise<Vendedor> {
       }),
     );
 
-    await reflejarVendedorDemoEnMongo(creado.id, CORREO_VENDEDOR_SEMILLA, true);
-    console.log(
+        console.log(
       `Cuenta demo creada: ${CORREO_VENDEDOR_SEMILLA} (contraseña ${PASSWORD_VENDEDOR_SEMILLA})`,
     );
 

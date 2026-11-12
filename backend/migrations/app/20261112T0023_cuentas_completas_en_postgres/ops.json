@@ -1,0 +1,296 @@
+[
+  {
+    "id": "column.public.usuario.metodoPago",
+    "label": "Add column \"metodoPago\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "metodoPago",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"metodoPago\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "metodoPago"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"metodoPago\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"metodoPago\" text DEFAULT 'paypal' NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"metodoPago\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "metodoPago"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.motivoSuspension",
+    "label": "Add column \"motivoSuspension\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "motivoSuspension",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"motivoSuspension\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "motivoSuspension"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"motivoSuspension\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"motivoSuspension\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"motivoSuspension\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "motivoSuspension"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.revisionAdministrativa",
+    "label": "Add column \"revisionAdministrativa\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "revisionAdministrativa",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"revisionAdministrativa\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "revisionAdministrativa"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"revisionAdministrativa\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"revisionAdministrativa\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"revisionAdministrativa\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "revisionAdministrativa"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.saldoPendiente",
+    "label": "Add column \"saldoPendiente\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "saldoPendiente",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"saldoPendiente\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "saldoPendiente"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"saldoPendiente\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"saldoPendiente\" float8 DEFAULT 0 NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"saldoPendiente\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "saldoPendiente"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.sancionHasta",
+    "label": "Add column \"sancionHasta\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "sancionHasta",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"sancionHasta\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "sancionHasta"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"sancionHasta\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"sancionHasta\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"sancionHasta\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "sancionHasta"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.sancionPermanente",
+    "label": "Add column \"sancionPermanente\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "sancionPermanente",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"sancionPermanente\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "sancionPermanente"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"sancionPermanente\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"sancionPermanente\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"sancionPermanente\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "sancionPermanente"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.usuario.suspendido",
+    "label": "Add column \"suspendido\" to \"usuario\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "suspendido",
+        "table": "usuario"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"suspendido\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "suspendido"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"suspendido\"",
+        "sql": "ALTER TABLE \"public\".\"usuario\" ADD COLUMN \"suspendido\" bool DEFAULT false NOT NULL"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"suspendido\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "usuario",
+          "suspendido"
+        ]
+      }
+    ]
+  }
+]

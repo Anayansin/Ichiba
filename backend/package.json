@@ -11,6 +11,9 @@
     "seed": "node --harmony-temporal --import tsx scripts/seed.ts",
     "seed:mp": "node --harmony-temporal --import tsx scripts/seed-mercadopago.ts",
     "admin": "node --harmony-temporal --import tsx scripts/crear-admin.ts",
+    "prueba-registro": "node --harmony-temporal --import tsx scripts/probar-bloqueo-registro.ts",
+    "prueba-revision": "node --harmony-temporal --import tsx scripts/probar-solicitud-revision.ts",
+    "datos": "node --harmony-temporal --import tsx scripts/consola-datos.ts",
     "mcp": "node --harmony-temporal --import tsx src/mcp/arranqueStdio.ts",
     "correo-test": "node --harmony-temporal --import tsx scripts/probar-correo.ts",
     "contract:emit": "prisma contract emit"

@@ -3,7 +3,6 @@ import clientePrisma from "../configuracion/prisma.js";
 import { Disputa } from "../models/Disputa.js";
 import { Venta } from "../models/Venta.js";
 import { Producto } from "../models/producto.js";
-import { Usuario } from "../models/usuario.js";
 import { CAUSAS_ADEUDO, type CausaAdeudo } from "../models/Adeudo.js";
 import { ErrorBackoffice } from "./errorBackoffice.js";
 import {
@@ -164,11 +163,12 @@ function serializarDisputa(
 /** Nombre visible de un administrador (para registrar quién dictaminó). */
 async function nombreDelAdmin(adminId: number | null): Promise<string> {
   if (adminId === null) return "Administración de Ichiba";
-  const espejo = await Usuario.findOne({ usuarioId: adminId })
-    .select("nombreCompleto")
-    .lean();
-  return espejo?.nombreCompleto
-    ? String(espejo.nombreCompleto)
+  const cuenta = await clientePrisma.usuario.findUnique({
+    where: { id: adminId },
+    select: { nombreCompleto: true },
+  });
+  return cuenta?.nombreCompleto
+    ? String(cuenta.nombreCompleto)
     : `Administrador #${adminId}`;
 }
 

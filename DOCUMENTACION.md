@@ -141,12 +141,12 @@ Se accede con Mongoose. La conexión se hace en `backend/src/configuracion/db.ts
 
 | Información | Dónde se escribe | Dónde se lee |
 | --- | --- | --- |
-| Cuentas, contraseñas, INE, horarios y reputación | PostgreSQL `usuario` | PostgreSQL (perfil, reportes y reputación); MongoDB `usuario` (autenticación de login con bcryptjs y espejo para el panel de administración, GraphQL, suscripciones y trabajo de horarios) |
+| Cuentas, contraseñas, INE, horarios y reputación | PostgreSQL `usuario` | PostgreSQL (autenticación con bcryptjs, perfil, panel de administración, GraphQL, suscripciones y trabajo de horarios) |
 | Productos del catálogo | MongoDB `producto` | MongoDB (REST, GraphQL y portada de `front-astro`) |
-| Filas virtuales | PostgreSQL `cola` | PostgreSQL (rutas de fila y pagos); MongoDB `Cola` (historial de administración, GraphQL y limpieza) |
-| Pagos, escrow y ventas | PostgreSQL `venta` | PostgreSQL (escrow, reportes e historial de administración); MongoDB `Venta` (chat e historial) |
+| Filas virtuales | PostgreSQL `cola` | PostgreSQL (rutas de fila, pagos, GraphQL y panel de administración) |
+| Pagos, escrow y ventas | PostgreSQL `venta` | PostgreSQL (escrow, reportes, disputas e historial de administración); MongoDB `Venta` (índice de conversaciones del chat) |
 | Mensajes del chat | MongoDB `Mensaje` | MongoDB |
-| Reportes | PostgreSQL `reporte` | PostgreSQL (listado, confirmación y rechazo); MongoDB `Reporte` (historial de administración) |
+| Reportes | PostgreSQL `reporte` | PostgreSQL (listado, confirmación, rechazo e historial de administración) |
 | Sanciones y bloqueos | MongoDB `Sancion` | MongoDB (y `usuario` de MongoDB para el estado de suspensión) |
 | Suscripciones de notificaciones | MongoDB `Suscripcion`, `SuscripcionCategoria` | MongoDB |
 | Promocionales y comentarios | MongoDB `Promocional`, `Comentario` | MongoDB |
@@ -182,7 +182,10 @@ El backend se configura en `backend/.env`. El archivo `backend/.env.example` exp
 | `PAYPAL_CLIENT_ID` | Para pagos | Credenciales de la aplicación de PayPal. |
 | `PAYPAL_CLIENT_SECRET` | Para pagos | Credenciales de la aplicación de PayPal. |
 | `PAYPAL_LLAVE_CIFRADO` | Para vincular cuentas de PayPal | Llave AES-256-GCM (64 dígitos hexadecimales) con la que se cifra el Token de Acceso que PayPal otorga al vendedor al vincular su cuenta. Si falta, la vinculación falla con un mensaje claro. |
-| `PAYPAL_API_BASE` | Para pagos | Base de la API de PayPal (modo pruebas o producción). |
+| `PAYPAL_API_BASE` | Para pagos | Base de la API de PayPal: `https://api-m.sandbox.paypal.com` en pruebas y `https://api-m.paypal.com` en producción. Si se dejan credenciales live con la base sandbox, PayPal rechaza la autenticación. |
+| `PAYPAL_PLATFORM_MERCHANT_ID` | No | Merchant ID opcional de 13 caracteres de la cuenta que recibe la comisión. Si se omite, PayPal la acredita a la cuenta dueña de la app (la plataforma). La cuenta debe estar habilitada para Complete Payments y los vendedores enrolados. Ver `docs/CONFIGURACION-PAYPAL-PRODUCCION.md`. |
+| `PAYPAL_COMISION_MODO` | No | `platform_fee` (predeterminado) cobra la comisión real. `registro` solo la calcula y muestra; úsalo únicamente en desarrollo o mientras PayPal aprueba la cuenta de plataforma. Nunca en producción. |
+| `PAYPAL_REDIRECT_URI` | No | URL exacta del callback OAuth registrada en la app de PayPal. Si falta, se usa `${BACKEND_URL}/api/pagos/paypal/vincular/callback`. |
 | `MERCADOPAGO_ACCESS_TOKEN` | Para pagos con MercadoPago | Access Token de la cuenta de MercadoPago (mercadopago.com/developers → Credenciales). Sin él, el pago de un vendedor con `metodoPago: mercadopago` falla con un mensaje claro. |
 | `MERCADOPAGO_PUBLIC_KEY` | Para pagos con MercadoPago | Llave pública de la misma cuenta (mercadopago.com/developers → Credenciales). Es pública por diseño: el navegador la usa para montar el formulario de pago embebido (Payment Brick). Sin ella, el formulario no puede mostrarse y el backend lo avisa con un mensaje claro. |
 | `MERCADOPAGO_API_BASE` | No | Base de la API de MercadoPago; por defecto `https://api.mercadopago.com`. |
@@ -190,7 +193,7 @@ El backend se configura en `backend/.env`. El archivo `backend/.env.example` exp
 | `GMAIL_USER` | No | Correo desde el que se envían los mensajes. |
 | `GMAIL_APP_PASSWORD` | No | Contraseña de aplicación de Gmail. Si faltan ambas, el backend no falla: imprime los códigos en la consola con el prefijo `[correo local]`. |
 | `STRUCTOCR_API_KEY` | Para registro | Llave de la API de StructOCR que lee el frente y el reverso de la INE. Sin ella, el registro no puede validar la identificación. |
-| `GOOGLE_VISION_API_KEY` | Para publicar | Llave de la Cloud Vision API (Google Cloud) que analiza las fotografías de productos y bloquea objetos excluidos. Sin ella, la publicación responde *"La moderación de imágenes no está disponible"*. |
+| `GOOGLE_VISION_API_KEY` | Para publicar, comprobantes y chat | Llave de la Cloud Vision API (Google Cloud). `LABEL_DETECTION` bloquea objetos excluidos en fotos de producto; `SAFE_SEARCH_DETECTION` bloquea comprobantes e imágenes de chat inapropiadas. Si falta o Vision falla, la moderación falla cerrada y no deja publicar ni enviar la imagen. |
 | `GOOGLE_VISION_ENDPOINT` | No | Solo para pruebas: apunta Cloud Vision a un servidor simulado. En producción se deja sin definir. |
 | `VISION_MODERACION` | No | Solo para desarrollo local: con el valor `omitir` se desactiva la moderación de fotos. Nunca debe usarse en producción. |
 | `NODE_ENV` | No | Con el valor `production` el CORS solo acepta `FRONTEND_URL` (en desarrollo también acepta localhost y la red local). |
@@ -269,9 +272,11 @@ La consola del backend debe mostrar `Conectado exitosamente a MongoDB con Mongoo
 
 ### Registro y autenticación
 
-Permite crear una cuenta verificando la identificación oficial, iniciar sesión, recuperar la contraseña y mantener la sesión. El registro exige subir el frente y el reverso de la INE, que se validan por formato (png/jpg/jpeg), peso (máximo 8 MB), dimensiones (mínimo 420x540 px), nitidez y lectura automática de los datos con StructOCR; el nombre capturado debe coincidir con el de la identificación, el teléfono debe tener 10 dígitos, la contraseña debe cumplir sus reglas de fortaleza (solo letras, números y los símbolos `! @ # $ % & * - _`), y el RFC debe coincidir con la CURP leída de la INE. Si el RFC, la CURP o el código de la INE están en la lista negra, el alta se deniega. Para terminar, el sistema envía por correo un **código de confirmación numérico de 4 dígitos** (RQNF1.3) que vence en 10 minutos.
+Permite crear una cuenta verificando la identificación oficial, iniciar sesión, recuperar la contraseña y mantener la sesión. El registro exige subir el frente y el reverso de la INE, que se validan por formato (png/jpg/jpeg), peso (máximo 8 MB), dimensiones (mínimo 420x540 px), nitidez y lectura automática de los datos con StructOCR; el nombre capturado debe coincidir con el de la identificación, el teléfono debe tener 10 dígitos, la contraseña debe cumplir sus reglas de fortaleza (solo letras, números y los símbolos `! @ # $ % & * - _`), y el RFC debe coincidir con la CURP leída de la INE. Para terminar, el sistema envía por correo un **código de confirmación numérico de 4 dígitos** (RQNF1.3) que vence en 10 minutos.
 
-En el backend corresponden `backend/src/routes/usuarioRoutes.ts` (alta, login, recuperación, perfil público, preferencias de notificación y confirmación de horario) con `backend/src/controllers/usuarioController.ts`: el alta escribe en PostgreSQL y refleja la cuenta en MongoDB, y el login autentica las credenciales consultando los registros de MongoDB, comparando la contraseña contra su hash bcryptjs (nunca en texto plano); el restablecimiento de contraseña actualiza ambas bases; `backend/src/routes/verificacionRoutes.ts` y `backend/src/controllers/verificacionController.ts` para el código de verificación del correo; `backend/src/middleware/auth.ts` (verificación del token), `backend/src/middleware/verificado.ts` (correo verificado y horario confirmado del mes en curso, medido en GMT-6), `backend/src/middleware/uploadIne.ts` (carga de la INE); `backend/src/services/structOcrService.ts` y `backend/src/services/ineService.ts` (lectura y validación de la identificación), `backend/src/services/emailService.ts` (envío de códigos), `backend/src/utils/validarPassword.ts`, `backend/src/utils/validarRfcCurp.ts` y `backend/src/utils/generarCodigo.ts` (código de 4 dígitos).
+**Alta denegada y revisión (RQNF1.9).** El alta se deniega cuando los datos de identificación ya están en la **lista negra** (RFC, CURP, código de la INE o correo) **o cuando ya pertenecen a otra cuenta** (RFC, CURP, código de la INE, teléfono o correo con cuenta registrada). La respuesta es un 403 con el código `DATOS_NO_REGISTRABLES` y el mensaje: *"Los datos ingresados no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores."* No se revela qué dato coincidió (RQNF1.1). Desde el formulario de registro la persona puede **solicitar la revisión**: escribe qué ocurrió y se envía la solicitud al BackOffice (`POST /api/usuarios/registro/solicitar-revision`, sin necesidad de cuenta); los administradores la atienden en la sección **Solicitudes de registro** y le responden por correo a la persona.
+
+En el backend corresponden `backend/src/routes/usuarioRoutes.ts` (alta, login, recuperación, perfil público, preferencias de notificación, confirmación de horario y solicitud de revisión de un alta denegada) con `backend/src/controllers/usuarioController.ts`: el alta escribe en PostgreSQL y refleja la cuenta en MongoDB; el bloqueo del alta y las solicitudes de revisión viven en `backend/src/services/bloqueoRegistroService.ts` (con el modelo `backend/src/models/SolicitudRegistroBloqueado.ts`); el login autentica las credenciales consultando los registros de MongoDB y compara la contraseña contra su hash bcryptjs (nunca en texto plano), pero el rol vigente se lee de PostgreSQL y se sincroniza el espejo de MongoDB para que la interfaz y el middleware de `/admin` no se contradigan; el restablecimiento de contraseña actualiza ambas bases; `backend/src/routes/verificacionRoutes.ts` y `backend/src/controllers/verificacionController.ts` para el código de verificación del correo; `backend/src/middleware/auth.ts` (verificación del token), `backend/src/middleware/verificado.ts` (correo verificado y horario confirmado del mes en curso, medido en GMT-6), `backend/src/middleware/uploadIne.ts` (carga de la INE); `backend/src/services/structOcrService.ts` y `backend/src/services/ineService.ts` (lectura y validación de la identificación), `backend/src/services/emailService.ts` (envío de códigos y avisos), `backend/src/utils/validarPassword.ts`, `backend/src/utils/validarRfcCurp.ts` y `backend/src/utils/generarCodigo.ts` (código de 4 dígitos).
 
 En el frontend: `frontend/Ichiba/src/pages/RegistrarCuenta`, `frontend/Ichiba/src/pages/RecuperarPassword`, `frontend/Ichiba/src/components/auth/IniciarSesionModal`, `frontend/Ichiba/src/components/VerificacionModal`, el contexto de sesión en `frontend/Ichiba/src/context/AuthProvider.tsx` y los servicios `frontend/Ichiba/src/services/authService.ts`, `usuarioServices.ts` y `verificacionService.ts`.
 
@@ -322,11 +327,11 @@ El dinero nunca va directo al vendedor: queda **retenido en garantía** hasta qu
 1. **Pago autorizado** (`pendiente_comprobante`): el comprador paga en PayPal (captura diferida: se autoriza, no se cobra) o en Mercado Pago. El sistema registra la venta, le asigna una **palabra clave numérica de 4 dígitos única por sesión de pago** (RQNF20, `generarCodigoPagoUnico`), se la envía por correo y la muestra en pantalla.
 2. **Comprobante** (RQF22): desde `PagoExitoso`, el comprador registra su comprobante con la palabra clave, el número de referencia de la transferencia y una fotografía o captura, que pasa por la moderación de imágenes antes de mostrarse al vendedor. Mientras tanto, el chat queda **bloqueado** (RQNF24.2) y la fila pasa a reposo.
 3. **Confirmación del vendedor** (RQF31): el vendedor revisa la referencia y la imagen en el chat y confirma o rechaza. Al confirmar se abre el chat de coordinación (RQNF29), se genera el **código de confirmación de entrega** que recibe el comprador (RQNF24.4) y corre el plazo de entrega de 15 días. Si rechaza, la fila se des-pausa y el comprador puede volver a registrar su comprobante (RQNF24.2 y RQNF23.2).
-4. **Entrega y liberación** (RQF26, RQF33 y RQNF27): el día de la entrega el comprador le da su código al vendedor; el vendedor lo registra y en ese momento se **capturan los fondos retenidos** y se liberan a la cuenta de PayPal del vendedor. El chat se deshabilita y la venta queda `completada`. El **código de confirmación de entrega pertenece solo al comprador**: se le muestra en la pantalla del pago, en *Mis pedidos* y en el chat de coordinación; el vendedor nunca lo recibe del servidor (las respuestas del panel y del listado de chats proyectan solo campos seguros) y únicamente lo captura a mano en la sección **Ventas y entregas → "Confirmar entregas"** de su panel.
+4. **Entrega y liberación** (RQF26, RQF33 y RQNF27): el día de la entrega el comprador le da su código al vendedor; el vendedor lo registra y en ese momento se **capturan los fondos retenidos**, se cobra la **comisión de Ichiba** con `platform_fees` y se libera el neto a la cuenta de PayPal del vendedor. El chat se deshabilita y la venta queda `completada`. El **código de confirmación de entrega pertenece solo al comprador**: se le muestra en la pantalla del pago, en *Mis pedidos* y en el chat de coordinación; el vendedor nunca lo recibe del servidor (las respuestas del panel y del listado de chats proyectan solo campos seguros) y únicamente lo captura a mano en la sección **Ventas y entregas → "Confirmar entregas"** de su panel.
 5. **Cancelaciones y reembolsos automáticos**: el trabajo `backend/src/jobs/revisionEntregas.ts` (cada minuto) cancela y reembolsa al comprador cuando el comprador no sube su comprobante en 24 h (RQNF23), cuando el vendedor no confirma el comprobante antes de que termine su siguiente bloque de atención (RQNF24), cuando no registra la entrega en el plazo (RQNF28) o cuando hay inactividad prolongada en el chat por cualquiera de las partes (RQNF31: 3 bloques de atención sin mensajes).
 6. **Retención preventiva** (RQNF32): si la venta tiene reportes vivos o una disputa abierta, el dinero no se libera ni se reembolsa automáticamente: queda `retenido` y lo resuelve un administrador desde el BackOffice.
 
-Cada paso envía sus correos (palabra clave, comprobante recibido, código de entrega, comprobante rechazado, entrega completada y venta cancelada; ver el inventario de correos en `INVENTARIO.md`). Suite de pruebas: `backend/scripts/probar-escrow.ts` (61 pruebas).
+Cada paso envía sus correos (palabra clave, comprobante recibido, código de entrega, comprobante rechazado, entrega completada y venta cancelada; ver el inventario de correos en `INVENTARIO.md`). Suite de pruebas: `backend/scripts/probar-escrow.ts` (64 pruebas).
 
 ### Puntos, cancelación de cuentas y lista negra (Fase 2)
 
@@ -383,7 +388,7 @@ En el frontend: `frontend/Ichiba/src/pages/Chats` (lista de conversaciones, hist
 
 ### Administración (BackOffice)
 
-Concentra el control de la plataforma por parte de cuentas con tipo `admin`. El menú tiene ocho secciones:
+Concentra el control de la plataforma por parte de cuentas con tipo `admin`. El menú tiene nueve secciones:
 
 | Sección | Qué hace |
 | --- | --- |
@@ -393,12 +398,13 @@ Concentra el control de la plataforma por parte de cuentas con tipo `admin`. El 
 | **Disputas y retenciones** | Dictamen de disputas de reembolso (RQF40) y de las ventas con retención preventiva (RQNF32). |
 | **Adeudos de vendedores** | Consulta de adeudos y registro de su liquidación total (RQNF37 y RQNF38). |
 | **Informes globales** | Historial de informes mensuales de la plataforma, descarga en PDF y generación manual de un período (RQF14). |
-| **Lista negra** | Altas y bajas manuales de registros vetados que impiden volver a crear cuentas con ese RFC, CURP o INE (RQNF36). |
+| **Lista negra** | Altas y bajas manuales de registros vetados que impiden volver a crear cuentas con ese RFC, CURP, INE o correo (RQNF36). |
+| **Solicitudes de registro** | Altas que el sistema denegó y que la persona pidió revisar: el administrador las pone en revisión, las autoriza o las descarta, y la respuesta se manda por correo (RQNF1.9). Llega sola por la suscripción `solicitudesRegistro`. |
 | **Trazabilidad** | Auditoría del historial combinado de filas, ventas y reportes, y lectura del chat de cualquier venta sin restricción de participación (RQF38 y RQF39). |
 
 **La cuenta administrativa es de supervisión pura:** no confirma horarios, no publica productos ni promocionales, no se une a filas ni paga — el backend lo impide con `requiereVendedor` y `rechazarAdminEnCompra` (403), y en el frontend `/panel-vendedor` redirige a `/admin`, el menú oculta los enlaces de vendedor y la ficha del producto oculta los botones de compra.
 
-En el backend: `backend/src/middleware/esAdmin.ts` (verifica el tipo de administrador contra PostgreSQL) y `backend/src/middleware/admin.ts` (usado por las rutas de reportes); `backend/src/middleware/vendedor.ts` (el administrador no publica ni compra; las cuentas canceladas solo completan entregas con `requiereVendedorDeEntregas`); `backend/src/routes/adminRoutes.ts`, montado en `/api/admin`, con `backend/src/controllers/adminController.ts` y el motor compartido `backend/src/services/backofficeService.ts` (el mismo que usa el MCP); `backend/src/services/listaNegraService.ts` sobre el modelo `backend/src/models/ListaNegra.ts`.
+En el backend: `backend/src/middleware/esAdmin.ts` (verifica el tipo de administrador contra PostgreSQL) y `backend/src/middleware/admin.ts` (usado por las rutas de reportes); `backend/src/middleware/vendedor.ts` (el administrador no publica ni compra; las cuentas canceladas solo completan entregas con `requiereVendedorDeEntregas`); `backend/src/routes/adminRoutes.ts`, montado en `/api/admin`, con `backend/src/controllers/adminController.ts` y el motor compartido `backend/src/services/backofficeService.ts` (el mismo que usa el MCP); `backend/src/services/listaNegraService.ts` sobre el modelo `backend/src/models/ListaNegra.ts`; las solicitudes de revisión en `backend/src/services/bloqueoRegistroService.ts` sobre `backend/src/models/SolicitudRegistroBloqueado.ts`.
 
 En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx` (pantalla protegida con menú interno en cuadrícula que muestra las ocho secciones completas, también en móvil, y guarda la sección activa en `?seccion=`) y sus secciones `Dashboard.tsx`, `GestionUsuarios.tsx`, `RevisionReportes.tsx`, `Disputas.tsx`, `Adeudos.tsx`, `InformesGlobales.tsx`, `ListaNegra.tsx` y `Trazabilidad.tsx` con `ModalConversacion.tsx`; también `frontend/Ichiba/src/pages/AdminReportes` (historial de reportes) y el servicio `frontend/Ichiba/src/services/adminService.ts`.
 
@@ -416,11 +422,12 @@ En el frontend: `frontend/Ichiba/src/pages/Admin/Admin.tsx` (pantalla protegida 
 
 ## 5. Pruebas automatizadas
 
-El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el backend real contra PostgreSQL y MongoDB locales, con simuladores de PayPal, Mercado Pago y Cloud Vision donde hace falta) y una prueba de moderación. Todas se ejecutan desde `backend/` con `node --harmony-temporal --import tsx scripts/<archivo>.ts` (el flag `--harmony-temporal` es obligatorio: Prisma lo necesita para leer las fechas `timestamptz` de PostgreSQL):
+El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el backend real contra PostgreSQL y MongoDB locales, con simuladores de PayPal, Mercado Pago y Cloud Vision donde hace falta), una suite de moderación y una suite de comisión/PayPal. Todas se ejecutan desde `backend/` con `node --harmony-temporal --import tsx scripts/<archivo>.ts` (el flag `--harmony-temporal` es obligatorio: Prisma lo necesita para leer las fechas `timestamptz` de PostgreSQL):
 
 | Suite | Archivo | Pruebas | Qué cubre |
 | --- | --- | --- | --- |
-| Fase 1 | `scripts/probar-escrow.ts` | 61 | Palabra clave, comprobante, confirmación/rechazo, código de entrega, liberación y reembolsos del escrow |
+| Fase 0 | `scripts/probar-comision.ts` | 7 | Comisión 5 % + IVA (5.8 %), neto del vendedor, `platform_fees` en PayPal, reembolso de la comisión y OAuth con `redirect_uri` |
+| Fase 1 | `scripts/probar-escrow.ts` | 64 | Palabra clave, comprobante, confirmación/rechazo, código de entrega, liberación, reembolsos, comisión y moderación del chat |
 | Fase 2 | `scripts/probar-puntos-cancelacion.ts` | 48 | Puntos de reputación, cancelación a los 8 puntos, lista negra, purga y retiro de filas |
 | Fase 3 | `scripts/probar-informes.ts` | 26 | Informes mensuales por vendedor y globales, PDF y purga a los 13 meses |
 | Fase 4 | `scripts/probar-suscripciones.ts` | 11 | Suscripciones GraphQL del BackOffice por WebSocket |
@@ -428,9 +435,11 @@ El proyecto incluye **8 suites de pruebas de extremo a extremo** (levantan el ba
 | Fase 7a | `scripts/probar-sanciones.ts` | 30 | Sanciones progresivas (7/30 días/indefinida), reversión y prescripción |
 | Fase 7b | `scripts/probar-disputas.ts` | 65 | Disputas, retención preventiva, adeudos y liquidación |
 | Fase 7c | `scripts/probar-fila-apertura.ts` | 30 | Fila fuera de horario, aviso, "pagar ahora", esperar apertura y reactivación |
-| Moderación | `scripts/probar-moderacion-vision.ts` | 38 | RQNF7, RQNF8, RQF8 y RQF9: validaciones de publicación y Cloud Vision simulada |
+| Moderación | `scripts/probar-moderacion-vision.ts` | 48 | RQNF7, RQNF8, RQF8 y RQF9: validaciones de publicación y Cloud Vision simulada |
+| Bloqueo de alta | `scripts/probar-bloqueo-registro.ts` | 6 | RQNF1.9: alta denegada por lista negra, por datos ya usados por otra cuenta y por correo repetido; además el mensaje y la solicitud de revisión |
+| Solicitud de revisión | `scripts/probar-solicitud-revision.ts` | 4 | E2E contra el backend real: la persona envía su solicitud, el administrador la ve en el panel y la resuelve |
 
-**Total: 293 pruebas de las suites + 38 de moderación.** Cada suite imprime al final una línea `Suite ...: X/Y pruebas pasaron`; esa es la señal de éxito (no el código de salida de PowerShell, que puede reportar error por la salida de diagnóstico de Node). Las suites usan puertos propios para no chocar con el servidor de desarrollo (el backend normal usa el 5000): escrow 5097, puntos 5098, informes 5099, suscripciones 5100, MCP 5101, sanciones 5102, disputas 5103 y fila/apertura 5104; los simuladores (mocks) usan los puertos 59091 a 59100.
+**Total: 296 pruebas de las 8 suites E2E + 48 de moderación + 7 de comisión/PayPal + 10 de bloqueo y solicitud de registro = 361.** Cada suite imprime al final una línea `Suite ...: X/Y pruebas pasaron`; esa es la señal de éxito (no el código de salida de PowerShell, que puede reportar error por la salida de diagnóstico de Node). Las suites usan puertos propios para no chocar con el servidor de desarrollo (el backend normal usa el 5000): escrow 5097, puntos 5098, informes 5099, suscripciones 5100, MCP 5101, sanciones 5102, disputas 5103 y fila/apertura 5104; los simuladores (mocks) usan los puertos 59091 a 59100.
 
 ---
 
@@ -442,7 +451,7 @@ Los robots viven en `.github/workflows/` y se ejecutan en GitHub Actions:
 
 Se dispara en **cada push a `main`** y en cada pull request. Hace dos trabajos:
 
-1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre las **8 suites** (293 pruebas). Si alguna falla, el pipeline queda en rojo.
+1. **Backend**: levanta PostgreSQL 16 y MongoDB 7 de prueba, aplica las migraciones, siembra los datos demo (`npm run seed` y `npm run seed:mp`, que crean los vendedores de prueba que necesitan las suites), revisa los tipos con TypeScript (`npx tsc --noEmit`) y corre la suite de comisión/PayPal (7 pruebas) más las **8 suites E2E** (296 pruebas). Si alguna falla, el pipeline queda en rojo.
 2. **Frontend**: compila la tienda React (`npm run build`) y el portal Astro (`npm run compilar`).
 
 ### Despliegue automático por integración con GitHub (lo que usa hoy el proyecto)
@@ -521,3 +530,5 @@ Todo el código de las fases 1 a 7c está terminado y probado. Para completar el
 3. **Credenciales externas en producción** (si aún no están): `GMAIL_USER`/`GMAIL_APP_PASSWORD` (correos reales), `STRUCTOCR_API_KEY` (INE), `GOOGLE_VISION_API_KEY` (moderación) y `PAYPAL_LLAVE_CIFRADO` (vinculación de PayPal).
 4. **Limpiar el historial de git** (opcional pero recomendado): en commits antiguos quedaron `backend/.env` con credenciales y fotografías de INE. El archivo actual está desvinculado y en `.gitignore`, pero el historial todavía las contiene; se ofreció limpiarlo con `git filter-repo`.
 5. **Mantener activa la suscripción de Railway**: la cuenta está en plan de prueba con límite de tiempo/crédito; si se agota, los servicios en línea se pausan. Revisa railway.com → *Account* → *Plans* y actualiza antes de que termine.
+6. **Configurar PayPal de producción y la comisión real**: sigue la guía paso a paso de `docs/CONFIGURACION-PAYPAL-PRODUCCION.md`. Incluye la app live, el callback OAuth, `PAYPAL_API_BASE` y el enrolamiento en **PayPal Complete Payments Platform** para que `platform_fees` cobre el 5 % + IVA. `PAYPAL_PLATFORM_MERCHANT_ID` es opcional: si se omite, la comisión va a la cuenta dueña de la app. Sin el enrolamiento, usa `PAYPAL_COMISION_MODO=registro` solo en desarrollo: la comisión se muestra, pero no se cobra.
+7. **Promover administradores en producción**: usa `npm run admin -- correo@ejemplo.com --promover` desde `backend/` con las variables de producción. El script actualiza PostgreSQL y MongoDB; el login y el middleware de `/admin` leen el rol vigente de PostgreSQL, y el espejo de MongoDB se sincroniza al iniciar sesión.

@@ -2,7 +2,7 @@ import { Response } from "express";
 import { RequestConComprador } from "../middleware/comprador.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { Producto } from "../models/producto.js";
-import { FORMATO_CORREO } from "../models/usuario.js";
+import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
 import {
   reacomodarFila,
   iniciarTemporizadorPago,

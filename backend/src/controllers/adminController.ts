@@ -8,6 +8,7 @@ import {
   listarDisputasAdmin,
   listarListaNegraAdmin,
   listarReportesPendientesAdmin,
+  listarSolicitudesRegistroAdmin,
   listarUsuariosAdmin,
   liquidarAdeudoAdmin,
   mensajesDeVentaAdmin,
@@ -15,6 +16,7 @@ import {
   quitarEntradaListaNegraAdmin,
   resolverDisputaAdmin,
   resolverReporteAdmin,
+  resolverSolicitudRegistroAdmin,
   resolverVentaRetenidaAdmin,
 } from "../services/backofficeService.js";
 import { RequestConUsuario } from "../middleware/auth.js";
@@ -149,6 +151,54 @@ export async function quitarEntradaListaNegra(req: Request, res: Response) {
       error,
       "No se pudo eliminar el registro de la lista negra",
     );
+  }
+}
+
+/**
+ * RQNF1.9: solicitudes de revisión que enviaron las personas a las que se
+ * les denegó el alta de la cuenta.
+ */
+export async function obtenerSolicitudesRegistro(req: Request, res: Response) {
+  try {
+    res.json(
+      await listarSolicitudesRegistroAdmin({
+        pagina: Number(req.query.pagina),
+        porPagina: Number(req.query.porPagina),
+        estado: typeof req.query.estado === "string" ? req.query.estado : undefined,
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al obtener las solicitudes de registro");
+  }
+}
+
+/** El administrador atiende la solicitud de revisión. */
+export async function resolverSolicitudRegistro(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const { estado, respuesta } = req.body ?? {};
+
+    if (!["en-revision", "resuelta", "descartada"].includes(estado)) {
+      throw new ErrorBackoffice(
+        400,
+        "Indica si la solicitud queda en revisión, resuelta o descartada",
+      );
+    }
+
+    const solicitud = await resolverSolicitudRegistroAdmin(
+      String(req.params.id),
+      {
+        estado,
+        respuesta: typeof respuesta === "string" ? respuesta : "",
+        revisadaPor: String(req.usuarioId ?? ""),
+      },
+    );
+
+    res.json({ message: "Solicitud atendida", solicitud });
+  } catch (error) {
+    responderError(res, error, "No se pudo atender la solicitud");
   }
 }
 

@@ -1,10 +1,8 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { Reporte } from "../models/Reporte.js";
 import { Venta } from "../models/Venta.js";
 import { Producto } from "../models/producto.js";
 import { Mensaje } from "../models/Mensaje.js";
-import { Usuario } from "../models/usuario.js";
 import clientePrisma from "../configuracion/prisma.js";
 import {
   ELEMENTOS_REPORTABLES,

@@ -55,6 +55,10 @@ const BASE = `http://127.0.0.1:${PUERTO_BACKEND}`;
 process.env.PAYPAL_API_BASE = `http://127.0.0.1:${PUERTO_MOCK_PAYPAL}`;
 process.env.PAYPAL_CLIENT_ID = "cliente-de-prueba";
 process.env.PAYPAL_CLIENT_SECRET = "secreto-de-prueba";
+// RNF-PAG-20: el mock acepta la instrucción de comisión; así la suite también
+// ejercita la captura de la autorización con `platform_fees`.
+process.env.PAYPAL_PLATFORM_MERCHANT_ID = "ABCDEFGHJKLMN";
+process.env.PAYPAL_COMISION_MODO = "platform_fee";
 process.env.MERCADOPAGO_ACCESS_TOKEN = "token-de-prueba";
 process.env.MERCADOPAGO_PUBLIC_KEY = "llave-publica-de-prueba";
 process.env.MERCADOPAGO_API_BASE = `http://127.0.0.1:${PUERTO_MOCK_MP}`;
@@ -80,6 +84,8 @@ const paypalMock = {
   secuencia: 0,
   intents: [] as string[],
   payees: [] as string[],
+  comisionesEnOrden: [] as any[],
+  comisiones: [] as any[],
   ordenes: new Map<string, OrdenPaypalMock>(),
   autorizacionesRegistradas: 0,
   capturas: new Map<string, string>(),
@@ -170,6 +176,7 @@ const servidorPaypal = http.createServer(async (req, res) => {
     paypalMock.payees.push(
       String(unidad?.payee?.email_address ?? unidad?.payee?.merchant_id ?? ""),
     );
+    paypalMock.comisionesEnOrden.push(unidad?.payment_instruction ?? null);
 
     const id = `ORDER-${++paypalMock.secuencia}`;
     const orden: OrdenPaypalMock = {
@@ -225,6 +232,8 @@ const servidorPaypal = http.createServer(async (req, res) => {
       (candidata) => candidata.autorizacionId === authId,
     );
     if (!orden) return responder(res, 404, { name: "RESOURCE_NOT_FOUND" });
+    const cuerpo = await leerCuerpo(req);
+    paypalMock.comisiones.push(cuerpo?.payment_instruction ?? null);
     orden.capturada = true;
     const capturaId = `CAP-${authId}`;
     paypalMock.capturas.set(authId, capturaId);
@@ -694,6 +703,25 @@ async function enviarMensajeVendedor(
   return { status: r.status, cuerpo: await r.json().catch(() => null) };
 }
 
+/** RNF-CHA-03: adjunto de imagen del chat, que también pasa por SafeSearch. */
+async function enviarImagenChatComprador(
+  ventaMongoId: string,
+  compradorId: string,
+) {
+  const fd = new FormData();
+  fd.append(
+    "imagen",
+    new Blob([fs.readFileSync(rutaComprobante)], { type: "image/png" }),
+    "chat.png",
+  );
+  const r = await fetch(`${BASE}/api/mensajes/comprador/${ventaMongoId}`, {
+    method: "POST",
+    headers: { "x-comprador-id": compradorId },
+    body: fd,
+  });
+  return { status: r.status, cuerpo: await r.json().catch(() => null) };
+}
+
 async function calificar(
   ventaMongoId: string,
   opciones: { compradorId?: string; token?: string },
@@ -914,7 +942,6 @@ try {
         paypalMock.payees.at(-1) === "vendedor.demo@example.com",
       `intent=${paypalMock.intents.at(-1)} payee=${paypalMock.payees.at(-1)}`,
     );
-
     const rCaptura = await fetch(
       `${BASE}/api/pagos/capturar-orden/${orden?.orderId}`,
       {
@@ -1190,6 +1217,33 @@ try {
           tokenVendedor,
           "Perfecto, ahí estaré con el producto",
         );
+
+        safeSearchMock.adult = "VERY_LIKELY";
+        const imagenBloqueada = await enviarImagenChatComprador(
+          ventaMongoId,
+          COMPRADOR_A,
+        );
+        safeSearchMock.adult = "VERY_UNLIKELY";
+        verificar(
+          "RNF-CHA-03 una imagen inapropiada se bloquea en el chat",
+          imagenBloqueada.status === 400 &&
+            String(imagenBloqueada.cuerpo?.message ?? "").includes("chat") &&
+            String(imagenBloqueada.cuerpo?.message ?? "").includes(
+              "inapropiado",
+            ),
+          `status ${imagenBloqueada.status}: ${JSON.stringify(imagenBloqueada.cuerpo)}`,
+        );
+
+        const imagenPermitida = await enviarImagenChatComprador(
+          ventaMongoId,
+          COMPRADOR_A,
+        );
+        verificar(
+          "RNF-CHA-03 una imagen permitida se adjunta al chat",
+          imagenPermitida.status === 201 && !!imagenPermitida.cuerpo?.imagen,
+          `status ${imagenPermitida.status}: ${JSON.stringify(imagenPermitida.cuerpo).slice(0, 300)}`,
+        );
+
         const ventaTrasChat = await leerVenta(venta1);
         verificar(
           "RQNF29/RQNF30 con el pago confirmado, ambas partes escriben en el chat",
@@ -1234,6 +1288,17 @@ try {
         paypalMock.capturas.get(`AUTH-${orden?.orderId}`) ===
           ventaCompletada?.capturaPaypalId,
         `captura en la venta=${ventaCompletada?.capturaPaypalId}`,
+      );
+
+      const instruccionComision = paypalMock.comisiones.at(-1);
+      verificar(
+        "RNF-PAG-20 la captura de PayPal cobra la comisión de Ichiba con platform_fees",
+        paypalMock.comisionesEnOrden.at(-1) == null &&
+          instruccionComision?.disbursement_mode === "INSTANT" &&
+          Number(instruccionComision?.platform_fees?.[0]?.amount?.value) > 0 &&
+          instruccionComision?.platform_fees?.[0]?.payee?.merchant_id ===
+            "ABCDEFGHJKLMN",
+        `orden=${JSON.stringify(paypalMock.comisionesEnOrden.at(-1))} captura=${JSON.stringify(instruccionComision).slice(0, 300)}`,
       );
 
       const espejo = await Venta.findOne({ paypalOrderId: orden?.orderId });
@@ -1535,9 +1600,9 @@ try {
         `estado=${venta?.estado} motivo=${venta?.canceladoMotivo} acciones=${JSON.stringify(acciones)}`,
       );
       const adeudoP5 = await Adeudo.findOne({ ventaIdPg: compra.ventaId }).lean();
-      const espejoVendedor = await Usuario.findOne({
-        correo: "vendedor.demo@ichiba.test",
-      }).lean();
+      const espejoVendedor = await clientePrisma.usuario.findFirst({
+        where: { correo: "vendedor.demo@ichiba.test" },
+      });
       verificar(
         "RQNF37/RQNF38 la entrega vencida genera adeudo (causa entrega_vencida) y suspende al vendedor con saldo pendiente",
         adeudoP5?.causa === "entrega_vencida" &&
@@ -1924,7 +1989,9 @@ try {
         (suma, adeudo) => suma + Number(adeudo.monto ?? 0),
         0,
       );
-      const espejo = await Usuario.findOne({ usuarioId }).lean();
+      const espejo = await clientePrisma.usuario.findUnique({
+        where: { id: usuarioId },
+      });
       const actualizacion: Record<string, unknown> = { saldoPendiente: saldo };
       if (
         saldo === 0 &&
@@ -1934,7 +2001,10 @@ try {
         actualizacion.suspendido = false;
         actualizacion.motivoSuspension = null;
       }
-      await Usuario.updateOne({ usuarioId }, { $set: actualizacion });
+      await clientePrisma.usuario.update({
+        where: { id: usuarioId },
+        data: actualizacion,
+      });
     }
     if (borrados > 0) {
       console.log(`[limpieza] Adeudos huérfanos de prueba eliminados: ${borrados}`);

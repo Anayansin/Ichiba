@@ -5,7 +5,6 @@ import crypto from "crypto";
 import fs from "fs";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { Producto } from "../models/producto.js";
-import { Usuario } from "../models/usuario.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { validarPassword } from "../utils/validarPassword.js";
 import { coincideRfcConCurp } from "../utils/validarRfcCurp.js";
@@ -14,7 +13,16 @@ import {
   validarNitidezINE,
 } from "../services/ineService.js";
 import { extraerDatosINE, coincideNombreConDatosINE } from "../services/structOcrService.js";
-import { buscarEnListaNegra } from "../services/listaNegraService.js";
+import {
+  CODIGO_DATOS_NO_REGISTRABLES,
+  crearSolicitudDeRevision,
+  mensajeDeBloqueoRegistro,
+  revisarBloqueoDeRegistro,
+  type MotivoBloqueoRegistro,
+} from "../services/bloqueoRegistroService.js";
+import { enviarCorreoSolicitudRevisionRegistro } from "../services/emailService.js";
+import { publicarSolicitudRevisionRegistrada } from "../graphql/suscripciones.js";
+import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
 import {
   validarHorarioSemanal,
   estaDentroDeSuHorario,
@@ -46,27 +54,6 @@ function limpiarArchivos(archivos: Express.Multer.File[]) {
   archivos.forEach((archivo) => {
     fs.unlink(archivo.path, () => {});
   });
-}
-
-/**
- * Copia los cambios de la cuenta a la colección `usuario` de MongoDB, que es
- * la que leen el panel de administración, GraphQL y el trabajo diario de
- * horarios. Si MongoDB no está disponible solo se avisa en consola: nunca
- * rompe la operación que el vendedor estaba haciendo.
- */
-function reflejarEnMongo(
-  correo: string,
-  cambios: Record<string, unknown>,
-  upsert = false,
-) {
-  return Usuario.updateOne({ correo }, { $set: cambios }, { upsert }).catch(
-    (errorMongo) => {
-      console.error(
-        "[mongo] No se pudo actualizar el espejo del usuario:",
-        errorMongo?.message ?? errorMongo,
-      );
-    },
-  );
 }
 
 export async function registrarUsuario(req: Request, res: Response) {
@@ -285,29 +272,27 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    // RQNF1.9: si el RFC, la CURP o el código de la INE ya están en la
-    // lista negra, el registro se deniega.
-    const entradaListaNegra = await buscarEnListaNegra({
+    // RQNF1.9: si el RFC, la CURP, el código de la INE o el correo ya están
+    // en la lista negra, o si esos datos (o el teléfono) ya pertenecen a
+    // otra cuenta, el registro se deniega con un mensaje claro.
+    const revision = await revisarBloqueoDeRegistro({
       rfc,
       curp,
       ineCodigoReverso: mrzCompleto,
+      correo,
+      telefono,
     });
 
-    if (entradaListaNegra) {
+    if (revision.bloqueado && revision.motivo) {
       limpiarArchivos([ineFrente, ineReverso]);
+      console.warn(
+        `[registro] Alta denegada (${revision.motivo}) para ${correo}. Campos: ${revision.campos.join(", ")}`,
+      );
       return res.status(403).json({
-        message: "El registro no pudo completarse",
+        message: mensajeDeBloqueoRegistro(revision.motivo),
+        codigo: CODIGO_DATOS_NO_REGISTRABLES,
+        motivo: revision.motivo,
       });
-    }
-
-    const usuarioExistente = await clientePrisma.usuario.findFirst({
-      where: { correo },
-    });
-    if (usuarioExistente) {
-      limpiarArchivos([ineFrente, ineReverso]);
-      return res
-        .status(400)
-        .json({ message: "Ya existe una cuenta con ese correo" });
     }
 
     const passwordHasheada = await bcrypt.hash(password, 10);
@@ -322,6 +307,7 @@ export async function registrarUsuario(req: Request, res: Response) {
         password: passwordHasheada,
         curp,
         paypalEmail: datosMetodoPago,
+        metodoPago,
         ineFrente: `/uploads/ine/${ineFrente.filename}`,
         ineReverso: `/uploads/ine/${ineReverso.filename}`,
         ineCodigoReverso: mrzCompleto,
@@ -334,38 +320,6 @@ export async function registrarUsuario(req: Request, res: Response) {
         diasSinConfirmarHorario: 0,
       },
     });
-
-    // Espejo en MongoDB para el panel de administración, GraphQL y el
-    // trabajo de horarios (ambas bases conviven durante la migración).
-    await reflejarEnMongo(
-      correo,
-      {
-        usuarioId: usuarioCreado.id,
-        nombreCompleto,
-        direccion,
-        telefono,
-        rfc,
-        password: passwordHasheada,
-        tipo: usuarioCreado.tipo,
-        ventasExitosas: usuarioCreado.ventasExitosas,
-        reportes: usuarioCreado.totalReportes,
-        correoVerificado: usuarioCreado.correoVerificado,
-        ineFrente: usuarioCreado.ineFrente,
-        ineReverso: usuarioCreado.ineReverso,
-        ineCodigoReverso: mrzCompleto,
-        curp,
-        aceptaTerminos: true,
-        recibirNotificacionesCriticas: true,
-        recibirNotificacionesPublicitarias:
-          recibirNotificacionesPublicitarias === "true",
-        metodoPago,
-        datosMetodoPago,
-        horarios,
-        horarioConfirmadoEn: new Date(),
-        diasSinConfirmarHorario: 0,
-      },
-      true,
-    );
 
     // Fase 4: el BackOffice ve al nuevo usuario registrado al instante.
     await publicarEventoUsuario(
@@ -417,35 +371,117 @@ export async function registrarUsuario(req: Request, res: Response) {
   }
 }
 
+/**
+ * RQNF1.9: una persona a la que se le denegó el alta puede solicitar que los
+ * administradores revisen el caso. La solicitud queda registrada en el
+ * BackOffice y se avisa por correo a los administradores.
+ */
+export async function solicitarRevisionDeRegistro(req: Request, res: Response) {
+  try {
+    const { nombreCompleto, correo, telefono, rfc, mensaje, motivo } =
+      req.body ?? {};
+
+    if (!nombreCompleto || typeof nombreCompleto !== "string" || !nombreCompleto.trim()) {
+      return res
+        .status(400)
+        .json({ message: "Escribe tu nombre completo" });
+    }
+
+    if (!correo || typeof correo !== "string" || !FORMATO_CORREO.test(correo.trim())) {
+      return res
+        .status(400)
+        .json({ message: "Escribe un correo electrónico válido" });
+    }
+
+    const motivoValido: MotivoBloqueoRegistro[] = [
+      "lista-negra",
+      "datos-en-uso",
+      "correo-en-uso",
+    ];
+    const motivoElegido = motivoValido.includes(motivo)
+      ? (motivo as MotivoBloqueoRegistro)
+      : "lista-negra";
+
+    const solicitud = await crearSolicitudDeRevision({
+      nombreCompleto,
+      correo,
+      telefono: typeof telefono === "string" ? telefono : "",
+      rfc: typeof rfc === "string" ? rfc : "",
+      motivoBloqueo: motivoElegido,
+      camposCoincidentes:
+        Array.isArray(req.body?.campos) && typeof req.body.campos[0] === "string"
+          ? req.body.campos.slice(0, 8)
+          : [],
+      mensaje: typeof mensaje === "string" ? mensaje.slice(0, 1000) : "",
+    });
+
+    // El aviso a los administradores se manda sin esperar: la persona no
+    // debe quedarse viendo el formulario por un problema del correo.
+    void enviarCorreoSolicitudRevisionRegistro(solicitud).catch((errorCorreo) => {
+      console.error(
+        "[registro] No se pudo avisar por correo la solicitud de revisión:",
+        errorCorreo instanceof Error ? errorCorreo.message : errorCorreo,
+      );
+    });
+
+    await publicarSolicitudRevisionRegistrada(solicitud);
+
+    res.status(201).json({
+      message:
+        "Solicitud enviada. Los administradores revisarán tus datos y te responderán al correo que registraste.",
+      solicitud: {
+        id: solicitud.id,
+        estado: solicitud.estado,
+        fecha: solicitud.fecha,
+      },
+    });
+  } catch (error) {
+    console.error("[registro] Error al registrar la solicitud de revisión:", error);
+    res
+      .status(500)
+      .json({ message: "No pudimos enviar tu solicitud, inténtalo más tarde" });
+  }
+}
+
+/**
+ * RQNF6: la autenticación consulta PostgreSQL (fuente de verdad de las
+ * cuentas) y la contraseña se compara contra su hash bcryptjs, nunca en
+ * texto plano.
+ */
 export async function iniciarSesion(req: Request, res: Response) {
   try {
     const { correo, password } = req.body;
 
-    // RQNF6: la autenticación consulta los registros de MongoDB y la
-    // contraseña se compara contra su hash bcryptjs, nunca en texto plano.
-    const usuario = await Usuario.findOne({ correo });
+    const cuenta = await clientePrisma.usuario.findFirst({
+      where: {
+        correo: {
+          equals: String(correo ?? "").trim(),
+          mode: "insensitive",
+        },
+      },
+    });
 
-    if (!usuario || typeof usuario.password !== "string") {
+    if (!cuenta || typeof cuenta.password !== "string") {
       return res
         .status(401)
         .json({ message: "Correo o contraseña incorrectos" });
     }
 
-    const passwordCorrecta = await bcrypt.compare(password, usuario.password);
+    const passwordCorrecta = await bcrypt.compare(password, cuenta.password);
     if (!passwordCorrecta) {
       return res
         .status(401)
         .json({ message: "Correo o contraseña incorrectos" });
     }
 
-    // RQNF37 / RQNF38: la suspensión administrativa se refleja en el espejo
-    // de MongoDB. La suspensión por saldo pendiente permite ingresar solo
-    // para terminar las entregas en curso (el middleware bloquea el resto de
-    // las acciones); las demás suspensiones impiden el ingreso.
-    const motivoSuspension = usuario.motivoSuspension
-      ? String(usuario.motivoSuspension)
+    // RQNF37 / RQNF38: la suspensión administrativa vive en PostgreSQL. La
+    // suspensión por saldo pendiente permite ingresar solo para terminar las
+    // entregas en curso (el middleware bloquea el resto); las demás impiden
+    // el ingreso.
+    const motivoSuspension = cuenta.motivoSuspension
+      ? String(cuenta.motivoSuspension)
       : null;
-    if (usuario.suspendido && motivoSuspension !== "saldo_pendiente") {
+    if (cuenta.suspendido && motivoSuspension !== "saldo_pendiente") {
       return res.status(403).json({
         message:
           "Tu cuenta está suspendida por la administración de Ichiba. Contacta al equipo para más información.",
@@ -456,14 +492,11 @@ export async function iniciarSesion(req: Request, res: Response) {
 
     // El token conserva el id numérico de PostgreSQL, que es el que usan el
     // middleware y el resto de los módulos de la plataforma.
-    const idCuenta = Number(usuario.usuarioId);
-    if (!Number.isInteger(idCuenta) || idCuenta <= 0) {
-      console.error(`[login] El usuario ${correo} no tiene id en PostgreSQL`);
-      return res.status(500).json({ message: "Error al iniciar sesión" });
-    }
+    const idCuenta = Number(cuenta.id);
+    const tipoCuenta = cuenta.tipo;
 
     const token = jwt.sign(
-      { id: idCuenta, tipo: usuario.tipo },
+      { id: idCuenta, tipo: tipoCuenta },
       process.env.JWT_SECRET as string,
       { expiresIn: "7d" },
     );
@@ -472,13 +505,13 @@ export async function iniciarSesion(req: Request, res: Response) {
       token,
       usuario: {
         id: idCuenta,
-        nombreCompleto: usuario.nombreCompleto,
-        correo: usuario.correo,
-        tipo: usuario.tipo,
+        nombreCompleto: cuenta.nombreCompleto,
+        correo: cuenta.correo,
+        tipo: tipoCuenta,
         // RQNF10.3 / RQNF37: la UI avisa cuando la cuenta está cancelada o
         // suspendida por saldo pendiente (solo entregas en curso).
-        estadoCuenta: usuario.estadoCuenta ?? "activa",
-        suspendido: usuario.suspendido === true,
+        estadoCuenta: cuenta.estadoCuenta ?? "activa",
+        suspendido: cuenta.suspendido === true,
         motivoSuspension,
       },
     });
@@ -594,11 +627,6 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
     const errorHorario = validarHorarioSemanal(horarios);
     if (errorHorario) return res.status(400).json({ message: errorHorario });
 
-    const cuenta = await clientePrisma.usuario.findUnique({
-      where: { id: req.usuarioId },
-      select: { correo: true },
-    });
-
     const horarioConfirmadoEn = new Date();
     await clientePrisma.usuario.update({
       where: { id: req.usuarioId },
@@ -608,14 +636,6 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
         diasSinConfirmarHorario: 0,
       },
     });
-
-    if (cuenta) {
-      await reflejarEnMongo(cuenta.correo, {
-        horarios,
-        horarioConfirmadoEn,
-        diasSinConfirmarHorario: 0,
-      });
-    }
 
     res.json({ message: "Horario confirmado" });
   } catch (error) {
@@ -674,21 +694,10 @@ export async function actualizarPreferencias(
       });
     }
 
-    const usuario = await clientePrisma.usuario.findUnique({
-      where: { id: req.usuarioId },
-      select: { correo: true },
-    });
-
-    if (!usuario) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
-
     await clientePrisma.usuario.update({
       where: { id: req.usuarioId },
       data: cambios,
     });
-
-    await reflejarEnMongo(usuario.correo, cambios);
 
     res.json({
       message: "Preferencias guardadas",
@@ -836,11 +845,8 @@ export async function restablecerPassword(req: Request, res: Response) {
       },
     });
 
-    // RQNF6: la autenticación consulta MongoDB, así que la nueva contraseña
-    // (hash bcryptjs) debe quedar también en el espejo, o el usuario no
-    // podría iniciar sesión con ella.
-    await reflejarEnMongo(correo, { password: passwordHasheada });
-
+    // RQNF6: la autenticación consulta PostgreSQL, así que el nuevo hash
+    // bcryptjs queda en la fuente de verdad y el usuario puede entrar con él.
     res.json({ message: "Contraseña actualizada correctamente" });
   } catch (error) {
     console.error("Error real:", error);

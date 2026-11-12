@@ -81,6 +81,12 @@
   color: #1a1a1a;
 }
 
+/* RNF-PAG-19: comisión y neto del vendedor. */
+.panel-vendedor__stat-card--dinero .panel-vendedor__stat-numero {
+  color: #2e7d32;
+  font-size: 1.55rem;
+}
+
 .panel-vendedor__boton-publicar {
   display: inline-block;
   background-color: #d90429;
@@ -400,6 +406,13 @@
   font-size: 0.85rem;
   font-weight: 700;
   color: #8a5a00;
+}
+
+.panel-vendedor__venta-comision {
+  margin: 0.25rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2e7d32;
 }
 
 .panel-vendedor__comprobante {

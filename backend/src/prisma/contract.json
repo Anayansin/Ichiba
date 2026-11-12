@@ -493,6 +493,20 @@
                   "kind": "scalar"
                 }
               },
+              "metodoPago": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "motivoSuspension": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "nombreCompleto": {
                 "nullable": false,
                 "type": {
@@ -535,10 +549,45 @@
                   "kind": "scalar"
                 }
               },
+              "revisionAdministrativa": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "rfc": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "saldoPendiente": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/float8@1",
+                  "kind": "scalar"
+                }
+              },
+              "sancionHasta": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "sancionPermanente": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "suspendido": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
                   "kind": "scalar"
                 }
               },
@@ -675,6 +724,12 @@
                 "ineReverso": {
                   "column": "ineReverso"
                 },
+                "metodoPago": {
+                  "column": "metodoPago"
+                },
+                "motivoSuspension": {
+                  "column": "motivoSuspension"
+                },
                 "nombreCompleto": {
                   "column": "nombreCompleto"
                 },
@@ -693,8 +748,23 @@
                 "recibirNotificacionesPublicitarias": {
                   "column": "recibirNotificacionesPublicitarias"
                 },
+                "revisionAdministrativa": {
+                  "column": "revisionAdministrativa"
+                },
                 "rfc": {
                   "column": "rfc"
+                },
+                "saldoPendiente": {
+                  "column": "saldoPendiente"
+                },
+                "sancionHasta": {
+                  "column": "sancionHasta"
+                },
+                "sancionPermanente": {
+                  "column": "sancionPermanente"
+                },
+                "suspendido": {
+                  "column": "suspendido"
                 },
                 "telefono": {
                   "column": "telefono"
@@ -1382,6 +1452,20 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "metodoPago": {
+                  "codecId": "pg/text@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "paypal"
+                  },
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "motivoSuspension": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "nombreCompleto": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -1420,9 +1504,50 @@
                   "nativeType": "bool",
                   "nullable": false
                 },
+                "revisionAdministrativa": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "rfc": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
+                  "nullable": false
+                },
+                "saldoPendiente": {
+                  "codecId": "pg/float8@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nativeType": "float8",
+                  "nullable": false
+                },
+                "sancionHasta": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "sancionPermanente": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "suspendido": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
                   "nullable": false
                 },
                 "telefono": {
@@ -1678,7 +1803,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "5108b8929e6722be58d52ac16970443767367605d0b92eb24d42fc640d305526"
+    "storageHash": "4cbf2f0eddc04e3a26d7adcfa62ee397ffecbf866919efe8c6aca12842fa9f91"
   },
   "execution": {
     "executionHash": "ea6bc23da1a68707b855fb32d87ec1d871779f076bfd5e63a97ffc31d2290037",

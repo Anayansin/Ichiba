@@ -6,11 +6,8 @@ import {
   identidadPaypal,
 } from "../services/paypalService.js";
 import { cifrar } from "../services/cifradoService.js";
-import {
-  VinculoPayPal,
-  EstadoVinculacionPayPal,
-} from "../models/VinculoPayPal.js";
-import { Usuario } from "../models/usuario.js";
+import { VinculoPayPal, EstadoVinculacionPayPal } from "../models/VinculoPayPal.js";
+import clientePrisma from "../configuracion/prisma.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
 const MINUTOS_STATE = 10;
@@ -149,11 +146,13 @@ export async function estadoVinculacionPayPal(
       .select("correoPayPal merchantId vinculadoEn tokenExpiraEn")
       .lean();
 
-    // El método de pago vive en el espejo de MongoDB: la tarjeta de PayPal
-    // solo le interesa a los vendedores que cobran con PayPal.
-    const espejo = await Usuario.findOne({ usuarioId })
-      .select("metodoPago")
-      .lean()
+    // El método de pago vive en PostgreSQL: la tarjeta de PayPal solo le
+    // interesa a los vendedores que cobran con PayPal.
+    const cuenta = await clientePrisma.usuario
+      .findUnique({
+        where: { id: usuarioId },
+        select: { metodoPago: true },
+      })
       .catch(() => null);
 
     res.json({
@@ -161,8 +160,7 @@ export async function estadoVinculacionPayPal(
       correoPayPal: vinculo?.correoPayPal ?? null,
       merchantId: vinculo?.merchantId ?? null,
       vinculadoEn: vinculo?.vinculadoEn ?? null,
-      metodoPago:
-        (espejo as { metodoPago?: string } | null)?.metodoPago ?? "paypal",
+      metodoPago: cuenta?.metodoPago ?? "paypal",
     });
   } catch (error) {
     console.error("[paypal] No se pudo leer la vinculación:", error);

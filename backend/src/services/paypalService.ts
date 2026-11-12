@@ -6,17 +6,44 @@
  * y terminaban en un "500 genérico" imposible de diagnosticar.
  */
 
+import { calcularComision } from "./comisionService.js";
+
 type VariablesPaypal = {
   clientId: string;
   clientSecret: string;
   apiBase: string;
 };
 
+let advertenciasProduccionMostradas = false;
+
+function advertirConfiguracionProduccion(apiBase: string): void {
+  if (
+    advertenciasProduccionMostradas ||
+    process.env.NODE_ENV !== "production"
+  ) {
+    return;
+  }
+  advertenciasProduccionMostradas = true;
+
+  if (apiBase.includes("sandbox")) {
+    console.error(
+      "[paypal] PAYPAL_API_BASE apunta a sandbox con NODE_ENV=production: los pagos reales no funcionarán. Usa https://api-m.paypal.com.",
+    );
+  }
+  if (modoComisionPaypal() === "registro") {
+    console.error(
+      "[paypal] PAYPAL_COMISION_MODO=registro con NODE_ENV=production: la comisión se muestra pero NO se cobra. Cambia a platform_fee cuando PayPal apruebe Complete Payments.",
+    );
+  }
+}
+
 function configuracionPaypal(): VariablesPaypal {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
-  const apiBase =
-    process.env.PAYPAL_API_BASE ?? "https://api-m.sandbox.paypal.com";
+  const clientId = process.env.PAYPAL_CLIENT_ID?.trim();
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET?.trim();
+  const apiBase = (
+    process.env.PAYPAL_API_BASE?.trim() ||
+    "https://api-m.sandbox.paypal.com"
+  ).replace(/\/+$/, "");
 
   if (!clientId || !clientSecret) {
     const faltantes = [
@@ -30,12 +57,80 @@ function configuracionPaypal(): VariablesPaypal {
     );
   }
 
+  advertirConfiguracionProduccion(apiBase);
+
   return { clientId, clientSecret, apiBase };
 }
 
 function frontUrl(): string {
-  const frontend = process.env.FRONTEND_URL ?? "http://localhost:5173";
-  return frontend.replace(/\/$/, "");
+  const frontend =
+    process.env.FRONTEND_URL?.trim() || "http://localhost:5173";
+  return frontend.replace(/\/+$/, "");
+}
+
+type ModoComisionPaypal = "platform_fee" | "registro";
+
+/**
+ * `platform_fee` cobra la comisión real con PayPal Complete Payments.
+ * `registro` solo la muestra/registra (desarrollo o mientras PayPal aprueba
+ * la cuenta de plataforma); nunca debe usarse para declarar la comisión como
+ * cobrada en producción.
+ */
+function modoComisionPaypal(): ModoComisionPaypal {
+  const modo = (process.env.PAYPAL_COMISION_MODO ?? "platform_fee")
+    .trim()
+    .toLowerCase();
+  return modo === "registro" ? "registro" : "platform_fee";
+}
+
+/** Indica si la comisión real de PayPal está activa. */
+export function comisionPaypalActiva(): boolean {
+  return modoComisionPaypal() === "platform_fee";
+}
+
+/**
+ * Instrucción de PayPal para cobrar la comisión de Ichiba al capturar la
+ * autorización del escrow. Requiere una cuenta habilitada para PayPal Complete
+ * Payments Platform (Marketplaces and Platforms) y vendedores enrolados en la
+ * plataforma con la función PARTNER_FEE.
+ *
+ * El `payee` de `platform_fees` es opcional. Si se omite, PayPal acredita la
+ * comisión a la cuenta dueña de la app (la plataforma). `PAYPAL_PLATFORM_MERCHANT_ID`
+ * solo se usa cuando PayPal pide indicar explícitamente esa cuenta.
+ */
+function instruccionComisionPaypal(monto: number) {
+  if (modoComisionPaypal() === "registro") return null;
+
+  const merchantIdPlataforma =
+    process.env.PAYPAL_PLATFORM_MERCHANT_ID?.trim();
+
+  // Si se configura, debe tener el formato exacto de PayPal. Validarlo aquí
+  // evita una orden rechazada con un error críptico.
+  if (
+    merchantIdPlataforma &&
+    !/^[2-9A-HJ-NP-Z]{13}$/.test(merchantIdPlataforma)
+  ) {
+    throw new Error(
+      "PAYPAL_PLATFORM_MERCHANT_ID no tiene el formato de PayPal: deben ser 13 caracteres (sin 0, 1, I ni O). Copia el Merchant ID de la cuenta de plataforma o deja la variable vacía.",
+    );
+  }
+
+  const { total } = calcularComision(monto);
+  if (total <= 0) return null;
+
+  return {
+    // El escrow ya retuvo el dinero antes de capturar; al liberar, el neto se
+    // dispersa de inmediato al vendedor y la comisión a la plataforma.
+    disbursement_mode: "INSTANT",
+    platform_fees: [
+      {
+        amount: { currency_code: "MXN", value: total.toFixed(2) },
+        ...(merchantIdPlataforma
+          ? { payee: { merchant_id: merchantIdPlataforma } }
+          : {}),
+      },
+    ],
+  };
 }
 
 async function leerRespuesta(respuesta: Response, contexto: string) {
@@ -117,6 +212,8 @@ export async function crearOrdenPaypal(
           payee: merchantIdVendedor
             ? { merchant_id: merchantIdVendedor }
             : { email_address: paypalEmailVendedor },
+          // RNF-PAG-20: la comisión no se envía aquí: PayPal la exige en la
+          // captura de la autorización (ver capturarAutorizacionPaypal).
         },
       ],
       application_context: {
@@ -157,9 +254,13 @@ export async function autorizarOrdenPaypal(orderId: string) {
  * RQNF27: captura la autorización para liberar los fondos retenidos en escrow
  * hacia la cuenta del vendedor (se llama al registrarse el código de entrega).
  */
-export async function capturarAutorizacionPaypal(authorizationId: string) {
+export async function capturarAutorizacionPaypal(
+  authorizationId: string,
+  monto?: number,
+) {
   const { apiBase } = configuracionPaypal();
   const token = await obtenerAccessToken();
+  const pagoComision = instruccionComisionPaypal(monto ?? 0);
 
   const respuesta = await fetch(
     `${apiBase}/v2/payments/authorizations/${authorizationId}/capture`,
@@ -169,6 +270,12 @@ export async function capturarAutorizacionPaypal(authorizationId: string) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
+      // RNF-PAG-20: PayPal exige `payment_instruction` en la captura de una
+      // autorización (intent=AUTHORIZE), no al crear la orden. Aquí se retiene
+      // la comisión de Ichiba y se dispersa el neto al vendedor.
+      body: JSON.stringify(
+        pagoComision ? { payment_instruction: pagoComision } : {},
+      ),
     },
   );
 
@@ -208,26 +315,76 @@ export async function reembolsarCapturaPaypal(
   captureId: string,
   monto?: number,
   motivo?: string,
+  comision?: number,
 ) {
   const { apiBase } = configuracionPaypal();
   const token = await obtenerAccessToken();
 
-  const respuesta = await fetch(
-    `${apiBase}/v2/payments/captures/${captureId}/refund`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...(monto ? { amount: { currency_code: "MXN", value: monto.toFixed(2) } } : {}),
-        ...(motivo ? { note_to_payer: motivo.slice(0, 255) } : {}),
-      }),
-    },
-  );
+  const cuerpoBase = {
+    ...(monto
+      ? { amount: { currency_code: "MXN", value: monto.toFixed(2) } }
+      : {}),
+    ...(motivo ? { note_to_payer: motivo.slice(0, 255) } : {}),
+  };
 
-  return leerRespuesta(respuesta, "Reembolsar captura");
+  /**
+   * RNF-PAG-20: al reembolsar una venta completada también se devuelve la
+   * comisión. En la API de PayPal `platform_fees.amount` es la parte del
+   * reembolso que aporta la plataforma, así que se envía el total cobrado.
+   */
+  async function solicitar(incluirComision: boolean) {
+    const respuesta = await fetch(
+      `${apiBase}/v2/payments/captures/${captureId}/refund`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...cuerpoBase,
+          ...(incluirComision && comision && comision > 0
+            ? {
+                payment_instruction: {
+                  platform_fees: [
+                    {
+                      amount: {
+                        currency_code: "MXN",
+                        value: comision.toFixed(2),
+                      },
+                    },
+                  ],
+                },
+              }
+            : {}),
+        }),
+      },
+    );
+
+    return leerRespuesta(respuesta, "Reembolsar captura");
+  }
+
+  const conComision = Boolean(comision && comision > 0);
+
+  try {
+    return await solicitar(conComision);
+  } catch (error) {
+    // Compatibilidad con ventas anteriores a la comisión o con cuentas que
+    // todavía no tienen habilitado Complete Payments: primero se garantiza
+    // el reembolso al comprador y se deja constancia del ajuste pendiente.
+    const detalle = JSON.stringify((error as any)?.respuestaPaypal ?? "");
+    if (
+      !conComision ||
+      !/platform|fee|permission|not.authorized|invalid/i.test(detalle)
+    ) {
+      throw error;
+    }
+
+    console.warn(
+      "[paypal] El reembolso con comisión no fue aceptado; se reintenta sin platform_fees. Revisa el ajuste de la comisión de plataforma.",
+    );
+    return solicitar(false);
+  }
 }
 
 export async function capturarOrdenPaypal(orderId: string) {
@@ -281,12 +438,18 @@ function urlAutorizacionPaypal(): string {
     : "https://www.paypal.com/webapps/oauth2/authorize";
 }
 
-/** URL de regreso que PayPal llama tras autorizar (debe estar dada de alta en la app). */
+/**
+ * URL de regreso que PayPal llama tras autorizar. Debe coincidir exactamente
+ * con la registrada en la app de PayPal. `PAYPAL_REDIRECT_URI` permite fijarla
+ * explícitamente cuando el backend usa un dominio distinto al público.
+ */
 function redirectUriPaypal(): string {
-  const backend = (process.env.BACKEND_URL ?? "http://localhost:5000").replace(
-    /\/+$/,
-    "",
-  );
+  const configurada = process.env.PAYPAL_REDIRECT_URI?.trim();
+  if (configurada) return configurada;
+
+  const backend = (
+    process.env.BACKEND_URL?.trim() || "http://localhost:5000"
+  ).replace(/\/+$/, "");
   return `${backend}/api/pagos/paypal/vincular/callback`;
 }
 
@@ -300,7 +463,9 @@ export function construirUrlVinculacionPaypal(estado: string): string {
   const parametros = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    scope: "openid profile",
+    // `email` es necesario para obtener el correo de la cuenta vinculada;
+    // `payer_id` sigue siendo el Merchant ID que recibe los fondos.
+    scope: "openid profile email",
     redirect_uri: redirectUriPaypal(),
     state: estado,
   });
@@ -325,6 +490,9 @@ export async function intercambiarCodigoPorToken(codigo: string) {
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code: codigo,
+      // PayPal exige el mismo redirect_uri del paso de autorización al
+      // intercambiar el código; sin él responde invalid_grant.
+      redirect_uri: redirectUriPaypal(),
     }).toString(),
   });
 

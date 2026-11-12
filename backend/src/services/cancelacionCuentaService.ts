@@ -4,7 +4,6 @@ import clientePrisma from "../configuracion/prisma.js";
 import { Producto } from "../models/producto.js";
 import { Promocional } from "../models/Promocional.js";
 import { Mensaje } from "../models/Mensaje.js";
-import { Usuario } from "../models/usuario.js";
 import { Venta } from "../models/Venta.js";
 import {
   VinculoPayPal,
@@ -201,18 +200,6 @@ export async function acumularPuntosDeReporte(
   });
   const puntosReputacion = Number(vendedor?.puntosReputacion ?? 0);
 
-  // Espejo en MongoDB (panel de administración): mantiene los puntos
-  // aunque la cuenta todavía no se cancele.
-  await Usuario.updateOne(
-    { usuarioId: vendedorId },
-    { $set: { puntosReputacion } },
-  ).catch((errorMongo) => {
-    console.error(
-      "[cancelacion] No se pudieron reflejar los puntos en el espejo:",
-      errorMongo?.message ?? errorMongo,
-    );
-  });
-
   let cancelacion: ResultadoCancelacion | null = null;
   if (vendedor && puntosReputacion >= PUNTOS_CANCELACION) {
     cancelacion = await cancelarCuentaPorPuntos(vendedorId);
@@ -249,26 +236,21 @@ async function publicarCambioDeReputacion(
   } | null,
 ) {
   try {
-    const espejo = await Usuario.findOne({ usuarioId: vendedorId }).lean();
-    const resumen = espejo
-      ? resumirUsuario(espejo)
-      : {
-          id: String(vendedorId),
-          nombreCompleto: String(vendedor?.nombreCompleto ?? ""),
-          correo: String(vendedor?.correo ?? ""),
-          tipo: String(vendedor?.tipo ?? "vendedor"),
-          suspendido: false,
-          puntosReputacion,
-          estadoCuenta: cancelacion
-            ? "cancelada"
-            : String(vendedor?.estadoCuenta ?? "activa"),
-          fechaRegistro: vendedor?.createdAt ? new Date(vendedor.createdAt) : null,
-          motivoSuspension: null,
-          saldoPendiente: 0,
-          sancionHasta: null,
-          sancionPermanente: false,
-          revisionAdministrativa: false,
-        };
+    const cuenta = await clientePrisma.usuario.findUnique({
+      where: { id: vendedorId },
+    });
+    const resumen = resumirUsuario({
+      ...(cuenta ?? {}),
+      id: vendedorId,
+      puntosReputacion,
+      estadoCuenta: cancelacion
+        ? "cancelada"
+        : String(cuenta?.estadoCuenta ?? "activa"),
+      nombreCompleto: String(cuenta?.nombreCompleto ?? vendedor?.nombreCompleto ?? ""),
+      correo: String(cuenta?.correo ?? vendedor?.correo ?? ""),
+      tipo: String(cuenta?.tipo ?? vendedor?.tipo ?? "vendedor"),
+      createdAt: cuenta?.createdAt ?? vendedor?.createdAt ?? null,
+    });
 
     const nombre = resumen.nombreCompleto || `#${vendedorId}`;
     await publicarEventoUsuario(
@@ -327,23 +309,6 @@ export async function cancelarCuentaPorPuntos(
       estadoCuenta: "cancelada",
       canceladaEn: ahora,
     },
-  });
-
-  // Espejo en MongoDB (panel de administración).
-  await Usuario.updateOne(
-    { usuarioId: vendedorId },
-    {
-      $set: {
-        estadoCuenta: "cancelada",
-        canceladaEn: ahora,
-        puntosReputacion: Number(vendedor.puntosReputacion ?? 0),
-      },
-    },
-  ).catch((errorMongo) => {
-    console.error(
-      "[cancelacion] No se pudo actualizar el espejo del usuario:",
-      errorMongo?.message ?? errorMongo,
-    );
   });
 
   // 2. Correo de cancelación permanente (RQF11 / RQNF10.5).
@@ -459,14 +424,6 @@ export async function purgarCuentaCancelada(
   }
 
   const vendedorEnTexto = String(vendedorId);
-
-  // Acceso: el espejo de MongoDB es la fuente del inicio de sesión.
-  await Usuario.deleteOne({ usuarioId: vendedorId }).catch((errorMongo) => {
-    console.error(
-      "[cancelacion] No se pudo eliminar el espejo del usuario:",
-      errorMongo?.message ?? errorMongo,
-    );
-  });
 
   // Publicaciones: productos y promocionales.
   await Producto.deleteMany({ vendedorId: vendedorEnTexto });

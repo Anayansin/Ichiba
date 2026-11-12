@@ -41,7 +41,6 @@ import clientePrisma from "../src/configuracion/prisma.js";
 import { Producto } from "../src/models/producto.js";
 import { Venta } from "../src/models/Venta.js";
 import { Mensaje } from "../src/models/Mensaje.js";
-import { Usuario } from "../src/models/usuario.js";
 import { ListaNegra } from "../src/models/ListaNegra.js";
 import { Sancion } from "../src/models/Sancion.js";
 import {
@@ -794,44 +793,6 @@ async function crearCuentaDePrueba(opciones: {
     },
   });
 
-  await Usuario.updateOne(
-    { correo: opciones.correo },
-    {
-      $set: {
-        usuarioId: creado.id,
-        nombreCompleto: opciones.nombreCompleto,
-        direccion: "Av. de las Pruebas 100, Centro, Ciudad de México",
-        telefono: "5599999999",
-        correo: opciones.correo,
-        rfc: opciones.rfc,
-        password: passwordHasheada,
-        tipo: opciones.tipo,
-        correoVerificado: true,
-        ineFrente: "/uploads/ine/prueba-frente.jpg",
-        ineReverso: "/uploads/ine/prueba-reverso.jpg",
-        aceptaTerminos: true,
-        recibirNotificacionesCriticas: true,
-        recibirNotificacionesPublicitarias: false,
-        metodoPago: "paypal",
-        datosMetodoPago: CORREO_PAYPAL,
-        horarios: HORARIOS_SIEMPRE,
-        horarioConfirmadoEn,
-        diasSinConfirmarHorario: 0,
-        puntosReputacion: 0,
-        ...(opciones.curp ? { curp: opciones.curp } : {}),
-        ...(opciones.ineCodigoReverso
-          ? { ineCodigoReverso: opciones.ineCodigoReverso }
-          : {}),
-        ...(opciones.estadoCuenta ? { estadoCuenta: opciones.estadoCuenta } : {}),
-        ...(opciones.canceladaEn ? { canceladaEn: opciones.canceladaEn } : {}),
-      },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true },
-  );
-
-  idsCuentas.push(creado.id);
-  correosCuentas.push(opciones.correo);
   return creado.id;
 }
 
@@ -1222,11 +1183,13 @@ try {
         `${resuelto8.status}: ${JSON.stringify(resuelto8.cuerpo)} estado=${vendedorCancelado?.estadoCuenta}`,
       );
 
-      const espejo = await Usuario.findOne({ usuarioId: vendedorId }).lean();
+      const cuentaCancelada = await clientePrisma.usuario.findUnique({
+        where: { id: vendedorId },
+      });
       verificar(
-        "RQNF10.3 el espejo de MongoDB también queda cancelado (panel del administrador)",
-        espejo?.estadoCuenta === "cancelada",
-        `estadoCuenta=${espejo?.estadoCuenta}`,
+        "RQNF10.3 la cuenta queda cancelada (panel del administrador)",
+        cuentaCancelada?.estadoCuenta === "cancelada",
+        `estadoCuenta=${cuentaCancelada?.estadoCuenta}`,
       );
 
       // RQNF10.5 / RQF11: el correo sale por consola (modo local); el
@@ -1452,7 +1415,7 @@ try {
       entrega1.status === 200 &&
         entrega1.cuerpo?.estado === "completada" &&
         vendedorTrasPrimera?.datosEliminadosEn === null &&
-        (await Usuario.countDocuments({ usuarioId: vendedorId })) === 1,
+        (await clientePrisma.usuario.count({ where: { id: vendedorId } })) === 1,
       `${entrega1.status}: ${JSON.stringify(entrega1.cuerpo)} purgado=${vendedorTrasPrimera?.datosEliminadosEn}`,
     );
 
@@ -1493,9 +1456,11 @@ try {
     );
 
     verificar(
-      "RQNF10.6 la cuenta desaparece de MongoDB (ya no puede iniciar sesión)",
-      (await Usuario.countDocuments({ usuarioId: vendedorId })) === 0,
-      `documentos=${await Usuario.countDocuments({ usuarioId: vendedorId })}`,
+      "RQNF10.6 la cuenta queda anonimizada (ya no puede iniciar sesión)",
+      (await clientePrisma.usuario.count({ where: { id: vendedorId } })) === 1 &&
+        vendedorPurgado?.datosEliminadosEn instanceof Date &&
+        String(vendedorPurgado?.correo ?? "").startsWith("cuenta-cancelada-"),
+      `documentos=${await clientePrisma.usuario.count({ where: { id: vendedorId } })} correo=${vendedorPurgado?.correo}`,
     );
     const loginTrasPurga = await iniciarSesion(CORREO_VENDEDOR, PASSWORD_VENDEDOR);
     verificar(
@@ -1578,9 +1543,8 @@ try {
     `acciones=${JSON.stringify(accionesPurga)} correo=${purgaHecha?.correo}`,
   );
   verificar(
-    "RQNF10.6 la purga del trabajo borra su espejo y sus publicaciones",
-    (await Usuario.countDocuments({ usuarioId: idPurga })) === 0 &&
-      (await Producto.countDocuments({ _id: productoPurga._id })) === 0 &&
+    "RQNF10.6 la purga del trabajo borra las publicaciones y la vinculación",
+    (await Producto.countDocuments({ _id: productoPurga._id })) === 0 &&
       (await VinculoPayPal.countDocuments({ usuarioId: idPurga })) === 0,
     "quedaron documentos sin borrar",
   );
@@ -1677,7 +1641,6 @@ try {
     console.error("[limpieza] No se pudieron borrar las cuentas de PostgreSQL:", error);
   }
   try {
-    await Usuario.deleteMany({ correo: { $in: correosCuentas } });
   } catch (error) {
     console.error("[limpieza] No se pudieron borrar las cuentas de MongoDB:", error);
   }

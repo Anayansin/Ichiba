@@ -5,9 +5,11 @@ import { Venta } from "../models/Venta.js";
 import {
   anularAutorizacionPaypal,
   capturarAutorizacionPaypal,
+  comisionPaypalActiva,
   reembolsarCapturaPaypal,
 } from "./paypalService.js";
 import { reembolsarPagoMercadoPago } from "./mercadopagoService.js";
+import { calcularComision } from "./comisionService.js";
 import {
   enviarCorreoCodigoEntregaComprador,
   enviarCorreoComprobanteRecibidoVendedor,
@@ -464,6 +466,7 @@ export async function registrarEntregaDeVenta(
       try {
         const captura = await capturarAutorizacionPaypal(
           venta.autorizacionPaypalId,
+          Number(venta.monto),
         );
         capturaPaypalId = captura?.id ?? null;
       } catch (error) {
@@ -617,10 +620,17 @@ export async function cancelarEscrow(
       reembolsoTexto =
         "MercadoPago procesó el reembolso a tu medio de pago original; puede tardar unos días en reflejarse.";
     } else if (venta.capturaPaypalId) {
+      // RNF-PAG-20: si la venta se completó y PayPal ya cobró la comisión,
+      // el reembolso también la devuelve para no cobrarla en ventas
+      // reembolsadas.
+      const comision = comisionPaypalActiva()
+        ? calcularComision(Number(venta.monto)).total
+        : undefined;
       const reembolso = await reembolsarCapturaPaypal(
         venta.capturaPaypalId,
         undefined,
         opciones.motivo,
+        comision,
       );
       reembolsoId = String(reembolso?.id ?? "");
       nuevoEstado = "reembolsada";

@@ -948,6 +948,146 @@ export async function enviarCorreoDisputaRespondidaComprador(
 }
 
 /**
+ * RQNF1.9: avisa a los administradores que alguien pidió revisar un alta
+ * que el sistema denegó (datos en la lista negra o ya usados por otra
+ * cuenta). El destinatario es CORREO_ADMINISTRADORES o, si no está
+ * configurado, la cuenta de correo de la plataforma.
+ */
+export async function enviarCorreoSolicitudRevisionRegistro(solicitud: {
+  id: string;
+  nombreCompleto: string;
+  correo: string;
+  telefono: string;
+  rfc: string;
+  motivoBloqueo: string;
+  camposCoincidentes: string[];
+  mensaje: string;
+}): Promise<boolean> {
+  const destinatario =
+    process.env.CORREO_ADMINISTRADORES || process.env.GMAIL_USER || "";
+
+  const etiquetas: Record<string, string> = {
+    rfc: "RFC",
+    curp: "CURP",
+    ineCodigoReverso: "Código de la INE",
+    correo: "Correo",
+    telefono: "Teléfono",
+    identificacion: "Datos de identificación",
+  };
+  const campos = solicitud.camposCoincidentes
+    .map((campo) => etiquetas[campo] ?? campo)
+    .join(", ");
+
+  const motivo =
+    solicitud.motivoBloqueo === "lista-negra"
+      ? "Los datos están en la lista negra."
+      : solicitud.motivoBloqueo === "datos-en-uso"
+        ? "Los datos ya pertenecen a otra cuenta."
+        : "El correo ya tiene una cuenta registrada.";
+
+  if (faltaConfigurarCorreo() || !destinatario) {
+    console.log(
+      `[correo local] Solicitud de revisión de registro (${solicitud.id}) de ${solicitud.correo}. Motivo: ${motivo}`,
+    );
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: destinatario,
+    subject: "Alta de cuenta denegada: alguien pidió revisión",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Una persona intentó crear una cuenta y el sistema le denegó el alta. Pide que revisen el caso.</p>
+        <p><strong>Motivo del bloqueo:</strong> ${escaparHtml(motivo)}</p>
+        <p><strong>Datos que coincidieron:</strong> ${escaparHtml(campos || "sin detalle")}</p>
+        <p><strong>Nombre:</strong> ${escaparHtml(solicitud.nombreCompleto)}<br />
+           <strong>Correo:</strong> ${escaparHtml(solicitud.correo)}<br />
+           <strong>Teléfono:</strong> ${escaparHtml(solicitud.telefono || "no indicado")}<br />
+           <strong>RFC:</strong> ${escaparHtml(solicitud.rfc || "no indicado")}</p>
+        ${
+          solicitud.mensaje
+            ? `<p><strong>Mensaje de la persona:</strong> ${escaparHtml(solicitud.mensaje)}</p>`
+            : ""
+        }
+        <p style="color: #888; font-size: 12px;">
+          Solicitud ${escaparHtml(solicitud.id)} · ${escaparHtml(
+            new Date().toLocaleString("es-MX", { timeZone: "America/Mexico_City" }),
+          )} (hora del centro, GMT-6). La revisión se hace desde el BackOffice, en la sección "Solicitudes de registro".
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
+ * RQNF1.9: el administrador responde la solicitud de revisión y la persona
+ * recibe la respuesta en el correo con el que se registró.
+ */
+export async function enviarCorreoRespuestaSolicitudRegistro(solicitud: {
+  correo: string;
+  nombreCompleto: string;
+  estado: string;
+  respuesta: string;
+}): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(
+      `[correo local] Respuesta de revisión (${solicitud.estado}) para ${solicitud.correo}: ${solicitud.respuesta}`,
+    );
+    return false;
+  }
+
+  const texto =
+    solicitud.estado === "resuelta"
+      ? "La administración revisó tu caso y <strong>autorizó</strong> el registro de la cuenta."
+      : solicitud.estado === "descartada"
+        ? "La administración revisó tu caso y <strong>no autorizó</strong> el registro de la cuenta."
+        : "La administración está revisando tu caso.";
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: solicitud.correo,
+    subject: "Respuesta a tu solicitud de revisión de registro",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${solicitud.nombreCompleto ? ` ${escaparHtml(solicitud.nombreCompleto)}` : ""}:</p>
+        <p>${texto}</p>
+        ${
+          solicitud.respuesta
+            ? `<p><strong>Respuesta del equipo:</strong> ${escaparHtml(solicitud.respuesta)}</p>`
+            : ""
+        }
+        <p style="color: #888; font-size: 12px;">
+          Puedes intentar registrarte de nuevo o escribirnos a este correo si necesitas más ayuda.
+        </p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+/**
  * RQF40: informa a las partes el dictamen del administrador sobre una
  * disputa de reembolso (a favor del comprador con reembolso, o rechazada).
  */

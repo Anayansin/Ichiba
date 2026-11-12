@@ -4,7 +4,7 @@ import {
   CATEGORIAS_NOTIFICACION,
 } from "../models/Suscripcion.js";
 import { RequestConComprador } from "../middleware/comprador.js";
-import { FORMATO_CORREO } from "../models/usuario.js";
+import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
 
 /**
  * Guarda (o elimina) las preferencias de notificación del comprador:

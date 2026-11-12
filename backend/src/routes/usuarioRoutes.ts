@@ -9,6 +9,7 @@ import {
   solicitarRecuperacion,
   verificarCodigoRecuperacion,
   restablecerPassword,
+  solicitarRevisionDeRegistro,
 } from "../controllers/usuarioController.js";
 import { verificarToken } from "../middleware/auth.js";
 import {
@@ -28,6 +29,9 @@ router.post(
   registrarUsuario,
 );
 router.post("/login", iniciarSesion);
+// RQNF1.9: quien tuvo el alta denegada puede pedir a los administradores
+// que revisen su caso.
+router.post("/registro/solicitar-revision", solicitarRevisionDeRegistro);
 router.post("/recuperar/solicitar", solicitarRecuperacion);
 router.post("/recuperar/verificar", verificarCodigoRecuperacion);
 router.post("/recuperar/restablecer", restablecerPassword);

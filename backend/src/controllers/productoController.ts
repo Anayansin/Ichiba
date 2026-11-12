@@ -1,6 +1,5 @@
 import { Response } from "express";
 import { Producto } from "../models/producto.js";
-import { Cola } from "../models/Cola.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { buscarUsuarioPorId } from "../services/usuarioService.js";
 import clientePrisma from "../configuracion/prisma.js";
@@ -16,7 +15,6 @@ import {
   TIEMPO_PAGO_DEFECTO,
 } from "../models/producto.js";
 import { moderarFotosProducto } from "../services/visionService.js";
-import { Usuario } from "../models/usuario.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -116,11 +114,6 @@ export async function actualizarProducto(
         .json({ message: "No tienes permiso para editar este producto" });
     }
 
-    const filaEnModeloCola = await Cola.findOne({
-      productoId: producto._id,
-      estado: { $in: ESTADOS_FILA_EN_CURSO },
-    });
-
     const filaEnPostgres = await clientePrisma.cola.findFirst({
       where: {
         productoId: String(producto._id),
@@ -128,7 +121,7 @@ export async function actualizarProducto(
       },
     });
 
-    if (filaEnModeloCola || filaEnPostgres) {
+    if (filaEnPostgres) {
       return res.status(400).json({
         message:
           "No puedes editar ni eliminar un producto con una fila en curso",
@@ -264,21 +257,22 @@ export async function getProductoPorId(req: Request, res: Response) {
     }
 
     // Método de pago del vendedor: la misma resolución que usa crearOrden
-    // (Mongo con PayPal de respaldo) para que el botón de la fila diga
-    // "Pagar con PayPal" o "Pagar con Mercado Pago" según corresponda.
+    // (PayPal de respaldo) para que el botón de la fila diga "Pagar con
+    // PayPal" o "Pagar con Mercado Pago" según corresponda.
     let metodoPagoVendedor: "paypal" | "mercadopago" = "paypal";
     try {
       const vendedor = await buscarUsuarioPorId(producto.vendedorId);
       if (vendedor?.correo) {
-        const espejo = (await Usuario.findOne({ correo: vendedor.correo })
-          .select("metodoPago")
-          .lean()) as { metodoPago?: string } | null;
-        if (espejo?.metodoPago === "mercadopago") {
+        const cuenta = await clientePrisma.usuario.findFirst({
+          where: { correo: { equals: vendedor.correo, mode: "insensitive" } },
+          select: { metodoPago: true },
+        });
+        if (cuenta?.metodoPago === "mercadopago") {
           metodoPagoVendedor = "mercadopago";
         }
       }
     } catch {
-      // Si Mongo no responde se queda PayPal, igual que al crear la orden.
+      // Si no se puede leer, se queda PayPal, igual que al crear la orden.
     }
 
     res.json({ ...producto.toObject(), metodoPagoVendedor });
@@ -424,12 +418,6 @@ function paginacionDeConsulta(req: Request) {
   return { pagina, porPagina };
 }
 
-/** Forma mínima del espejo de usuario en MongoDB que necesita el catálogo. */
-type VendedorConHorarios = {
-  usuarioId?: number;
-  horarios?: BloqueHorario[];
-};
-
 /**
  * Agrega `vendedorAtendiendo` a los productos de una página según el horario
  * vigente de cada vendedor (en hora del centro, GMT-6). Un vendedor sin
@@ -449,16 +437,17 @@ async function conAtencionDelVendedor<T extends { vendedorId: unknown }>(
   ];
 
   const vendedores = idsVendedores.length
-    ? ((await Usuario.find({ usuarioId: { $in: idsVendedores } })
-        .select("usuarioId horarios")
-        .lean()) as unknown as VendedorConHorarios[])
+    ? await clientePrisma.usuario.findMany({
+        where: { id: { in: idsVendedores } },
+        select: { id: true, horarios: true },
+      })
     : [];
 
   const ahora = new Date();
   const atencionPorVendedor = new Map<number, boolean>();
   for (const vendedor of vendedores) {
     atencionPorVendedor.set(
-      Number(vendedor.usuarioId),
+      Number(vendedor.id),
       estaAtendiendo(vendedor.horarios, ahora),
     );
   }
@@ -627,11 +616,6 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
         .json({ message: "No tienes permiso sobre este producto" });
     }
 
-    const filaEnModeloCola = await Cola.findOne({
-      productoId: producto._id,
-      estado: { $in: ESTADOS_FILA_EN_CURSO },
-    });
-
     const filaEnPostgres = await clientePrisma.cola.findFirst({
       where: {
         productoId: String(producto._id),
@@ -639,7 +623,7 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
       },
     });
 
-    if (filaEnModeloCola || filaEnPostgres) {
+    if (filaEnPostgres) {
       return res.status(400).json({
         message:
           "No puedes editar ni eliminar un producto con una fila en curso",
@@ -653,13 +637,13 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
 
     // Las filas dejan de existir junto con el producto: sin esto quedan
     // como "activas" y siguen contando para el límite de 3 del comprador
-    await Cola.updateMany(
-      {
-        productoId: producto._id,
-        estado: { $in: ["activa", "esperando_confirmacion"] },
+    await clientePrisma.cola.updateMany({
+      where: {
+        productoId: String(producto._id),
+        estado: { in: ["activa", "esperando_confirmacion"] },
       },
-      { estado: "finalizada", motivoCierre: "producto_eliminado" },
-    );
+      data: { estado: "finalizada", motivoCierre: "producto_eliminado" },
+    });
 
     await producto.deleteOne();
     res.json({ message: "Producto eliminado" });

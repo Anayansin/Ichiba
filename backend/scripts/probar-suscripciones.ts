@@ -30,7 +30,6 @@ import bcrypt from "bcryptjs";
 import WebSocket from "ws";
 import { createClient, type Client } from "graphql-ws";
 import clientePrisma from "../src/configuracion/prisma.js";
-import { Usuario } from "../src/models/usuario.js";
 import { ListaNegra } from "../src/models/ListaNegra.js";
 import { Sancion } from "../src/models/Sancion.js";
 
@@ -211,39 +210,6 @@ async function crearCuentaDePrueba(opciones: {
     },
   });
 
-  await Usuario.updateOne(
-    { correo: opciones.correo },
-    {
-      $set: {
-        usuarioId: creado.id,
-        nombreCompleto: opciones.nombreCompleto,
-        direccion: "Av. de las Pruebas 300, Centro, Ciudad de México",
-        telefono: "5577777777",
-        correo: opciones.correo,
-        rfc: opciones.rfc,
-        password: passwordHasheada,
-        tipo: opciones.tipo,
-        correoVerificado: true,
-        ineFrente: "/uploads/ine/prueba-frente.jpg",
-        ineReverso: "/uploads/ine/prueba-reverso.jpg",
-        aceptaTerminos: true,
-        recibirNotificacionesCriticas: true,
-        recibirNotificacionesPublicitarias: false,
-        metodoPago: "paypal",
-        datosMetodoPago: CORREO_PAYPAL,
-        horarios: HORARIOS,
-        horarioConfirmadoEn,
-        diasSinConfirmarHorario: 0,
-        puntosReputacion: 0,
-        estadoCuenta: "activa",
-      },
-      $setOnInsert: { createdAt: new Date() },
-    },
-    { upsert: true },
-  );
-
-  idsCuentas.push(creado.id);
-  correosCuentas.push(opciones.correo);
   return creado.id;
 }
 
@@ -398,14 +364,14 @@ async function main() {
     `vendedor=${Boolean(tokenVendedor)} admin=${Boolean(tokenAdmin)}`,
   );
 
-  const espejoVendedor = await Usuario.findOne({
-    correo: CORREO_VENDEDOR,
-  }).lean();
-  const idEspejoVendedor = String(espejoVendedor?._id ?? "");
+  const cuentaVendedor = await clientePrisma.usuario.findFirst({
+    where: { correo: CORREO_VENDEDOR },
+  });
+  const idEspejoVendedor = String(cuentaVendedor?.id ?? "");
   verificar(
-    "el espejo de MongoDB del vendedor existe (lo usan suspender/reactivar)",
+    "el vendedor existe en PostgreSQL (lo usan suspender/reactivar)",
     Boolean(idEspejoVendedor),
-    `idEspejo=${idEspejoVendedor}`,
+    `id=${idEspejoVendedor}`,
   );
 
   // -------------------------------------------------------------------------
@@ -708,7 +674,6 @@ try {
       await Sancion.deleteMany({ sujetoId: String(idCuenta) });
     }
     await ListaNegra.deleteMany({ rfc: RFC_LISTA_NEGRA });
-    await Usuario.deleteMany({ correo: { $in: correosCuentas } });
   } catch (error) {
     console.error("[limpieza] No se pudieron borrar los espejos de Mongo:", error);
   }

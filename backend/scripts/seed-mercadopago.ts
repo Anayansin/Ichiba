@@ -19,7 +19,6 @@ import path from "path";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { Producto } from "../src/models/producto.js";
-import { Usuario } from "../src/models/usuario.js";
 import { CATEGORIAS_PRODUCTO } from "../src/configuracion/categorias.js";
 import { campoConPalabrasProhibidas } from "../src/utils/filtroPalabras.js";
 import clientePrisma from "../src/configuracion/prisma.js";
@@ -196,8 +195,24 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
     );
 
     if (existente) {
-      await reflejarEnMongo(existente.id, false);
-      return { id: String(existente.id), nombre: existente.nombreCompleto };
+      // La cuenta demo siempre queda lista para publicar: se refresca la
+      // confirmación del horario del mes en curso (si no, el middleware de
+      // verificación la rechaza al cambiar de mes).
+      await conLimite(
+        clientePrisma.usuario.update({
+          where: { id: existente.id },
+          data: {
+            horarios: HORARIOS_VENDEDOR_MP,
+            horarioConfirmadoEn: new Date(),
+            diasSinConfirmarHorario: 0,
+            // La cuenta demo nunca queda suspendida ni con adeudos.
+            suspendido: false,
+            motivoSuspension: null,
+            saldoPendiente: 0,
+          },
+        }),
+      );
+            return { id: String(existente.id), nombre: existente.nombreCompleto };
     }
 
     const passwordHasheada = await bcrypt.hash(PASSWORD_VENDEDOR_MP, 10);
@@ -227,8 +242,7 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
       }),
     );
 
-    await reflejarEnMongo(creado.id, true);
-    console.log(
+        console.log(
       `Cuenta creada: ${CORREO_VENDEDOR_MP} (contraseña ${PASSWORD_VENDEDOR_MP})`,
     );
 
@@ -244,43 +258,6 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
 }
 
 /** Copia la cuenta a MongoDB con `metodoPago: "mercadopago"`. */
-async function reflejarEnMongo(id: number, creado: boolean) {
-  const cambios = {
-    usuarioId: id,
-    nombreCompleto: "Vendedor Mercado Pago",
-    direccion: "Av. Ejemplo 456, Colonia Centro, Ciudad de México",
-    telefono: "5500000001",
-    correo: CORREO_VENDEDOR_MP,
-    rfc: "XXXX000101MPO",
-    // RQNF6: la autenticación consulta MongoDB, así que el espejo debe
-    // llevar el hash bcryptjs real de la contraseña del vendedor MP.
-    password: await bcrypt.hash(PASSWORD_VENDEDOR_MP, 10),
-    tipo: "vendedor",
-    ineFrente: "/uploads/ine/demo-frente.jpg",
-    ineReverso: "/uploads/ine/demo-reverso.jpg",
-    aceptaTerminos: true,
-    recibirNotificacionesCriticas: true,
-    recibirNotificacionesPublicitarias: false,
-    metodoPago: "mercadopago",
-    datosMetodoPago: DATOS_MP,
-    horarios: HORARIOS_VENDEDOR_MP,
-    horarioConfirmadoEn: new Date(),
-    diasSinConfirmarHorario: 0,
-    correoVerificado: true,
-    ...(creado ? { createdAt: new Date() } : {}),
-  };
-
-  await Usuario.updateOne(
-    { correo: CORREO_VENDEDOR_MP },
-    { $set: cambios, $setOnInsert: { createdAt: new Date() } },
-    { upsert: true },
-  ).catch((errorMongo) => {
-    console.warn(
-      "[mongo] No se pudo crear el espejo del vendedor MercadoPago:",
-      errorMongo?.message ?? errorMongo,
-    );
-  });
-}
 
 function documentosProducto(vendedor: Vendedor, imagenes: string[]) {
   const ahora = Date.now();

@@ -185,6 +185,15 @@ export const definicionesEsquema = `
     generadoEn: String!
   }
 
+  "RQNF1.9: alguien pidió revisar un alta que el sistema denegó."
+  type EventoSolicitudRegistro {
+    tipo: String!
+    mensaje: String!
+    "Solicitudes que siguen pendientes de revisión."
+    pendientes: Int!
+    generadoEn: String!
+  }
+
   type Subscription {
     "Resumen completo y fresco del dashboard, emitido al cambiar cualquier cifra."
     resumenAdmin: ResumenAdmin!
@@ -196,6 +205,8 @@ export const definicionesEsquema = `
     listaNegraActualizada: EventoListaNegra!
     "RQF40 / RQNF32: disputa abierta, respondida o resuelta y retenciones de ventas."
     disputasActualizadas: EventoDisputa!
+    "RQNF1.9: solicitud de revisión de un alta denegada."
+    solicitudesRegistro: EventoSolicitudRegistro!
   }
 
   type Mutation {

@@ -58,6 +58,26 @@ function textoEstadoDisputaVendedor(estado: string): string {
 }
 
 /**
+ * RNF-PAG-19 / RNF-PAG-20: el vendedor ve exactamente qué comisión se le
+ * cobra y cuánto recibe. En ventas reembolsadas o canceladas no se cobra.
+ */
+function textoComisionVenta(venta: VentaDelVendedor): string {
+  const comision = venta.comision;
+  if (!comision || comision.reembolsada) {
+    return "Sin comisión de Ichiba: la venta se reembolsó o canceló.";
+  }
+
+  const detalle =
+    `Comisión Ichiba (5 % + IVA = ${comision.porcentaje.toFixed(1)} %): ` +
+    `$${comision.total.toFixed(2)}`;
+  const neto = `$${comision.netoVendedor.toFixed(2)}`;
+
+  return comision.cobrada
+    ? `${detalle} · Recibiste ${neto}.`
+    : `${detalle} · Recibirás ${neto} al liberar el pago.`;
+}
+
+/**
  * RQF40: las evidencias solo las ven las partes y la administración, así que
  * se descargan con la sesión y se muestran como blob.
  */
@@ -509,6 +529,9 @@ function PanelVendedor() {
             ${venta.monto.toFixed(2)} · Comprador:{" "}
             {venta.compradorId.slice(0, 8)}…
           </p>
+          <p className="panel-vendedor__venta-comision">
+            {textoComisionVenta(venta)}
+          </p>
           <p className="panel-vendedor__venta-detalle">
             Referencia del pago: {venta.comprobante?.referencia ?? "—"}
           </p>
@@ -585,6 +608,9 @@ function PanelVendedor() {
             ${venta.monto.toFixed(2)} · Comprador:{" "}
             {venta.compradorId.slice(0, 8)}…
           </p>
+          <p className="panel-vendedor__venta-comision">
+            {textoComisionVenta(venta)}
+          </p>
           {venta.fechas.entregaLimite && (
             <p className="panel-vendedor__venta-plazo">
               ⏰ Registra la entrega antes de:{" "}
@@ -647,6 +673,9 @@ function PanelVendedor() {
             {venta.fechas.entregadoEn
               ? ` · Entregada el ${fechaLimiteTexto(venta.fechas.entregadoEn)}`
               : ""}
+          </p>
+          <p className="panel-vendedor__venta-comision">
+            {textoComisionVenta(venta)}
           </p>
           {venta.canceladoMotivo && (
             <p className="panel-vendedor__venta-detalle">
@@ -982,6 +1011,22 @@ function PanelVendedor() {
                 {ventasData.resumen.completadas}
               </span>
               <span className="panel-vendedor__stat-label">Completadas</span>
+            </div>
+            <div className="panel-vendedor__stat-card panel-vendedor__stat-card--dinero">
+              <span className="panel-vendedor__stat-numero">
+                ${ventasData.resumen.comisiones.cobradas.toFixed(2)}
+              </span>
+              <span className="panel-vendedor__stat-label">
+                Comisión Ichiba cobrada (5 % + IVA)
+              </span>
+            </div>
+            <div className="panel-vendedor__stat-card panel-vendedor__stat-card--dinero">
+              <span className="panel-vendedor__stat-numero">
+                ${ventasData.resumen.comisiones.netoPorRecibir.toFixed(2)}
+              </span>
+              <span className="panel-vendedor__stat-label">
+                Neto por recibir al liberar pagos
+              </span>
             </div>
           </div>
         )}

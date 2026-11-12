@@ -1,5 +1,4 @@
 import { Sancion } from "../models/Sancion.js";
-import { Usuario } from "../models/usuario.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { categoriaRequiereRevisionInmediata } from "../configuracion/categoriasReporte.js";
 import {
@@ -204,7 +203,9 @@ async function correoDelSujeto(sancion: {
   const id = Number(sancion.sujetoId);
   if (!Number.isInteger(id)) return null;
 
-  const usuario = await Usuario.findOne({ usuarioId: id }).lean();
+  const usuario = await clientePrisma.usuario
+    .findUnique({ where: { id } })
+    .catch(() => null);
   if (usuario?.correo) {
     return {
       correo: String(usuario.correo),
@@ -212,17 +213,14 @@ async function correoDelSujeto(sancion: {
     };
   }
 
-  // Respaldo: el correo también vive en PostgreSQL.
-  const enPg = await clientePrisma.usuario.findUnique({
-    where: { id },
-    select: { correo: true, nombreCompleto: true },
-  });
-  if (!enPg?.correo) return null;
-  return { correo: String(enPg.correo), nombre: String(enPg.nombreCompleto ?? "") };
+  return null;
 }
 
-/** Refleja el estado de la sanción en el espejo de MongoDB del BackOffice. */
-async function sincronizarEspejo(
+/**
+ * Refleja el estado de la sanción en la cuenta (PostgreSQL, fuente de verdad)
+ * y avisa al BackOffice con la suscripción de usuarios.
+ */
+async function sincronizarCuenta(
   sancion: {
     sujetoTipo: string;
     sujetoId: string;
@@ -236,26 +234,30 @@ async function sincronizarEspejo(
 
   try {
     const estado = estadoBloqueo(sancion);
-    await Usuario.updateOne(
-      { usuarioId: id },
-      {
-        $set: {
-          sancionHasta: estado.hasta,
-          sancionPermanente: estado.permanente,
-          revisionAdministrativa: estado.revisionAdministrativa,
-          motivoRevision: estado.motivoRevision,
-          bloqueosAplicados: estado.bloqueosAplicados,
-        },
+    await clientePrisma.usuario.update({
+      where: { id },
+      data: {
+        sancionHasta: estado.hasta,
+        sancionPermanente: estado.permanente,
+        revisionAdministrativa: estado.revisionAdministrativa,
+        // El motivo de la suspensión solo se cambia cuando la sanción es una
+        // revisión administrativa: si no, se respeta el que puso el
+        // administrador o el adeudo (por ejemplo "saldo_pendiente").
+        ...(estado.motivoRevision
+          ? { motivoSuspension: estado.motivoRevision }
+          : {}),
       },
-    );
+    });
 
-    const espejo = await Usuario.findOne({ usuarioId: id }).lean();
-    if (espejo) {
-      await publicarEventoUsuario(tipoEvento, mensaje, resumirUsuario(espejo));
+    const cuenta = await clientePrisma.usuario.findUnique({
+      where: { id },
+    });
+    if (cuenta) {
+      await publicarEventoUsuario(tipoEvento, mensaje, resumirUsuario(cuenta));
     }
   } catch (error) {
     console.error(
-      "[sanciones] No se pudo actualizar el espejo del BackOffice:",
+      "[sanciones] No se pudo actualizar el estado de la cuenta:",
       error instanceof Error ? error.message : error,
     );
   }
@@ -337,7 +339,7 @@ export async function registrarFalta(
     }
   }
 
-  await sincronizarEspejo(
+  await sincronizarCuenta(
     sancion,
     "sancion",
     estado.permanente
@@ -391,7 +393,7 @@ export async function quitarFalta(
     }
   }
 
-  await sincronizarEspejo(
+  await sincronizarCuenta(
     sancion,
     "desbloqueado",
     despues.bloqueada
@@ -420,7 +422,7 @@ export async function levantarSancionPorAdmin(
   sancion.levantadaPorAdminMotivo = motivo;
   await sancion.save();
 
-  await sincronizarEspejo(
+  await sincronizarCuenta(
     sancion,
     "reactivado",
     `La administración levantó la sanción del sujeto ${sujetoTipo} #${sujetoId}`,
@@ -473,7 +475,7 @@ export async function desbloquearSancionesExpiradas(
       }
     }
 
-    await sincronizarEspejo(
+    await sincronizarCuenta(
       sancion,
       "desbloqueado",
       `El bloqueo temporal del usuario #${sancion.sujetoId} concluyó automáticamente`,
@@ -512,7 +514,7 @@ export async function purgarFaltasExpiradas(
     sancionesAfectadas += 1;
     faltasBorradas += borradas;
 
-    await sincronizarEspejo(
+    await sincronizarCuenta(
       sancion,
       "reactivado",
       `Prescribieron ${borradas} falta(s) del usuario #${sancion.sujetoId} (13 meses)`,

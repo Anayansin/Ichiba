@@ -8,6 +8,7 @@ import Trazabilidad from "./Trazabilidad";
 import Dashboard from "./Dashboard";
 import Disputas from "./Disputas";
 import Adeudos from "./Adeudos";
+import SolicitudesRegistro from "./SolicitudesRegistro";
 import "./Admin.css";
 
 type SeccionAdmin = {
@@ -56,6 +57,11 @@ const SECCIONES: SeccionAdmin[] = [
     id: "lista-negra",
     etiqueta: "Lista negra",
     descripcion: "Datos y cuentas bloqueadas",
+  },
+  {
+    id: "solicitudes-registro",
+    etiqueta: "Solicitudes de registro",
+    descripcion: "Altas denegadas por revisar",
   },
   {
     id: "trazabilidad",
@@ -117,6 +123,7 @@ function Admin() {
         {seccionActiva === "adeudos" && <Adeudos />}
         {seccionActiva === "informes" && <InformesGlobales />}
         {seccionActiva === "lista-negra" && <ListaNegra />}
+        {seccionActiva === "solicitudes-registro" && <SolicitudesRegistro />}
         {seccionActiva === "trazabilidad" && <Trazabilidad />}
       </div>
     </div>

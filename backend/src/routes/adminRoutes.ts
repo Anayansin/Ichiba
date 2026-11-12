@@ -10,6 +10,8 @@ import {
   obtenerListaNegra,
   agregarEntradaListaNegra,
   quitarEntradaListaNegra,
+  obtenerSolicitudesRegistro,
+  resolverSolicitudRegistro,
   obtenerResumenAdmin,
   obtenerDisputas,
   resolverDisputa,
@@ -82,6 +84,22 @@ router.delete(
   verificarToken,
   esAdmin,
   quitarEntradaListaNegra,
+);
+
+// RQNF1.9: solicitudes de revisión de altas denegadas (quien cree que es un
+// error pide a los administradores que revisen su caso).
+router.get(
+  "/solicitudes-registro",
+  verificarToken,
+  esAdmin,
+  obtenerSolicitudesRegistro,
+);
+
+router.post(
+  "/solicitudes-registro/:id/resolver",
+  verificarToken,
+  esAdmin,
+  resolverSolicitudRegistro,
 );
 
 // RQF40 / RQNF32: disputas de reembolso, ventas con retención preventiva y

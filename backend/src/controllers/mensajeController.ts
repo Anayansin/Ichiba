@@ -5,6 +5,7 @@ import { Venta } from "../models/Venta.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { registrarActividadDeChat } from "../services/escrowService.js";
+import { moderarComprobante } from "../services/visionService.js";
 import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
@@ -59,13 +60,14 @@ function descartarImagen(req: Request) {
 /**
  * Valida el texto y la imagen adjunta del mensaje entrante.
  * El filtro global de palabras corre antes de que Multer arme el cuerpo
- * multipart, así que aquí se vuelve a revisar el contenido.
+ * multipart, así que aquí se vuelve a revisar el contenido. RNF-CHA-03: la
+ * imagen también pasa por SafeSearch antes de guardarse.
  */
-function datosDelMensaje(req: Request): {
+async function datosDelMensaje(req: Request): Promise<{
   contenido: string;
   imagen: string;
   error?: string;
-} {
+}> {
   const contenido =
     typeof req.body?.contenido === "string" ? req.body.contenido.trim() : "";
   const imagen = req.file ? `/uploads/${req.file.filename}` : "";
@@ -81,6 +83,11 @@ function datosDelMensaje(req: Request): {
   const campoProhibido = campoConPalabrasProhibidas({ contenido });
   if (campoProhibido)
     return rechazar(mensajePalabrasProhibidas(campoProhibido));
+
+  if (req.file) {
+    const bloqueo = await moderarComprobante(req.file.path, "chat");
+    if (bloqueo) return rechazar(bloqueo);
+  }
 
   return { contenido, imagen };
 }
@@ -127,7 +134,7 @@ export async function enviarMensajeComoComprador(
       return res.status(403).json({ message: bloqueo });
     }
 
-    const { contenido, imagen, error } = datosDelMensaje(req);
+    const { contenido, imagen, error } = await datosDelMensaje(req);
     if (error) return res.status(400).json({ message: error });
 
     const mensaje = new Mensaje({
@@ -194,7 +201,7 @@ export async function enviarMensajeComoVendedor(
       return res.status(403).json({ message: bloqueo });
     }
 
-    const { contenido, imagen, error } = datosDelMensaje(req);
+    const { contenido, imagen, error } = await datosDelMensaje(req);
     if (error) return res.status(400).json({ message: error });
 
     const mensaje = new Mensaje({

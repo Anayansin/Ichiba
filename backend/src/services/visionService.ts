@@ -14,9 +14,42 @@ import fs from "fs";
  * existen para pruebas y para desarrollo local sin llave.
  */
 
-const ENDPOINT =
-  process.env.GOOGLE_VISION_ENDPOINT ||
+const ENDPOINT_POR_DEFECTO =
   "https://vision.googleapis.com/v1/images:annotate";
+
+/**
+ * `GOOGLE_VISION_ENDPOINT` solo se acepta fuera de producción. En producción
+ * se ignora para que un mock o un endpoint mal configurado no pueda saltarse
+ * la moderación.
+ */
+function endpointVision(): string {
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.GOOGLE_VISION_ENDPOINT) {
+      console.error(
+        "[vision] GOOGLE_VISION_ENDPOINT está definido en producción; se ignora y se usa el endpoint oficial.",
+      );
+    }
+    return ENDPOINT_POR_DEFECTO;
+  }
+  return process.env.GOOGLE_VISION_ENDPOINT || ENDPOINT_POR_DEFECTO;
+}
+
+const ENDPOINT = endpointVision();
+
+/**
+ * `VISION_MODERACION="omitir"` solo funciona en desarrollo. En producción se
+ * ignora y la moderación sigue activa (fail-closed).
+ */
+function moderacionOmitida(): boolean {
+  if (process.env.VISION_MODERACION !== "omitir") return false;
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "[vision] VISION_MODERACION=omitir está definido en producción; se ignora y la moderación sigue activa.",
+    );
+    return false;
+  }
+  return true;
+}
 
 /** Confianza mínima de la etiqueta para tomar la decisión. */
 const UMBRAL_CONFIANZA = 0.7;
@@ -229,7 +262,7 @@ async function analizarFotoProducto(rutaArchivo: string): Promise<AnalisisFoto> 
 export async function moderarFotosProducto(
   rutasArchivos: string[],
 ): Promise<string | null> {
-  if (process.env.VISION_MODERACION === "omitir") return null;
+  if (moderacionOmitida()) return null;
 
   for (const ruta of rutasArchivos) {
     const analisis = await analizarFotoProducto(ruta);
@@ -322,31 +355,40 @@ async function analizarContenidoInseguro(
 }
 
 /**
- * Analiza la fotografía del comprobante de pago. Devuelve el mensaje en
- * español del bloqueo, o null si está permitida.
+ * Analiza una imagen enviada por el usuario (comprobante o chat). Devuelve el
+ * mensaje en español del bloqueo, o null si está permitida.
  *
  * Igual que RQNF7.3: si la moderación no puede ejecutarse (sin llave o con
- * error de Cloud Vision) la imagen queda bloqueada —nunca se muestra al
- * vendedor sin analizar— a menos que VISION_MODERACION="omitir".
+ * error de Cloud Vision) la imagen queda bloqueada —nunca se muestra sin
+ * analizar— a menos que VISION_MODERACION="omitir".
  */
 export async function moderarComprobante(
   rutaArchivo: string,
+  contexto: "comprobante" | "chat" = "comprobante",
 ): Promise<string | null> {
-  if (process.env.VISION_MODERACION === "omitir") return null;
+  if (moderacionOmitida()) return null;
 
   const analisis = await analizarContenidoInseguro(rutaArchivo);
   if (analisis.permitido) return null;
 
+  const esChat = contexto === "chat";
+
   if (analisis.motivo === "no-configurada") {
     console.error(
-      "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de comprobantes está activa y bloquea el envío (RQNF18).",
+      `[vision] Falta GOOGLE_VISION_API_KEY: la moderación de ${esChat ? "imágenes del chat" : "comprobantes"} está activa y bloquea el envío (RQNF18/RNF-CHA-03).`,
     );
-    return "La moderación de imágenes no está disponible en este momento; no se puede enviar el comprobante. Intenta más tarde o contacta al administrador.";
+    return esChat
+      ? "La moderación de imágenes no está disponible en este momento; no se puede enviar la imagen del chat. Intenta más tarde o contacta al administrador."
+      : "La moderación de imágenes no está disponible en este momento; no se puede enviar el comprobante. Intenta más tarde o contacta al administrador.";
   }
 
   if (analisis.motivo === "error") {
-    return "No fue posible analizar tu comprobante en este momento; intenta de nuevo.";
+    return esChat
+      ? "No fue posible analizar la imagen del chat en este momento; intenta de nuevo."
+      : "No fue posible analizar tu comprobante en este momento; intenta de nuevo.";
   }
 
-  return "La imagen del comprobante contiene contenido inapropiado y no puede enviarse.";
+  return esChat
+    ? "La imagen del chat contiene contenido inapropiado y no puede enviarse."
+    : "La imagen del comprobante contiene contenido inapropiado y no puede enviarse.";
 }

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import "./RegistrarCuenta.css";
 import Boton from "../../components/Boton/Boton";
 import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
-import { registrarUsuario } from "../../services/usuarioServices";
+import { registrarUsuario, solicitarRevisionRegistro } from "../../services/usuarioServices";
 import { iniciarVinculacionPayPal } from "../../services/pagoService";
 import {
   validarDimensionesImagen,
@@ -10,7 +10,7 @@ import {
   validarPesoImagen,
 } from "../../utils/validarImagen";
 import { useAuth } from "../../context/AuthContext";
-import { mensajeDeError } from "../../utils/errores";
+import { codigoDeError, mensajeDeError, motivoDeError } from "../../utils/errores";
 import { useNavigate } from "react-router-dom";
 import SelectorHorario, {
   type BloqueHorario,
@@ -124,6 +124,18 @@ function RegistarCuenta() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
+  /**
+   * RQNF1.9: el alta fue denegada (los datos están en la lista negra o ya
+   * pertenecen a otra cuenta). Se muestra el aviso con la opción de pedir la
+   * revisión a los administradores.
+   */
+  const [bloqueo, setBloqueo] = useState<{
+    mensaje: string;
+    motivo: string;
+  } | null>(null);
+  const [mensajeRevision, setMensajeRevision] = useState("");
+  const [enviandoRevision, setEnviandoRevision] = useState(false);
+  const [revisionEnviada, setRevisionEnviada] = useState(false);
   /** RQF4: la cuenta ya existe y el navegador va en camino a PayPal. */
   const [abriendoPaypal, setAbriendoPaypal] = useState(false);
   const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
@@ -274,6 +286,8 @@ function RegistarCuenta() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setBloqueo(null);
+    setRevisionEnviada(false);
     setEnviado(true);
 
     const primerCampoConError = ORDEN_CAMPOS.find((campo) => errores[campo]);
@@ -324,11 +338,47 @@ function RegistarCuenta() {
 
       setMostrarVerificacion(true);
     } catch (err) {
-      const mensaje =
-        mensajeDeError(err) || "Error al registrar la cuenta";
+      const mensaje = mensajeDeError(err) || "Error al registrar la cuenta";
+
+      // RQNF1.9: el backend denegó el alta porque los datos ya están en la
+      // lista negra o pertenecen a otra cuenta. Se avisa con el mensaje del
+      // backend y se ofrece pedir la revisión a los administradores.
+      if (codigoDeError(err) === "DATOS_NO_REGISTRABLES") {
+        setBloqueo({ mensaje, motivo: motivoDeError(err) ?? "lista-negra" });
+        setError("");
+        return;
+      }
+
       setError(mensaje);
     } finally {
       setCargando(false);
+    }
+  }
+
+  /** RQNF1.9: pide a los administradores que revisen el caso. */
+  async function enviarSolicitudDeRevision() {
+    if (!bloqueo) return;
+
+    setEnviandoRevision(true);
+    setError("");
+
+    try {
+      await solicitarRevisionRegistro({
+        nombreCompleto,
+        correo,
+        telefono,
+        rfc,
+        mensaje: mensajeRevision,
+        motivo: bloqueo.motivo,
+      });
+      setRevisionEnviada(true);
+    } catch (err) {
+      setError(
+        mensajeDeError(err) ||
+          "No pudimos enviar tu solicitud, inténtalo de nuevo en un momento",
+      );
+    } finally {
+      setEnviandoRevision(false);
     }
   }
 
@@ -342,6 +392,63 @@ function RegistarCuenta() {
         </p>
 
         {error && <p className="registro-error">{error}</p>}
+
+        {bloqueo && (
+          <div className="registro-bloqueo" role="alert">
+            <h3 className="registro-bloqueo__titulo">
+              No pudimos registrar tu cuenta
+            </h3>
+            <p className="registro-bloqueo__mensaje">{bloqueo.mensaje}</p>
+
+            {revisionEnviada ? (
+              <p className="registro-bloqueo__aviso">
+                Listo: enviamos tu solicitud a los administradores. Revisarán
+                tus datos y te responderán al correo
+                <strong> {correo}</strong>.
+              </p>
+            ) : (
+              <>
+                <p className="registro-bloqueo__nota">
+                  Si consideras que se trata de un error, cuéntanos qué pasó y
+                  los administradores revisarán tu caso.
+                </p>
+                <label
+                  className="registro-bloqueo__etiqueta"
+                  htmlFor="campo-mensaje-revision"
+                >
+                  ¿Qué ocurrió? (opcional)
+                </label>
+                <textarea
+                  id="campo-mensaje-revision"
+                  className="registro-bloqueo__area"
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Por ejemplo: creo que ya tenía una cuenta con estos datos y perdí el acceso."
+                  value={mensajeRevision}
+                  onChange={(e) => setMensajeRevision(e.target.value)}
+                />
+                <div className="registro-bloqueo__acciones">
+                  <Boton
+                    texto={
+                      enviandoRevision
+                        ? "Enviando solicitud..."
+                        : "Solicitar revisión a los administradores"
+                    }
+                    onClick={enviarSolicitudDeRevision}
+                    disabled={enviandoRevision}
+                  />
+                  <button
+                    type="button"
+                    className="registro-bloqueo__reintentar"
+                    onClick={() => setBloqueo(null)}
+                  >
+                    Revisar mis datos e intentar de nuevo
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="form-group">
           <label htmlFor="campo-nombre">

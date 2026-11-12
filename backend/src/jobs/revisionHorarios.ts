@@ -1,14 +1,11 @@
 import cron from "node-cron";
 import fs from "fs";
 import path from "path";
-import { Usuario } from "../models/usuario.js";
 import { Producto } from "../models/producto.js";
 import { Promocional } from "../models/Promocional.js";
 import { Comentario } from "../models/Comentario.js";
-import { Cola } from "../models/Cola.js";
 import { Venta } from "../models/Venta.js";
 import { Mensaje } from "../models/Mensaje.js";
-import { Reporte } from "../models/Reporte.js";
 import { Sancion } from "../models/Sancion.js";
 import { Suscripcion } from "../models/Suscripcion.js";
 import { SuscripcionCategoria } from "../models/SuscripcionCategoria.js";
@@ -57,11 +54,16 @@ function borrarArchivoDeSubidas(ruta?: string | null) {
   fs.unlink(path.join(process.cwd(), relativa), () => {});
 }
 
-type CuentaMongo = {
-  _id: unknown;
+type CuentaPostgres = {
+  id: number;
   correo: string;
+  nombreCompleto?: string;
   ineFrente?: string | null;
   ineReverso?: string | null;
+  horarios?: unknown;
+  horarioConfirmadoEn?: Date | null;
+  diasSinConfirmarHorario?: number;
+  createdAt?: Date;
 };
 
 /**
@@ -75,7 +77,7 @@ type CuentaMongo = {
  * algo falla, la revisión del próximo mes vuelve a intentarlo).
  */
 async function eliminarCuentaDeVendedor(
-  usuario: CuentaMongo,
+  usuario: CuentaPostgres,
   idVendedor: string,
   idNumerico: number,
 ) {
@@ -114,20 +116,8 @@ async function eliminarCuentaDeVendedor(
   // MongoDB: publicaciones y todo lo que cuelga de ellas.
   await Comentario.deleteMany({ promocionalId: { $in: idsPromocionales } });
   await Promocional.deleteMany({ vendedorId: idVendedor });
-  // Espejo histórico de las filas (la cola actual vive en PostgreSQL).
-  await Cola.deleteMany({ productoId: { $in: idsProductos } });
   await Mensaje.deleteMany({ ventaId: { $in: idsVentas } });
   await Venta.deleteMany({ vendedorId: idVendedor });
-  await Reporte.deleteMany({
-    $or: [
-      // Reportes recibidos y enviados por el vendedor, y los que apuntan a
-      // sus ventas o publicaciones.
-      { sujetoTipo: "usuario", sujetoId: idVendedor },
-      { reportadoPorTipo: "usuario", reportadoPorId: idVendedor },
-      { ventaId: { $in: idsVentas } },
-      { productoId: { $in: idsProductos } },
-    ],
-  });
   await Producto.deleteMany({ vendedorId: idVendedor });
   await Sancion.deleteMany({ sujetoTipo: "usuario", sujetoId: idVendedor });
   await Suscripcion.deleteMany({ correo: usuario.correo });
@@ -146,9 +136,6 @@ async function eliminarCuentaDeVendedor(
   }
   borrarArchivoDeSubidas(usuario.ineFrente);
   borrarArchivoDeSubidas(usuario.ineReverso);
-
-  // Por último, la copia de la cuenta en MongoDB.
-  await Usuario.findByIdAndDelete(usuario._id);
 }
 
 /**
@@ -163,7 +150,9 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
   const esPrimerDiaDelMes = hoy.getDate() === 1;
   const proximoPrimerDiaEn15 = diasParaProximoPrimerDia(hoy) === 15;
 
-  const usuarios = await Usuario.find({ tipo: "vendedor" });
+  const usuarios = await clientePrisma.usuario.findMany({
+    where: { tipo: "vendedor" },
+  });
 
   for (const usuario of usuarios) {
     const fechaConfirmacion = usuario.horarioConfirmadoEn ?? usuario.createdAt;
@@ -172,8 +161,8 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
 
     // El id del vendedor en el catálogo de productos es el id numérico de
     // PostgreSQL; se guarda como cadena en MongoDB.
-    const idVendedor = String(usuario.usuarioId ?? usuario._id);
-    const idNumerico = Number(usuario.usuarioId);
+    const idVendedor = String(usuario.id);
+    const idNumerico = Number(usuario.id);
 
     if (esPrimerDiaDelMes && diasDesdeConfirmacion >= 28) {
       usuario.diasSinConfirmarHorario += 1;
@@ -206,21 +195,18 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
         continue;
       }
 
-      // Primera falta: queda registrada en ambas bases (RQNF5.4).
-      await usuario.save();
-      if (Number.isInteger(idNumerico) && idNumerico > 0) {
-        await clientePrisma.usuario
-          .updateMany({
-            where: { id: idNumerico },
-            data: { diasSinConfirmarHorario: usuario.diasSinConfirmarHorario },
-          })
-          .catch((error) =>
-            console.error(
-              "[job] No se pudo reflejar la falta en PostgreSQL:",
-              error?.message ?? error,
-            ),
-          );
-      }
+      // Primera falta: queda registrada en PostgreSQL (RQNF5.4).
+      await clientePrisma.usuario
+        .updateMany({
+          where: { id: idNumerico },
+          data: { diasSinConfirmarHorario: usuario.diasSinConfirmarHorario },
+        })
+        .catch((error) =>
+          console.error(
+            "[job] No se pudo registrar la falta en PostgreSQL:",
+            error?.message ?? error,
+          ),
+        );
     }
 
     // RQNF6.3: 15 días antes de la eliminación pronosticada (el próximo 1ro

@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 import clientePrisma from "../configuracion/prisma.js";
-import { Cola } from "../models/Cola.js";
 import { Mensaje } from "../models/Mensaje.js";
-import { Reporte } from "../models/Reporte.js";
 import { Venta } from "../models/Venta.js";
-import { Usuario } from "../models/usuario.js";
 import { ListaNegra } from "../models/ListaNegra.js";
 import { puntosDeCategoria } from "../configuracion/categoriasReporte.js";
 import {
@@ -16,6 +13,13 @@ import {
   resumirEntrada,
   type EntradaListaNegra,
 } from "./listaNegraService.js";
+import {
+  listarSolicitudesDeRevision,
+  resolverSolicitudDeRevision,
+  type ListadoSolicitudesRegistro,
+  type SolicitudRevisionRegistro,
+} from "./bloqueoRegistroService.js";
+import { enviarCorreoRespuestaSolicitudRegistro } from "./emailService.js";
 import {
   calcularResumenAdmin,
   resumirUsuario,
@@ -39,6 +43,7 @@ import {
   publicarListaNegraActualizada,
   publicarReportesPendientes,
   publicarResumenAdmin,
+  publicarSolicitudRevisionRegistrada,
 } from "../graphql/suscripciones.js";
 
 /**
@@ -95,26 +100,29 @@ export async function listarUsuariosAdmin(opciones: {
   );
   const busqueda = (opciones.busqueda ?? "").trim();
 
-  const filtro = busqueda
-    ? {
-        $or: [
-          { nombreCompleto: { $regex: busqueda, $options: "i" } },
-          { correo: { $regex: busqueda, $options: "i" } },
-        ],
-      }
-    : {};
+  // Las cuentas viven en PostgreSQL: se filtran por nombre o correo y se
+  // paginan sobre el propio id.
+  const todas = await clientePrisma.usuario.findMany({
+    orderBy: { id: "desc" },
+  });
 
-  const [usuarios, total] = await Promise.all([
-    Usuario.find(filtro)
-      .select(
-        "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt motivoSuspension saldoPendiente sancionHasta sancionPermanente revisionAdministrativa",
+  const filtradas = busqueda
+    ? todas.filter(
+        (cuenta) =>
+          String(cuenta.nombreCompleto ?? "")
+            .toLowerCase()
+            .includes(busqueda.toLowerCase()) ||
+          String(cuenta.correo ?? "")
+            .toLowerCase()
+            .includes(busqueda.toLowerCase()),
       )
-      .sort({ createdAt: -1 })
-      .skip((pagina - 1) * porPagina)
-      .limit(porPagina)
-      .lean(),
-    Usuario.countDocuments(filtro),
-  ]);
+    : todas;
+
+  const total = filtradas.length;
+  const usuarios = filtradas.slice(
+    (pagina - 1) * porPagina,
+    pagina * porPagina,
+  );
 
   return {
     usuarios: usuarios.map(resumirUsuario),
@@ -130,15 +138,17 @@ export async function cambiarSuspensionUsuarioAdmin(
   suspendido: boolean,
   motivo?: string,
 ): Promise<UsuarioResumido> {
-  if (!id || !mongoose.isValidObjectId(id)) {
+  const idUsuario = Number(id);
+  if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
     throw new ErrorBackoffice(400, "Indica el usuario que quieres modificar");
   }
 
   // RQNF10.3 / RQF12: la cancelación por 8 puntos es permanente; no se
   // suspende ni se reactiva manualmente.
-  const existente = await Usuario.findById(id)
-    .select("estadoCuenta saldoPendiente")
-    .lean();
+  const existente = await clientePrisma.usuario.findUnique({
+    where: { id: idUsuario },
+    select: { estadoCuenta: true, saldoPendiente: true },
+  });
   if (existente && existente.estadoCuenta === "cancelada") {
     throw new ErrorBackoffice(
       400,
@@ -161,16 +171,13 @@ export async function cambiarSuspensionUsuarioAdmin(
   }
 
   const motivoFinal = (motivo ?? "").trim();
-  const usuario = await Usuario.findByIdAndUpdate(
-    id,
-    {
+  const usuario = await clientePrisma.usuario.update({
+    where: { id: idUsuario },
+    data: {
       suspendido,
-      motivoSuspension: suspendido
-        ? motivoFinal || "manual"
-        : null,
+      motivoSuspension: suspendido ? motivoFinal || "manual" : null,
     },
-    { new: true },
-  );
+  });
 
   if (!usuario) {
     throw new ErrorBackoffice(404, "Usuario no encontrado");
@@ -178,11 +185,11 @@ export async function cambiarSuspensionUsuarioAdmin(
 
   // RQNF33 / RQNF35: al reactivar se levanta la sanción vigente (incluida la
   // revisión administrativa) para que la cuenta vuelva a operar.
-  if (!suspendido && Number.isInteger(Number(usuario.usuarioId))) {
+  if (!suspendido) {
     try {
       await levantarSancionPorAdmin(
         "usuario",
-        String(usuario.usuarioId),
+        String(idUsuario),
         "La administración reactivó la cuenta.",
       );
     } catch (error) {
@@ -561,110 +568,72 @@ function fechaDeDocumento(createdAt?: Date | string) {
   return createdAt ? new Date(createdAt) : new Date(0);
 }
 
-function entradaDeCola(cola: unknown): EntradaHistorial {
-  const datos = cola as {
-    _id: unknown;
-    createdAt?: Date | string;
-    posicion?: number;
-    estado?: string;
-    productoId?: unknown;
-  };
-  const producto = resolverProducto(datos.productoId);
-
-  return {
-    id: String(datos._id),
-    tipo: "fila",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "activa",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: null,
-    detalle: `Posición ${datos.posicion ?? "-"}`,
-  };
-}
-
-function entradaDeVenta(venta: unknown): EntradaHistorial {
-  const datos = venta as {
-    _id: unknown;
-    createdAt?: Date | string;
-    estado?: string;
-    monto?: number;
-    paypalOrderId?: string;
-    productoId?: unknown;
-  };
-  const producto = resolverProducto(datos.productoId);
-
-  return {
-    id: String(datos._id),
-    tipo: "venta",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "completada",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: typeof datos.monto === "number" ? datos.monto : null,
-    detalle: datos.paypalOrderId
-      ? `Referencia ${datos.paypalOrderId}`
-      : "Sin referencia",
-  };
-}
-
-function entradaDeReporte(reporte: unknown): EntradaHistorial {
-  const datos = reporte as {
-    _id: unknown;
-    createdAt?: Date | string;
-    estado?: string;
-    categoria?: string;
-    categoriaNombre?: string;
-    tipoFalta?: string;
-    productoId?: unknown;
-    ventaId?: unknown;
-  };
-  const venta = datos.ventaId as { productoId?: unknown } | null | undefined;
-  const producto = resolverProducto(datos.productoId, venta?.productoId);
-  const categoria =
-    datos.categoriaNombre ?? datos.categoria ?? "Reporte sin categoría";
-
-  return {
-    id: String(datos._id),
-    tipo: "reporte",
-    fecha: fechaDeDocumento(datos.createdAt),
-    estado: datos.estado ?? "pendiente",
-    productoNombre: producto.nombre,
-    vendedorNombre: producto.vendedor,
-    monto: null,
-    detalle: datos.tipoFalta
-      ? `${categoria} (falta ${datos.tipoFalta})`
-      : categoria,
-  };
-}
-
 export async function historialTransaccionesAdmin(): Promise<
   EntradaHistorial[]
 > {
+  // Las filas, las ventas y los reportes viven en PostgreSQL (fuente de
+  // verdad); el catálogo sigue en MongoDB para resolver el nombre del producto.
   const [colas, ventas, reportes] = await Promise.all([
-    Cola.find()
-      .sort({ createdAt: -1 })
-      .limit(LIMITE_HISTORIAL)
-      .populate("productoId", "nombre vendedor"),
-    Venta.find()
-      .sort({ createdAt: -1 })
-      .limit(LIMITE_HISTORIAL)
-      .populate("productoId", "nombre vendedor"),
-    Reporte.find()
-      .sort({ createdAt: -1 })
-      .limit(LIMITE_HISTORIAL)
-      .populate("productoId", "nombre vendedor")
-      .populate({
-        path: "ventaId",
-        select: "productoId",
-        populate: { path: "productoId", select: "nombre vendedor" },
-      }),
+    clientePrisma.cola.findMany({
+      orderBy: { createdAt: "desc" },
+      limit: LIMITE_HISTORIAL,
+    }),
+    clientePrisma.venta.findMany({
+      orderBy: { createdAt: "desc" },
+      limit: LIMITE_HISTORIAL,
+    }),
+    clientePrisma.reporte.findMany({
+      orderBy: { createdAt: "desc" },
+      limit: LIMITE_HISTORIAL,
+    }),
   ]);
 
   const historial: EntradaHistorial[] = [
-    ...colas.map(entradaDeCola),
-    ...ventas.map(entradaDeVenta),
-    ...reportes.map(entradaDeReporte),
+    ...colas.map((fila) => {
+      const producto = resolverProducto(fila.productoId);
+      return {
+        id: String(fila.id),
+        tipo: "fila" as const,
+        fecha: fechaDeDocumento(fila.createdAt),
+        estado: fila.estado ?? "activa",
+        productoNombre: producto.nombre,
+        vendedorNombre: producto.vendedor,
+        monto: null,
+        detalle: `Posición ${fila.posicion ?? "-"}`,
+      };
+    }),
+    ...ventas.map((venta) => {
+      const producto = resolverProducto(venta.productoId);
+      return {
+        id: String(venta.id),
+        tipo: "venta" as const,
+        fecha: fechaDeDocumento(venta.createdAt),
+        estado: venta.estado ?? "completada",
+        productoNombre: venta.productoNombre ?? producto.nombre,
+        vendedorNombre: producto.vendedor,
+        monto: typeof venta.monto === "number" ? venta.monto : null,
+        detalle: venta.paypalOrderId
+          ? `Referencia ${venta.paypalOrderId}`
+          : "Sin referencia",
+      };
+    }),
+    ...reportes.map((reporte) => {
+      const producto = resolverProducto(reporte.productoId);
+      const categoria =
+        reporte.categoriaNombre ?? reporte.categoria ?? "Reporte sin categoría";
+      return {
+        id: String(reporte.id),
+        tipo: "reporte" as const,
+        fecha: fechaDeDocumento(reporte.createdAt),
+        estado: reporte.estado ?? "pendiente",
+        productoNombre: producto.nombre,
+        vendedorNombre: producto.vendedor,
+        monto: null,
+        detalle: reporte.tipoFalta
+          ? `${categoria} (falta ${reporte.tipoFalta})`
+          : categoria,
+      };
+    }),
   ];
 
   historial.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
@@ -804,4 +773,53 @@ export async function quitarEntradaListaNegraAdmin(id: string): Promise<void> {
     `Registro quitado de la lista negra: ${borrada.rfc || borrada.curp || borrada.nombreCompleto}`,
   );
   publicarResumenAdmin();
+}
+
+// ---------------------------------------------------------------------------
+// RQNF1.9: solicitudes de revisión de altas denegadas.
+// ---------------------------------------------------------------------------
+
+/** Listado de las solicitudes que enviaron quienes tuvieron el alta denegada. */
+export async function listarSolicitudesRegistroAdmin(opciones: {
+  pagina?: number;
+  porPagina?: number;
+  estado?: string;
+}): Promise<ListadoSolicitudesRegistro> {
+  return listarSolicitudesDeRevision(opciones);
+}
+
+/**
+ * El administrador atiende la solicitud: la marca como revisada, resuelta o
+ * descartada y deja una respuesta que se le manda por correo a la persona.
+ */
+export async function resolverSolicitudRegistroAdmin(
+  id: string,
+  datos: {
+    estado: "en-revision" | "resuelta" | "descartada";
+    respuesta?: string;
+    revisadaPor?: string;
+  },
+): Promise<SolicitudRevisionRegistro> {
+  if (!id || !mongoose.isValidObjectId(id)) {
+    throw new ErrorBackoffice(400, "La solicitud no es válida");
+  }
+
+  const solicitud = await resolverSolicitudDeRevision(id, datos);
+
+  if (!solicitud) {
+    throw new ErrorBackoffice(404, "La solicitud no existe");
+  }
+
+  // El correo se manda sin esperar: la respuesta al administrador no debe
+  // depender de que el proveedor de correo esté disponible.
+  void enviarCorreoRespuestaSolicitudRegistro(solicitud).catch((error) => {
+    console.error(
+      "[backoffice] No se pudo enviar la respuesta de la solicitud:",
+      error instanceof Error ? error.message : error,
+    );
+  });
+
+  await publicarSolicitudRevisionRegistrada(solicitud, "revisada");
+
+  return solicitud;
 }

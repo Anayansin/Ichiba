@@ -3,7 +3,6 @@ import { ListaNegra } from "../models/ListaNegra.js";
 import { Mensaje } from "../models/Mensaje.js";
 import { Producto } from "../models/producto.js";
 import { Promocional } from "../models/Promocional.js";
-import { Usuario } from "../models/usuario.js";
 import { relojZonaCentro } from "../utils/validarHorario.js";
 
 /**
@@ -51,7 +50,8 @@ export type UsuarioPublicado = Omit<
 };
 
 export function resumirUsuario(usuario: {
-  _id: unknown;
+  _id?: unknown;
+  id?: unknown;
   nombreCompleto?: string;
   correo?: string;
   tipo?: string;
@@ -66,7 +66,7 @@ export function resumirUsuario(usuario: {
   revisionAdministrativa?: boolean;
 }): UsuarioResumido {
   return {
-    id: String(usuario._id),
+    id: String(usuario._id ?? usuario.id ?? ""),
     nombreCompleto: usuario.nombreCompleto ?? "",
     correo: usuario.correo ?? "",
     tipo: usuario.tipo ?? "",
@@ -159,20 +159,20 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
     reportesTotal,
     filasActivas,
   ] = await Promise.all([
-    Usuario.countDocuments(),
-    Usuario.countDocuments({ suspendido: { $ne: true } }),
-    Usuario.countDocuments({ suspendido: true }),
+    clientePrisma.usuario.count(),
+    clientePrisma.usuario.count({ where: { suspendido: false } }),
+    clientePrisma.usuario.count({ where: { suspendido: true } }),
     // RQNF10.3: cuentas canceladas de forma permanente (8 puntos).
     clientePrisma.usuario.count({ where: { estadoCuenta: "cancelada" } }),
-    Usuario.countDocuments({ tipo: "admin" }),
-    Usuario.countDocuments({ createdAt: { $gte: desde30Dias } }),
-    Usuario.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select(
-        "nombreCompleto correo tipo suspendido puntosReputacion estadoCuenta createdAt motivoSuspension saldoPendiente sancionHasta sancionPermanente revisionAdministrativa",
-      )
-      .lean(),
+    clientePrisma.usuario.count({ where: { tipo: "admin" } }),
+    clientePrisma.usuario.count({
+      where: { createdAt: { gte: desde30Dias } },
+    }),
+    clientePrisma.usuario.findMany({
+      orderBy: { id: "desc" },
+      skip: 0,
+      limit: 5,
+    }),
     Producto.countDocuments(),
     Producto.countDocuments({ activo: true }),
     Promocional.countDocuments(),
