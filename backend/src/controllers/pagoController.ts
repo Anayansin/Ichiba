@@ -20,7 +20,11 @@ import {
 } from "../services/mercadopagoService.js";
 import { registrarVentaExitosa } from "../services/ventaService.js";
 import { enviarCorreoPalabraClaveCompra } from "../services/emailService.js";
-import { moderarComprobante } from "../services/visionService.js";
+import {
+  mensajeDeVerificacionComprobante,
+  moderarComprobante,
+  verificarComprobanteConTexto,
+} from "../services/visionService.js";
 import {
   avisoDeAtencion,
   cargarVenta,
@@ -847,6 +851,19 @@ export async function registrarComprobante(
     if (bloqueo) {
       limpiarArchivo();
       return res.status(400).json({ message: bloqueo });
+    }
+
+    // RQNF22.5: el texto del comprobante debe coincidir con la referencia
+    // capturada, con el monto de la compra y con una fecha legible.
+    const verificacion = await verificarComprobanteConTexto(archivo.path, {
+      referencia,
+      monto: Number(venta.monto ?? 0),
+    });
+    if (!verificacion.verificado) {
+      limpiarArchivo();
+      return res.status(400).json({
+        message: mensajeDeVerificacionComprobante(verificacion.motivo ?? "error"),
+      });
     }
 
     const resultado = await registrarComprobanteDeVenta(venta, {

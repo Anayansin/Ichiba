@@ -27,12 +27,12 @@ aprobados), con la redacción y la numeración que creemos correctas.
 |---|---|---|---|---|---|---|
 | 1 · Registro y autenticación | 39 | 38 | 1 | 0 | 0 | `probar-bloqueo-registro` (6) + `probar-escrow` (64) |
 | 2 · Administración de catálogo | 47 | 44 | 2 | 1 | 0 | `probar-moderacion-vision` (48) + `probar-informes` (26) |
-| 3 · Fila virtual y proceso de compra | 118 | 111 | 4 | 2 | 1 | `probar-fila-apertura` (30) + `probar-escrow` (64) + `probar-suscripciones` (11) |
+| 3 · Fila virtual y proceso de compra | 118 | 112 | 4 | 2 | 0 | `probar-fila-apertura` (30) + `probar-escrow` (65) + `probar-suscripciones` (11) |
 | 4 · Chat de coordinación (propuesto) | 9 | 7 | 2 | 0 | 0 | `probar-escrow` (64) |
 | 5 · Gestión y control administrativo (propuesto) | 25 | 23 | 1 | 1 | 0 | `probar-sanciones` (30) + `probar-disputas` (65) + `probar-mcp` (22) |
 
-**Total: 238 requerimientos revisados — 223 verificados (94 %), 10 con ajustes de texto o alcance,
-4 con huecos reales.** Los 4 huecos y los 10 ajustes están listados en "Pendientes" al final.
+**Total: 238 requerimientos revisados — 224 verificados (94 %), 10 con ajustes de texto o alcance,
+3 con huecos reales.** Los 3 huecos y los 10 ajustes están listados en "Pendientes" al final.
 
 ---
 
@@ -198,7 +198,7 @@ aprobados), con la redacción y la numeración que creemos correctas.
 | RQNF20.2 (correo) / 20.4 / 20.5 | Correo de novedades de las categorías elegidas, enviado a las 10:00 y 17:00 (GMT-6), agrupando lo publicado desde el envío anterior y sin enviar si no hay novedades. | ✅ | `jobs/notificacionesCategoria.ts` (cron `0 10,17 * * *`) · `emailService.enviarCorreoNovedadesCategoria` | **`probar-suscripciones` (11/11)** |
 | RQF21 / RQNF18 (redirección) / 21.1–21.5 | Pago con PayPal (o Mercado Pago), webhook, palabra clave de 4 dígitos única, fondos en escrow y chat habilitado al confirmarse. | ✅ | `backend/src/controllers/pagoController.ts` · `services/ventaService.ts` · `services/escrowService.ts` | **`probar-escrow` (64/64)** |
 | RQF22 / RQNF22.1–22.4, 22.6, 22.7 / RQNF22.13 | El cliente registra su comprobante (palabra clave, referencia de 6–8 dígitos e imagen); se validan los campos, el formato de la imagen y el contenido con SafeSearch; la fila queda en reposo y el error se muestra sin enviar nada al vendedor. | ✅ | `pagoController.registrarComprobante` · `services/escrowService.ts` (`registrarComprobanteDeVenta`) · `services/visionService.ts` (`moderarComprobante`) | `probar-escrow` (64/64) |
-| **RQNF22.5 (OCR del comprobante)** | Analizar la imagen del comprobante con Document Text Detection para extraer su texto y verificar que el monto, la fecha y la referencia estén presentes y legibles, y que la referencia extraída coincida con la ingresada. | ❌ | **No existe.** Hoy la imagen del comprobante solo pasa por SafeSearch (`visionService.moderarComprobante`); no se le extrae texto ni se contrasta con la referencia capturada. | — (no hay prueba porque la función no existe) |
+| **RQNF22.5 (OCR del comprobante)** | Analizar la imagen del comprobante con Document Text Detection para extraer su texto y verificar que el monto, la fecha y la referencia estén presentes y legibles, y que la referencia extraída coincida con la ingresada. | ✅ | `backend/src/services/visionService.ts` (`verificarComprobanteConTexto`, `mensajeDeVerificacionComprobante`) · `controllers/pagoController.ts` (`registrarComprobante`) | `probar-escrow` (65/65, incluye *"el comprobante se rechaza si la referencia de la imagen no coincide"*) |
 | RQF22.1 / RQNF22.6 | El cliente ve su palabra clave y el sistema genera una clave numérica única de 4 dígitos por sesión de pago. | ✅ | `ventaService.registrarVentaExitosa` (`generarCodigo`) · `frontend/…/pages/PagoExitoso` | `probar-escrow` (64/64) |
 | RQF22.3 / RQNF22.9 | Al enviar el comprobante, el cliente ve el aviso de "en revisión" y su lugar queda en pausa. | ✅ | `frontend/…/pages/PagoExitoso` · `services/filaService.ts` | `probar-escrow` (64/64) |
 | RQF23 / RQNF23.1 / 23.2 | Reporte al vendedor cuando su comprobante es rechazado, con descripción obligatoria (30–500 caracteres). | ✅ | `backend/src/controllers/reporteController.ts` | `probar-sanciones` (30/30) |
@@ -214,16 +214,19 @@ aprobados), con la redacción y la numeración que creemos correctas.
 ### Hallazgos del módulo 3
 1. **RQNF22.5 aparece dos veces** (una de OCR del comprobante y otra de guardado) y **RQNF21.2 tres veces**
    (webhook, recepción de confirmación y una más). Hay que renumerar.
-2. **Hueco real: el OCR del comprobante no existe (RQNF22.5)**. La imagen del comprobante solo pasa
-   por SafeSearch; no se le extrae el texto para comparar monto, fecha y referencia. Hoy un comprobante
-   falso con una imagen válida pasa la validación. Es el pendiente más importante de este módulo.
-3. **El chat admite imágenes, no solo texto** (RQNF35.1 del módulo 4 dice "únicamente mensajes de
+2. **El OCR del comprobante ya existe (RQNF22.5, cerrado en esta ronda)**: la imagen del comprobante se
+   lee con Document Text Detection y se contratan la referencia, el monto y la fecha; si no coinciden, el
+   comprobante se rechaza y la venta sigue en `pendiente_comprobante`. Cubierto por `probar-escrow` (65/65).
+3. **La referencia del comprobante no es de 6 a 8 dígitos**: el código valida de 4 a 64 caracteres
+   (`escrowService.ts`) y las pruebas usan referencias alfanuméricas (`REF-000001`). El texto del
+   requerimiento (RQNF22.4) está desactualizado; ver decisión C4.
+4. **El chat admite imágenes, no solo texto** (RQNF35.1 del módulo 4 dice "únicamente mensajes de
    texto", pero `mensajeController` acepta y modera imágenes). La redacción correcta está en el módulo 4
    propuesto.
-4. **RQF24 mezcla en un solo bloque** propuesta de entrega, chat, cancelación y liberación de fondos;
+5. **RQF24 mezcla en un solo bloque** propuesta de entrega, chat, cancelación y liberación de fondos;
    conviene separarlo en sub-bloques (24.x entrega · 24.y chat · 24.z fondos) para poder probarlos por
    separado, que es como están cubiertos hoy.
-5. **Conflicto entre requerimientos aprobados**: RQNF35.3 pide conservar el historial de chats
+6. **Conflicto entre requerimientos aprobados**: RQNF35.3 pide conservar el historial de chats
    "de forma permanente" y RQNF10.6 pide borrar el historial de chats al cancelar una cuenta. Hoy gana
    RQNF10.6 (se purga). Hay que decidir y redactar una sola regla (lo natural: que la evidencia se
    conserve **mientras la cuenta exista**, como queda propuesto en el módulo 4).
@@ -315,7 +318,7 @@ aprobados), con la redacción y la numeración que creemos correctas.
 | B2 | Tabla de auditoría de acciones administrativas (quién, qué, cuándo). | Mediano | RQNF36.5 |
 | B3 | Prueba E2E del alta completa con INE de prueba y mock de StructOCR. | Mediano | RQF1 y RQNF1.4–1.8 |
 | B4 | Exponer el motivo del bloqueo en el correo del administrador (hoy se ve el campo, no el valor). | Chico | RQNF1.1 |
-| **B5** | **OCR del comprobante (Document Text Detection): extraer el texto de la imagen, verificar monto, fecha y referencia, y exigir que la referencia extraída coincida con la capturada.** Hoy un comprobante falso con una imagen válida pasa la validación. | Mediano | **RQNF22.5** |
+| ~~B5~~ | ~~OCR del comprobante (Document Text Detection)~~ **Cerrado**: `verificarComprobanteConTexto` en `visionService.ts`, conectado en `pagoController.registrarComprobante`, con prueba en `probar-escrow` (65/65). | Hecho | RQNF22.5 |
 
 ## C. Decisiones que hay que tomar (no son código)
 
@@ -324,6 +327,7 @@ aprobados), con la redacción y la numeración que creemos correctas.
 | C1 | ¿Se conserva el historial de chats de una cuenta cancelada? | Hoy se purga (RQNF10.6). Proponemos: se conserva **mientras la cuenta exista** y se purga con la cuenta, redactando RQNF35.3 en esos términos. |
 | C2 | ¿Las categorías del catálogo son 12 (como el código) o 6 (como el texto de RQF8)? | 12: `backend/src/configuracion/categorias.ts` es la lista vigente y la que usa la semilla. |
 | C3 | ¿El tope de $5,000 es para productos y $5,001 para promocionales? | Sí: hoy es la regla implementada; conviene escribirla como una sola regla ("más de $5,000 se publica como promocional"). |
+| C4 | ¿La referencia del comprobante es de 6 a 8 dígitos (RQNF22.4) o de 4 a 64 caracteres (lo que valida hoy el código)? | Hoy el código acepta 4 a 64 caracteres y las ventas existentes usan referencias alfanuméricas (`REF-000001`). Propuesta: aceptar 4 a 64 caracteres (alfanumérica) y **corregir el texto del requerimiento**, que además choca con el OCR. |
 
 ---
 

@@ -355,12 +355,161 @@ async function analizarContenidoInseguro(
 }
 
 /**
+ * RQNF22.5: verifica el contenido del comprobante con Document Text
+ * Detection: el texto de la imagen debe contener la referencia capturada por
+ * el comprador, el monto de la compra y una fecha legible.
+ *
+ * Devuelve el motivo del rechazo para que el controlador muestre un mensaje
+ * en español. Si Cloud Vision no está disponible el comprobante **no pasa**
+ * (falla cerrada, igual que la moderación).
+ */
+export type VerificacionComprobante = {
+  verificado: boolean;
+  motivo?:
+    | "no-configurada"
+    | "error"
+    | "sin-texto"
+    | "referencia"
+    | "monto"
+    | "fecha";
+};
+
+/** Quita espacios y separadores para comparar referencias y montos. */
+function normalizarParaComparar(texto: string): string {
+  return texto.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+const MESES = [
+  "ENE",
+  "FEB",
+  "MAR",
+  "ABR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AGO",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DIC",
+];
+
+function elTextoTieneFecha(texto: string): boolean {
+  const tieneNumero = /\b\d{1,4}[/\-.]\d{1,2}[/\-.]\d{1,4}\b/.test(texto);
+  if (tieneNumero) return true;
+  const enMayusculas = texto.toUpperCase();
+  return MESES.some((mes) => enMayusculas.includes(mes));
+}
+
+function elTextoTieneElMonto(texto: string, monto: number): boolean {
+  const esperado = Math.abs(Number(monto) || 0);
+  if (esperado <= 0) return true;
+  const tolerancia = Math.max(1, esperado * 0.02);
+  for (const coincidencia of texto.match(/\d[\d.,]*/g) ?? []) {
+    const numero = Number(coincidencia.replace(/,/g, ""));
+    if (!Number.isFinite(numero) || numero <= 0) continue;
+    if (Math.abs(numero - esperado) <= tolerancia) return true;
+    // Algunos comprobantes muestran el importe en centavos (19000 = $190.00).
+    if (Math.abs(numero / 100 - esperado) <= tolerancia) return true;
+  }
+  return false;
+}
+
+export async function verificarComprobanteConTexto(
+  rutaArchivo: string,
+  esperado: { referencia: string; monto: number },
+): Promise<VerificacionComprobante> {
+  if (moderacionOmitida()) return { verificado: true };
+
+  const clave = process.env.GOOGLE_VISION_API_KEY;
+  if (!clave) return { verificado: false, motivo: "no-configurada" };
+
+  try {
+    const base64 = fs.readFileSync(rutaArchivo).toString("base64");
+
+    const respuesta = await fetch(`${ENDPOINT}?key=${clave}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: base64 },
+            features: [{ type: "TEXT_DETECTION" }],
+          },
+        ],
+      }),
+    });
+
+    if (!respuesta.ok) {
+      console.error(`[vision] Cloud Vision (texto) respondió ${respuesta.status}`);
+      return { verificado: false, motivo: "error" };
+    }
+
+    const json = (await respuesta.json()) as {
+      responses?: { textAnnotations?: { description?: string }[] }[];
+    };
+
+    const texto = (json?.responses?.[0]?.textAnnotations ?? [])
+      .map((anotacion) => anotacion.description ?? "")
+      .join("\n");
+
+    if (!texto.trim()) return { verificado: false, motivo: "sin-texto" };
+
+    const referenciaEsperada = normalizarParaComparar(esperado.referencia);
+    if (
+      !referenciaEsperada ||
+      !normalizarParaComparar(texto).includes(referenciaEsperada)
+    ) {
+      return { verificado: false, motivo: "referencia" };
+    }
+
+    if (!elTextoTieneElMonto(texto, esperado.monto)) {
+      return { verificado: false, motivo: "monto" };
+    }
+
+    if (!elTextoTieneFecha(texto)) {
+      return { verificado: false, motivo: "fecha" };
+    }
+
+    return { verificado: true };
+  } catch (error) {
+    console.error(
+      "[vision] No se pudo leer el texto del comprobante:",
+      error instanceof Error ? error.message : error,
+    );
+    return { verificado: false, motivo: "error" };
+  }
+}
+
+/** Mensaje en español del rechazo de la verificación del comprobante. */
+export function mensajeDeVerificacionComprobante(
+  motivo: NonNullable<VerificacionComprobante["motivo"]>,
+): string {
+  if (motivo === "no-configurada") {
+    return "No se puede verificar el comprobante en este momento; no se puede enviar. Intenta más tarde o contacta al administrador.";
+  }
+  if (motivo === "error") {
+    return "No fue posible leer el comprobante en este momento; intenta de nuevo.";
+  }
+  if (motivo === "sin-texto") {
+    return "No se leyó ningún dato en la imagen del comprobante. Sube una captura legible donde se vean la referencia, el monto y la fecha.";
+  }
+  if (motivo === "referencia") {
+    return "La referencia del comprobante no coincide con la que escribiste. Revisa la imagen y vuelve a intentarlo.";
+  }
+  if (motivo === "monto") {
+    return "El monto del comprobante no coincide con el total de la compra. Revisa la imagen y vuelve a intentarlo.";
+  }
+  return "No se encontró una fecha legible en el comprobante. Sube una imagen donde se vea la fecha de la operación.";
+}
+
+/**
  * Analiza una imagen enviada por el usuario (comprobante o chat). Devuelve el
  * mensaje en español del bloqueo, o null si está permitida.
  *
  * Igual que RQNF7.3: si la moderación no puede ejecutarse (sin llave o con
- * error de Cloud Vision) la imagen queda bloqueada —nunca se muestra sin
- * analizar— a menos que VISION_MODERACION="omitir".
+ * error de Cloud Vision) la imagen queda bloqueada -nunca se muestra sin
+ * analizar- a menos que VISION_MODERACION="omitir".
  */
 export async function moderarComprobante(
   rutaArchivo: string,

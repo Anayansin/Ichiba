@@ -268,16 +268,29 @@ const servidorPaypal = http.createServer(async (req, res) => {
   responder(res, 404, { name: "RESOURCE_NOT_FOUND" });
 });
 
-const servidorVision = http.createServer((req, res) => {
+// Texto que el mock de Cloud Vision devuelve cuando le piden el texto del
+// comprobante (RQNF22.5). La referencia y el monto se(Id)ken al subir la
+// imagen; aquí se listan los importes que usa la suite.
+let textoComprobanteMock = "";
+const MONTOS_COMPROBANTE_MOCK = [
+  250, 300, 150, 170, 190, 210, 230, 270, 321, 450,
+];
+
+const servidorVision = http.createServer(async (req, res) => {
   if ((req.method ?? "GET") !== "POST") {
     res.writeHead(404);
     return res.end();
   }
+  const cuerpo = await leerCuerpo(req);
+  const pideTexto = JSON.stringify(cuerpo).includes("TEXT_DETECTION");
   responder(res, 200, {
     responses: [
       {
         labelAnnotations: [],
         safeSearchAnnotation: { ...safeSearchMock },
+        ...(pideTexto
+          ? { textAnnotations: [{ description: textoComprobanteMock }] }
+          : {}),
       },
     ],
   });
@@ -601,7 +614,18 @@ async function subirComprobanteDeVenta(
   ventaId: number,
   compradorId: string,
   datos: { palabraClave: string; referencia: string },
+  textoImagen?: string,
 ): Promise<{ status: number; cuerpo: any }> {
+  // El mock de Vision responde con el texto que se "lee" en la imagen.
+  textoComprobanteMock =
+    textoImagen ??
+    [
+      "COMPROBANTE DE PAGO",
+      `Referencia: ${datos.referencia}`,
+      "Fecha: 12/11/2026",
+      ...MONTOS_COMPROBANTE_MOCK.map((monto) => `Total: $${monto.toFixed(2)}`),
+    ].join("\n");
+
   const fd = new FormData();
   fd.append("palabraClave", datos.palabraClave);
   fd.append("referencia", datos.referencia);
@@ -1046,6 +1070,30 @@ try {
         intento.status === 400 &&
           String(intento.cuerpo?.message ?? "").includes("inapropiado") &&
           trasModeracion?.estado === "pendiente_comprobante",
+        `status ${intento.status}: ${JSON.stringify(intento.cuerpo)}`,
+      );
+
+      // RQNF22.5: la referencia leída en la imagen debe ser la capturada.
+      intento = await subirComprobanteDeVenta(
+        venta1,
+        COMPRADOR_A,
+        {
+          palabraClave: String(captura?.codigoPago),
+          referencia: "REF-000001",
+        },
+        [
+          "COMPROBANTE DE PAGO",
+          "Referencia: REF-777777",
+          "Fecha: 12/11/2026",
+          "Total: $250.00",
+        ].join("\n"),
+      );
+      const trasOcr = await leerVenta(venta1);
+      verificar(
+        "RQNF22.5 el comprobante se rechaza si la referencia de la imagen no coincide",
+        intento.status === 400 &&
+          String(intento.cuerpo?.message ?? "").includes("no coincide") &&
+          trasOcr?.estado === "pendiente_comprobante",
         `status ${intento.status}: ${JSON.stringify(intento.cuerpo)}`,
       );
 
