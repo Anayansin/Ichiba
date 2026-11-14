@@ -63,6 +63,8 @@ function GestionUsuarios() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const busquedaRef = useRef("");
   const [usuarioEnAccion, setUsuarioEnAccion] = useState<string | null>(null);
 
   // La suscripción se abre una sola vez; este ref le da siempre la página
@@ -72,23 +74,34 @@ function GestionUsuarios() {
     paginaRef.current = pagina;
   }, [pagina]);
 
-  const cargar = useCallback(async (paginaActual: number, silencioso = false) => {
-    if (!silencioso) setCargando(true);
-    setError("");
-    try {
-      const respuesta = await fetchUsuarios(paginaActual, USUARIOS_POR_PAGINA);
-      setUsuarios(respuesta.usuarios);
-      setTotal(respuesta.total);
-      setTotalPaginas(respuesta.totalPaginas);
-    } catch (err) {
-      setError(
-        (axios.isAxiosError(err) && err.response?.data?.message) ||
-          "No pudimos cargar los usuarios",
-      );
-    } finally {
-      if (!silencioso) setCargando(false);
-    }
-  }, []);
+  const cargar = useCallback(
+    async (
+      paginaActual: number,
+      silencioso = false,
+      busquedaActual = busquedaRef.current,
+    ) => {
+      if (!silencioso) setCargando(true);
+      setError("");
+      try {
+        const respuesta = await fetchUsuarios(
+          paginaActual,
+          USUARIOS_POR_PAGINA,
+          busquedaActual,
+        );
+        setUsuarios(respuesta.usuarios);
+        setTotal(respuesta.total);
+        setTotalPaginas(respuesta.totalPaginas);
+      } catch (err) {
+        setError(
+          (axios.isAxiosError(err) && err.response?.data?.message) ||
+            "No pudimos cargar los usuarios",
+        );
+      } finally {
+        if (!silencioso) setCargando(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     cargar(pagina);
@@ -149,6 +162,40 @@ function GestionUsuarios() {
         <h2>Gestión de usuarios</h2>
         <span>{total} registrado(s)</span>
       </div>
+
+      <form
+        className="gestion-usuarios__buscador"
+        onSubmit={(evento) => {
+          evento.preventDefault();
+          setPagina(1);
+          cargar(1, false, busquedaRef.current);
+        }}
+      >
+        <input
+          type="search"
+          placeholder="Buscar por nombre o correo"
+          value={busqueda}
+          onChange={(evento) => {
+            setBusqueda(evento.target.value);
+            busquedaRef.current = evento.target.value;
+          }}
+          aria-label="Buscar usuarios por nombre o correo"
+        />
+        <button type="submit">Buscar</button>
+        {busqueda && (
+          <button
+            type="button"
+            onClick={() => {
+              setBusqueda("");
+              busquedaRef.current = "";
+              setPagina(1);
+              cargar(1, false, "");
+            }}
+          >
+            Limpiar
+          </button>
+        )}
+      </form>
 
       {error && <p className="gestion-usuarios__error">{error}</p>}
       {aviso && <p className="gestion-usuarios__aviso">{aviso}</p>}

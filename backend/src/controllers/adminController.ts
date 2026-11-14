@@ -47,6 +47,7 @@ export async function obtenerTodosLosUsuarios(req: Request, res: Response) {
     const resultado = await listarUsuariosAdmin({
       pagina: Number(req.query.pagina),
       porPagina: Number(req.query.porPagina),
+      busqueda: typeof req.query.busqueda === "string" ? req.query.busqueda : undefined,
     });
     res.json(resultado);
   } catch (error) {

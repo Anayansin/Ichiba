@@ -35,9 +35,10 @@ export type RespuestaUsuarios = {
 export async function fetchUsuarios(
   pagina: number,
   porPagina: number,
+  busqueda?: string,
 ): Promise<RespuestaUsuarios> {
   const response = await api.get("/admin/usuarios", {
-    params: { pagina, porPagina },
+    params: { pagina, porPagina, ...(busqueda ? { busqueda } : {}) },
   });
   return response.data;
 }

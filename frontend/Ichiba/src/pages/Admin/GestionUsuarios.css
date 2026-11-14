@@ -203,3 +203,42 @@
   border-radius: 12px;
   padding: 1.2rem;
 }
+
+.gestion-usuarios__buscador {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.gestion-usuarios__buscador input {
+  flex: 1 1 240px;
+  min-width: 200px;
+  border: 2px solid #cdcdcd;
+  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  color: #222;
+}
+
+.gestion-usuarios__buscador input:focus {
+  outline: none;
+  border-color: #d90429;
+}
+
+.gestion-usuarios__buscador button {
+  border: none;
+  border-radius: 999px;
+  background: #d90429;
+  color: #ffffff;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gestion-usuarios__buscador button:last-child:not(:first-of-type) {
+  background: #f7f9fa;
+  color: #555;
+  border: 1px solid #cdcdcd;
+}

@@ -29,10 +29,10 @@ aprobados), con la redacción y la numeración que creemos correctas.
 | 2 · Administración de catálogo | 47 | 44 | 2 | 1 | 0 | `probar-moderacion-vision` (48) + `probar-informes` (26) |
 | 3 · Fila virtual y proceso de compra | 118 | 112 | 4 | 2 | 0 | `probar-fila-apertura` (30) + `probar-escrow` (65) + `probar-suscripciones` (11) |
 | 4 · Chat de coordinación (propuesto) | 9 | 7 | 2 | 0 | 0 | `probar-escrow` (64) |
-| 5 · Gestión y control administrativo (propuesto) | 25 | 23 | 1 | 1 | 0 | `probar-sanciones` (30) + `probar-disputas` (65) + `probar-mcp` (22) |
+| 5 · Gestión y control administrativo (propuesto) | 25 | 24 | 1 | 0 | 0 | `probar-sanciones` (30) + `probar-disputas` (65) + `probar-mcp` (22) |
 
-**Total: 238 requerimientos revisados — 224 verificados (94 %), 10 con ajustes de texto o alcance,
-3 con huecos reales.** Los 3 huecos y los 10 ajustes están listados en "Pendientes" al final.
+**Total: 238 requerimientos revisados — 225 verificados (94 %), 10 con ajustes de texto o alcance,
+2 con huecos reales.** Los 2 huecos y los 10 ajustes están listados en "Pendientes" al final.
 
 ---
 
@@ -263,7 +263,7 @@ aprobados), con la redacción y la numeración que creemos correctas.
 |---|---|---|---|---|
 | RQF36 | El administrador consulta los datos de los usuarios registrados, verifica su información general, suspende o reactiva cuentas y monitorea el historial de sus acciones. | ✅ | `backend/src/services/backofficeService.ts` (`listarUsuariosAdmin`, `cambiarSuspensionUsuarioAdmin`) · `frontend/…/pages/Admin/GestionUsuarios.tsx` | `probar-mcp` (22/22) + `probar-sanciones` (30/30) |
 | RQNF36.1 | El sistema restringe el panel a cuentas de tipo administrador, verificando el rol contra PostgreSQL en cada petición. | ✅ | `backend/src/middleware/esAdmin.ts` · `services/usuarioService.ts` (`buscarUsuarioPorId`) | `probar-mcp` (22/22): el MCP con un vendedor recibe 403. |
-| RQNF36.2 | El sistema permite filtrar el listado de usuarios por nombre o correo y paginarlo. | ⚠️ | El servicio ya filtra (`listarUsuariosAdmin({busqueda})`), pero **el panel no expone el buscador** ni el controlador pasa el parámetro. | `probar-mcp` (22/22) cubre el filtro por API; falta el campo de búsqueda en la interfaz. |
+| RQNF36.2 | El sistema permite filtrar el listado de usuarios por nombre o correo y paginarlo. | ✅ | `backend/src/controllers/adminController.ts` (pasa `busqueda`) · `frontend/…/pages/Admin/GestionUsuarios.tsx` (campo de búsqueda + botón limpiar) · `services/adminService.ts` | `probar-mcp` (22/22) + revisión manual del panel (búsqueda "demo" → 1 registro) |
 | RQNF36.3 | El sistema impide reactivar una cuenta cancelada de forma permanente. | ✅ | `backofficeService.cambiarSuspensionUsuarioAdmin` | `probar-sanciones` (30/30) |
 | RQNF36.4 | El sistema impide reactivar una cuenta con saldo pendiente hasta registrar la liquidación total del adeudo. | ✅ | `backofficeService.cambiarSuspensionUsuarioAdmin` · `services/adeudoService.ts` | `probar-disputas` (65/65) |
 | RQNF36.5 | El sistema registra quién suspendió o reactivó cada cuenta, con fecha y hora. | 🟡 | El evento se publica por suscripción (`usuariosAdmin`), pero **no queda guardado en una tabla de auditoría**; se ve el rastro del panel. | `probar-sanciones` (30/30) |
@@ -289,7 +289,8 @@ aprobados), con la redacción y la numeración que creemos correctas.
 | RQNF41.2 | El sistema calcula la tasa de abandono de fila por categoría (salidas voluntarias y turnos vencidos), cada 1.º de mes. | ✅ | `informesService.ts` (`MOTIVOS_ABANDONO`, tasa por categoría) | `probar-informes` (26/26) |
 
 ### Hallazgos del módulo 5
-1. **El panel no tiene buscador de usuarios** aunque el servicio sí filtra: falta exponerlo (RQNF36.2).
+1. **El buscador de usuarios ya está en el panel** (RQNF36.2, cerrado en esta ronda): filtra por nombre o
+   correo contra PostgreSQL y conserva la paginación.
 2. **No hay tabla de auditoría de acciones administrativas**: se ven por suscripción y en la
    trazabilidad, pero no queda un registro consultable de "quién suspendió a quién y cuándo"
    (RQNF36.5 → propuesta de tabla `AccionAdministrativa`).
@@ -314,7 +315,7 @@ aprobados), con la redacción y la numeración que creemos correctas.
 
 | # | Qué | Tamaño | Requerimiento |
 |---|---|---|---|
-| B1 | Campo de búsqueda de usuarios en el panel (el servicio ya filtra). | Chico | RQNF36.2 |
+| ~~B1~~ | ~~Campo de búsqueda de usuarios en el panel~~ **Cerrado**: `GET /admin/usuarios?busqueda=`, campo de búsqueda y botón "limpiar" en `GestionUsuarios.tsx`. | Hecho | RQNF36.2 |
 | B2 | Tabla de auditoría de acciones administrativas (quién, qué, cuándo). | Mediano | RQNF36.5 |
 | B3 | Prueba E2E del alta completa con INE de prueba y mock de StructOCR. | Mediano | RQF1 y RQNF1.4–1.8 |
 | B4 | Exponer el motivo del bloqueo en el correo del administrador (hoy se ve el campo, no el valor). | Chico | RQNF1.1 |
