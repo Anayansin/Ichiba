@@ -7,6 +7,16 @@
 .Contenedor {
   padding: 4rem 3rem;
 }
+
+@media (max-width: 600px) {
+  .Contenedor {
+    padding: 2rem 1rem;
+  }
+
+  .Contenedor__Producto {
+    justify-content: center;
+  }
+}
 .Contenedor__filtro-activo {
   display: flex;
   align-items: center;

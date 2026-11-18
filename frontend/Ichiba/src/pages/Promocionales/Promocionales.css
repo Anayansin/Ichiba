@@ -108,3 +108,13 @@
   flex-wrap: wrap;
   gap: 10px;
 }
+
+@media (max-width: 600px) {
+  .promocionales {
+    padding: 2rem 1rem;
+  }
+
+  .promocionales__lista {
+    justify-content: center;
+  }
+}

@@ -167,6 +167,49 @@
   overflow-y: auto;
 }
 
+@media (max-width: 760px) {
+  .chats {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 80px);
+  }
+
+  .chats__lista {
+    width: 100%;
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .chats__activo {
+    min-height: 45vh;
+  }
+
+  .chats__cabecera,
+  .chats__mensajes {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .chat-formulario {
+    padding: 0.75rem;
+  }
+
+  .chat-input {
+    min-width: 0;
+  }
+
+  .chat-boton-enviar {
+    padding: 0.7rem 1rem;
+  }
+
+  .chats__sin-seleccion {
+    padding: 1.5rem 1rem;
+  }
+}
+
 .chats__lista h2 {
   font-size: 1.1rem;
   margin-bottom: 1rem;

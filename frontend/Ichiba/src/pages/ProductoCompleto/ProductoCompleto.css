@@ -122,7 +122,29 @@
 @media (max-width: 768px) {
   .producto-completo {
     flex-direction: column;
-    padding: 2rem 1.5rem;
+    gap: 2rem;
+    padding: 2rem 1rem;
+  }
+
+  .producto-completo__imagen-wrapper,
+  .producto-completo__info {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .producto-completo__volver {
+    top: 1rem;
+    left: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .carrusel__flecha--izquierda {
+    left: 0.5rem;
+  }
+
+  .carrusel__flecha--derecha {
+    right: 0.5rem;
   }
 }
 

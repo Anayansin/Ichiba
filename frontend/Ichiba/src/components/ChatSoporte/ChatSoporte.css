@@ -31,6 +31,11 @@
 
 .chat-soporte__titulo {
   flex: 1;
+  min-width: 0;
+}
+
+.chat-soporte__reiniciar {
+  flex-shrink: 0;
 }
 
 .chat-soporte__titulo h2 {
@@ -206,6 +211,7 @@
 
 .chat-soporte__formulario input {
   flex: 1;
+  min-width: 0;
   padding: 0.7rem 1rem;
   border: 2px solid #cdcdcd;
   border-radius: 999px;

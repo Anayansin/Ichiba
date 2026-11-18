@@ -5,6 +5,7 @@
   padding: 3rem 1.5rem;
   gap: 2.5rem;
   align-items: flex-start;
+  box-sizing: border-box;
 }
 
 .ayuda__menu {
@@ -40,4 +41,32 @@
 
 .ayuda__contenido {
   flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 800px) {
+  .ayuda {
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 2rem 1rem;
+  }
+
+  .ayuda__menu {
+    position: static;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ayuda__menu-item {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
+    background-color: #f7f7f7;
+  }
+
+  .ayuda__contenido {
+    width: 100%;
+    flex: none;
+  }
 }

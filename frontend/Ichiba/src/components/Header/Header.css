@@ -295,7 +295,7 @@ body {
  * todos los enlaces abajo. Antes el menú se salía del ancho y ocultaba
  * "Categorías", "Nosotros", "Ayuda" y la lupa.
  */
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .header {
     flex-wrap: wrap;
     gap: 0.7rem;
@@ -342,5 +342,31 @@ body {
   .header__buscador-input {
     width: 100%;
     min-width: 0;
+  }
+}
+
+/* En móviles angostos todos los enlaces y la lupa caben en una sola fila. */
+@media (max-width: 480px) {
+  .header {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .header > .btn {
+    padding: 0.8rem 1.1rem;
+    font-size: 0.92rem;
+  }
+
+  .header__nav {
+    gap: 0.4rem 0.65rem;
+  }
+
+  .header__link,
+  .header__menu p {
+    font-size: 0.86rem;
+  }
+
+  .header__lupa-icono {
+    width: 17px;
+    height: 17px;
   }
 }
