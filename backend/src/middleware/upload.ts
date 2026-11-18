@@ -1,17 +1,11 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
 import { Request, Response, NextFunction } from "express";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const carpetaUploads = path.join(__dirname, "../../uploads");
-
-if (!fs.existsSync(carpetaUploads)) {
-  fs.mkdirSync(carpetaUploads, { recursive: true });
-}
+import {
+  carpetaComprobantes,
+  carpetaDisputas,
+  carpetaUploads,
+} from "../configuracion/almacenamiento.js";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -119,12 +113,6 @@ export function subirFotosProducto(campo: string, maximo: number) {
  * sirven como archivos estáticos: solo las partes de la venta pueden verlos
  * (el backend los sirve con autorización y después de la moderación).
  */
-const carpetaComprobantes = path.join(__dirname, "../../uploads/comprobantes");
-
-if (!fs.existsSync(carpetaComprobantes)) {
-  fs.mkdirSync(carpetaComprobantes, { recursive: true });
-}
-
 const storageComprobantes = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, carpetaComprobantes);
@@ -163,12 +151,6 @@ export function subirComprobante(campo: string) {
  * porque NO se sirven como archivos estáticos: solo las partes de la disputa
  * y la administración pueden verlas (el backend las sirve con autorización).
  */
-const carpetaDisputas = path.join(__dirname, "../../uploads/disputas");
-
-if (!fs.existsSync(carpetaDisputas)) {
-  fs.mkdirSync(carpetaDisputas, { recursive: true });
-}
-
 const storageDisputas = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, carpetaDisputas);

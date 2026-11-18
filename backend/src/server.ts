@@ -5,9 +5,13 @@ dotenv.config({ quiet: true });
 
 import express from "express";
 import cors from "cors";
+import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { coneccionDB } from "./configuracion/db.js";
+import {
+  carpetaUploads,
+  carpetaUploadsPublicos,
+} from "./configuracion/almacenamiento.js";
 import productoRoutes from "./routes/productoRoutes.js";
 import usuarioRoutes from "./routes/usuarioRoutes.js";
 import verificacionRoutes from "./routes/verificacionRoutes.js";
@@ -35,10 +39,25 @@ import { resolutoresGraphQL } from "./graphql/resolvers.js";
 import { extraerContextoGraphQL } from "./graphql/contexto.js";
 import { iniciarServidorDeSuscripciones } from "./graphql/servidorSuscripciones.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
+
+/**
+ * En Vercel la app se importa como función y puede atender varias peticiones
+ * seguidas. Cacheamos la promesa de conexión para no abrir una conexión nueva
+ * en cada petición y esperamos a Mongo antes de entrar a las rutas de datos.
+ */
+let conexionMongo: Promise<void> | null = null;
+
+function asegurarConexionMongo(): Promise<void> {
+  if (!conexionMongo) {
+    conexionMongo = coneccionDB().catch((error) => {
+      conexionMongo = null;
+      throw error;
+    });
+  }
+  return conexionMongo;
+}
 
 /**
  * Orígenes permitidos para CORS: los que traiga `FRONTEND_URL` (pueden ser
@@ -106,9 +125,25 @@ app.use("/uploads/ine", (_req, res) => {
 app.use("/uploads/comprobantes", (_req, res) => {
   res.status(404).json({ message: "No encontrado" });
 });
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads", express.static(carpetaUploads));
+// Vercel ignora express.static(); esta ruta manual sirve las imágenes nuevas
+// (en /tmp) y las fotos de catálogo que viajan con el despliegue.
+app.get("/uploads/:archivo", (req, res) => {
+  const archivo = path.basename(req.params.archivo);
+  const ruta =
+    [path.join(carpetaUploads, archivo), path.join(carpetaUploadsPublicos, archivo)]
+      .find((candidata) => fs.existsSync(candidata)) ?? null;
+  if (!ruta) {
+    return res.status(404).json({ message: "No encontrado" });
+  }
+  res.sendFile(ruta, (error) => {
+    if (error && !res.headersSent) {
+      res.status(404).json({ message: "No encontrado" });
+    }
+  });
+});
 
-// Healthcheck: le indica a la plataforma (Railway) que el servicio ya arrancó.
+// Healthcheck: le indica a la plataforma que el servicio ya arrancó.
 // No consulta bases de datos: solo confirma que el proceso responde.
 app.get("/api/salud", (_req, res) => {
   res.json({
@@ -116,6 +151,13 @@ app.get("/api/salud", (_req, res) => {
     servicio: "ichiba-api",
     fecha: new Date().toISOString(),
   });
+});
+
+// A partir de aquí sí se necesita Mongo (productos, usuarios, chats, etc.).
+app.use((_req, _res, next) => {
+  asegurarConexionMongo()
+    .then(() => next())
+    .catch((error) => next(error));
 });
 
 app.use("/api/productos", productoRoutes);
@@ -180,32 +222,48 @@ app.use(
 );
 
 const PORT = process.env.PORT || 5000;
+const enVercel =
+  process.env.VERCEL === "1" ||
+  Boolean(process.env.VERCEL_ENV) ||
+  Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
 
-coneccionDB().then(() => {
-  const servidorHttp = app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
-  });
+// Vercel importa esta app como una función; no debe abrir un puerto ni
+// registrar cron/WebSocket propios. Las rutas HTTP sí quedan disponibles en el
+// mismo dominio del frontend.
+export default app;
 
-  // Sin este manejador, un EADDRINUSE se reporta como error del WebSocket y el
-  // proceso sigue vivo sin escuchar, dejando instancias colgadas que ocupan el
-  // puerto en los siguientes arranques.
-  servidorHttp.on("error", (error: NodeJS.ErrnoException) => {
-    if (error.code === "EADDRINUSE") {
-      console.error(
-        `El puerto ${PORT} ya está en uso. Cierra la otra instancia del backend y vuelve a intentarlo.`,
-      );
-    } else {
-      console.error("No se pudo iniciar el servidor HTTP:", error);
-    }
-    process.exit(1);
-  });
+if (!enVercel) {
+  asegurarConexionMongo()
+    .then(() => {
+      const servidorHttp = app.listen(PORT, () => {
+        console.log(`Servidor corriendo en http://localhost:${PORT}`);
+      });
 
-  iniciarServidorDeSuscripciones(servidorHttp, esquemaGraphQL);
-});
+      // Sin este manejador, un EADDRINUSE se reporta como error del WebSocket y
+      // el proceso sigue vivo sin escuchar, dejando instancias colgadas que
+      // ocupan el puerto en los siguientes arranques.
+      servidorHttp.on("error", (error: NodeJS.ErrnoException) => {
+        if (error.code === "EADDRINUSE") {
+          console.error(
+            `El puerto ${PORT} ya está en uso. Cierra la otra instancia del backend y vuelve a intentarlo.`,
+          );
+        } else {
+          console.error("No se pudo iniciar el servidor HTTP:", error);
+        }
+        process.exit(1);
+      });
 
-iniciarJobRevisionHorarios();
-iniciarJobRevisionPagos();
-iniciarJobNotificacionesCategoria();
-iniciarJobRevisionEntregas();
-iniciarJobInformesMensuales();
-iniciarJobRevisionSanciones();
+      iniciarServidorDeSuscripciones(servidorHttp, esquemaGraphQL);
+    })
+    .catch((error) => {
+      console.error("No se pudo iniciar el backend:", error);
+      process.exit(1);
+    });
+
+  iniciarJobRevisionHorarios();
+  iniciarJobRevisionPagos();
+  iniciarJobNotificacionesCategoria();
+  iniciarJobRevisionEntregas();
+  iniciarJobInformesMensuales();
+  iniciarJobRevisionSanciones();
+}

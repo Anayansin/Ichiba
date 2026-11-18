@@ -1,14 +1,17 @@
-# Vercel solo necesita el servicio "tienda" (frontend/Ichiba).
-# El backend vive en Railway y front-astro no forma parte del despliegue.
-backend/
+# La tienda y la API viven en el mismo proyecto de Vercel.
+# El portal Astro y las herramientas locales no forman parte del despliegue.
 front-astro/
 herramientas/
 
 # Artefactos y secretos: nunca se suben
 node_modules/
+backend/node_modules/
 dist/
 .vercel/
 .env
 .env.*
+backend/.env
+backend/.env.*
+backend/uploads/
 *.md
 *.log

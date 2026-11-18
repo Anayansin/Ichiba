@@ -2,7 +2,10 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import {
+  carpetaComprobantes,
+  carpetaDisputas,
+} from "../configuracion/almacenamiento.js";
 import { Producto } from "../models/producto.js";
 import { Venta } from "../models/Venta.js";
 import { Disputa } from "../models/Disputa.js";
@@ -61,11 +64,7 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const carpetaComprobantes = path.join(__dirname, "../../uploads/comprobantes");
 // RQF40: evidencias de las disputas (solo se sirven con autorización).
-const carpetaDisputas = path.join(__dirname, "../../uploads/disputas");
 
 async function buscarProducto(productoId: unknown) {
   if (typeof productoId !== "string" || !/^[0-9a-fA-F]{24}$/.test(productoId))

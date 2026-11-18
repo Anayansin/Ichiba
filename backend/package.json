@@ -52,6 +52,7 @@
     "pdfkit": "^0.20.2",
     "prisma": "^8.0.0-rc.17",
     "sharp": "^0.35.3",
+    "temporal-polyfill": "^1.0.8",
     "tesseract.js": "^7.0.0",
     "tsx": "^4.19.0",
     "twilio": "^6.0.2",

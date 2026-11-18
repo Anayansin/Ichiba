@@ -10,9 +10,43 @@
           "destination": "/index.html"
         }
       ]
+    },
+    "api": {
+      "root": "backend",
+      "framework": "express",
+      "entrypoint": "src/server.ts",
+      "functions": {
+        "src/server.ts": {
+          "includeFiles": "public/uploads/**"
+        }
+      }
     }
   },
   "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/graphql",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/mcp/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
     {
       "source": "/(.*)",
       "destination": {
