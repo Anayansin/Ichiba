@@ -18,6 +18,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
+import clientePrisma from "../src/configuracion/prisma.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.join(__dirname, "..");
@@ -792,14 +793,21 @@ try {
     _id: string;
     vendedorId: string;
   }[];
-  const deMercadoPago = productosLista.find(
-    (producto) => String(producto.vendedorId) === "6",
-  );
+  const deMercadoPago = await (async () => {
+    const vendedorMP = await clientePrisma.usuario.findFirst({
+      where: { metodoPago: "mercadopago" },
+      select: { id: true },
+    });
+    if (!vendedorMP) return null;
+    return productosLista.find(
+      (producto) => String(producto.vendedorId) === String(vendedorMP.id),
+    );
+  })();
   if (!deMercadoPago) {
     verificar(
       "Detalle con vendedor Mercado Pago indica metodoPagoVendedor=mercadopago",
       false,
-      "la base local no tiene productos del vendedor 6",
+      "la base local no tiene un vendedor de Mercado Pago con productos activos",
     );
   } else {
     const detalleMP = await fetch(
@@ -846,6 +854,7 @@ try {
     );
     const resumen = (await rResumen.json()) as {
       generadoEn?: string;
+      periodoMes?: { desde?: string };
       usuarios?: { total?: number; activos?: number };
       ventas?: {
         total?: number;
@@ -872,14 +881,28 @@ try {
       `status ${rResumen.status}: ${JSON.stringify(resumen).slice(0, 300)}`,
     );
 
-    // 37) El resumen refleja el estado real de la base (hay ventas del
-    // vendedor demo, ambas de este mes, y usuarios registrados).
+    // 37) El resumen refleja el estado real de la base. Se compara contra las
+    // mismas fuentes (PostgreSQL) y contra el inicio del mes que reporta el
+    // propio endpoint, no contra una foto fija que envejece con el tiempo.
+    const [usuariosReales, ventasReales] = await Promise.all([
+      clientePrisma.usuario.count(),
+      clientePrisma.venta.findMany(),
+    ]);
+    const desdeMes = resumen.periodoMes?.desde
+      ? new Date(resumen.periodoMes.desde)
+      : null;
+    const ventasMesReales = desdeMes
+      ? ventasReales.filter(
+          (venta) => new Date(venta.createdAt) >= desdeMes,
+        ).length
+      : -1;
     verificar(
       "Dashboard admin: las cifras coinciden con datos reales",
-      (resumen.usuarios?.total ?? 0) >= 3 &&
-        (resumen.ventas?.total ?? 0) >= 1 &&
-        (resumen.ventas?.mes?.total ?? 0) >= 1,
-      `usuarios=${resumen.usuarios?.total} ventas=${resumen.ventas?.total} mes=${resumen.ventas?.mes?.total}`,
+      resumen.usuarios?.total === usuariosReales &&
+        resumen.ventas?.total === ventasReales.length &&
+        !!desdeMes &&
+        resumen.ventas?.mes?.total === ventasMesReales,
+      `usuarios=${resumen.usuarios?.total}/${usuariosReales} ventas=${resumen.ventas?.total}/${ventasReales.length} mes=${resumen.ventas?.mes?.total}/${ventasMesReales}`,
     );
   }
 

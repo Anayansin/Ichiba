@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import {
   ErrorBackoffice,
   agregarEntradaListaNegraAdmin,
+  agregarUsuarioAListaNegraAdmin,
   cambiarSuspensionUsuarioAdmin,
   historialTransaccionesAdmin,
   listarAdeudosAdmin,
@@ -74,6 +75,29 @@ export async function reactivarUsuario(req: Request, res: Response) {
     res.json(await cambiarSuspensionUsuarioAdmin(String(req.params.id), false));
   } catch (error) {
     responderError(res, error, "Error al actualizar el usuario");
+  }
+}
+
+/**
+ * RQNF1.9: desde Gestión de usuarios se puede mandar una cuenta a la lista
+ * negra. No suspende la cuenta: solo bloquea sus datos para futuras altas.
+ */
+export async function agregarUsuarioAListaNegra(req: Request, res: Response) {
+  try {
+    const entrada = await agregarUsuarioAListaNegraAdmin(
+      String(req.params.id),
+      typeof req.body?.motivo === "string" ? req.body.motivo : undefined,
+    );
+    res.status(201).json({
+      message: "Usuario agregado a la lista negra",
+      entrada,
+    });
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      "No se pudo agregar el usuario a la lista negra",
+    );
   }
 }
 

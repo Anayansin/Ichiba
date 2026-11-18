@@ -313,7 +313,9 @@ export async function confirmarComprobanteDeVenta(
   vendedorId: number,
 ): Promise<{ error?: string; codigoEntrega?: string; entregaLimite?: Date }> {
   if (venta.vendedorId !== vendedorId) {
-    return { error: "No puedes confirmar el comprobante de esta compra" };
+    return {
+      error: "Solo el vendedor de esta compra puede confirmar el comprobante",
+    };
   }
   if (venta.estado !== "pendiente_confirmacion") {
     return { error: "Esta compra no está pendiente de confirmación" };
@@ -378,7 +380,9 @@ export async function rechazarComprobanteDeVenta(
   motivo: string,
 ): Promise<{ error?: string }> {
   if (venta.vendedorId !== vendedorId) {
-    return { error: "No puedes rechazar el comprobante de esta compra" };
+    return {
+      error: "Solo el vendedor de esta compra puede rechazar el comprobante",
+    };
   }
   if (venta.estado !== "pendiente_confirmacion") {
     return { error: "Esta compra no está pendiente de confirmación" };
@@ -428,7 +432,9 @@ export async function registrarEntregaDeVenta(
   codigo: string,
 ): Promise<{ error?: string }> {
   if (venta.vendedorId !== vendedorId) {
-    return { error: "No puedes registrar la entrega de esta compra" };
+    return {
+      error: "Solo el vendedor de esta compra puede registrar la entrega",
+    };
   }
   if (venta.estado !== "en_entrega") {
     return {

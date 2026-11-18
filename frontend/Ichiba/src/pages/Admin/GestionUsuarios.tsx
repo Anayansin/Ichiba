@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
+  agregarUsuarioAListaNegra,
   fetchUsuarios,
   reactivarUsuario,
-  suspenderUsuario,
   type UsuarioAdmin,
 } from "../../services/adminService";
 import {
@@ -122,30 +122,59 @@ function GestionUsuarios() {
     );
   }, [cargar]);
 
-  async function cambiarSuspension(usuario: UsuarioAdmin) {
+  async function reactivar(usuario: UsuarioAdmin) {
     setError("");
     setAviso("");
     setUsuarioEnAccion(usuario.id);
 
     try {
-      const usuarioActualizado = usuario.suspendido
-        ? await reactivarUsuario(usuario.id)
-        : await suspenderUsuario(usuario.id);
+      const usuarioActualizado = await reactivarUsuario(usuario.id);
 
       setUsuarios((anteriores) =>
         anteriores.map((item) =>
           item.id === usuarioActualizado.id ? usuarioActualizado : item,
         ),
       );
+      setAviso(`Usuario reactivado: ${usuarioActualizado.nombreCompleto}`);
+    } catch (err) {
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          "No pudimos reactivar el usuario",
+      );
+    } finally {
+      setUsuarioEnAccion(null);
+    }
+  }
+
+  /**
+   * RQNF1.9: la acción de Gestión de usuarios manda los datos de la cuenta a
+   * la lista negra; no suspende ni desactiva al usuario.
+   */
+  async function agregarAListaNegra(usuario: UsuarioAdmin) {
+    const motivo = window.prompt(
+      `Motivo para agregar a ${usuario.nombreCompleto} a la lista negra:`,
+      "Agregado desde Gestión de usuarios",
+    );
+
+    if (motivo === null) return;
+    if (!motivo.trim()) {
+      setError("Indica el motivo de la inclusión en la lista negra");
+      return;
+    }
+
+    setError("");
+    setAviso("");
+    setUsuarioEnAccion(usuario.id);
+
+    try {
+      await agregarUsuarioAListaNegra(usuario.id, motivo.trim());
       setAviso(
-        usuarioActualizado.suspendido
-          ? `Usuario suspendido: ${usuarioActualizado.nombreCompleto}`
-          : `Usuario reactivado: ${usuarioActualizado.nombreCompleto}`,
+        `Usuario agregado a la lista negra: ${usuario.nombreCompleto}`,
       );
     } catch (err) {
       setError(
         (axios.isAxiosError(err) && err.response?.data?.message) ||
-          "No pudimos actualizar el usuario",
+          "No pudimos agregar el usuario a la lista negra",
       );
     } finally {
       setUsuarioEnAccion(null);
@@ -281,18 +310,24 @@ function GestionUsuarios() {
                     >
                       Permanente
                     </button>
+                  ) : usuario.suspendido ? (
+                    <button
+                      type="button"
+                      className="gestion-usuarios__reactivar"
+                      disabled={usuarioEnAccion === usuario.id}
+                      onClick={() => reactivar(usuario)}
+                    >
+                      Reactivar
+                    </button>
                   ) : (
                     <button
                       type="button"
-                      className={
-                        usuario.suspendido
-                          ? "gestion-usuarios__reactivar"
-                          : "gestion-usuarios__suspender"
-                      }
+                      className="gestion-usuarios__lista-negra"
+                      title="No suspende la cuenta: bloquea sus datos para nuevas altas (RQNF1.9)"
                       disabled={usuarioEnAccion === usuario.id}
-                      onClick={() => cambiarSuspension(usuario)}
+                      onClick={() => agregarAListaNegra(usuario)}
                     >
-                      {usuario.suspendido ? "Reactivar" : "Suspender"}
+                      Lista negra
                     </button>
                   )}
                 </td>

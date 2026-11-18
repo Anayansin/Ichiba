@@ -115,7 +115,10 @@ export async function crearReporte(req: Request, res: Response) {
       if (!esComprador && !esVendedor) {
         return res
           .status(403)
-          .json({ message: "No puedes reportar esta compra" });
+          .json({
+            message:
+              "Solo el comprador o el vendedor de esta compra pueden reportarla",
+          });
       }
 
       sujeto = esComprador
@@ -309,7 +312,10 @@ export async function crearReporteComprador(
     if (venta.vendedorId.toString() !== idVendedor) {
       return res
         .status(403)
-        .json({ message: "No puedes reportar esta compra" });
+        .json({
+          message:
+            "Solo el vendedor de esta compra puede reportar al comprador",
+        });
     }
 
     if (elemento !== undefined && !ELEMENTOS_REPORTABLES.includes(elemento)) {

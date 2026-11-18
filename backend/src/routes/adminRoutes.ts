@@ -3,6 +3,7 @@ import {
   obtenerTodosLosUsuarios,
   suspenderUsuario,
   reactivarUsuario,
+  agregarUsuarioAListaNegra,
   obtenerReportesPendientes,
   resolverReporte,
   obtenerHistorialTransacciones,
@@ -45,6 +46,14 @@ router.patch(
   verificarToken,
   esAdmin,
   reactivarUsuario,
+);
+
+// RQNF1.9: manda los datos de una cuenta a la lista negra sin suspenderla.
+router.post(
+  "/usuarios/:id/lista-negra",
+  verificarToken,
+  esAdmin,
+  agregarUsuarioAListaNegra,
 );
 
 router.get(

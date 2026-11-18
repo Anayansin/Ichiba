@@ -277,16 +277,25 @@ const servidorPaypal = http.createServer(async (req, res) => {
   responder(res, 404, { name: "RESOURCE_NOT_FOUND" });
 });
 
-const servidorVision = http.createServer((req, res) => {
+// Texto que el mock de Cloud Vision devuelve cuando la app pide el texto del
+// comprobante (TEXT_DETECTION). La suite lo actualiza antes de cada carga.
+let textoComprobanteMock = "";
+
+const servidorVision = http.createServer(async (req, res) => {
   if ((req.method ?? "GET") !== "POST") {
     res.writeHead(404);
     return res.end();
   }
+  const cuerpo = await leerCuerpo(req);
+  const pideTexto = JSON.stringify(cuerpo).includes("TEXT_DETECTION");
   responder(res, 200, {
     responses: [
       {
         labelAnnotations: [],
         safeSearchAnnotation: { ...safeSearchMock },
+        ...(pideTexto
+          ? { textAnnotations: [{ description: textoComprobanteMock }] }
+          : {}),
       },
     ],
   });
@@ -335,6 +344,7 @@ const carpetaPruebas = path.join(RAIZ, "uploads", "pruebas-puntos");
 fs.mkdirSync(carpetaPruebas, { recursive: true });
 const rutaFotoProducto = path.join(carpetaPruebas, "producto.jpg");
 const rutaComprobante = path.join(carpetaPruebas, "comprobante.png");
+const MONTOS_COMPROBANTE_MOCK = [100, 120, 140];
 
 await sharp({
   create: {
@@ -565,7 +575,18 @@ async function subirComprobanteDeVenta(
   ventaId: number,
   compradorId: string,
   datos: { palabraClave: string; referencia: string },
+  textoImagen?: string,
 ): Promise<{ status: number; cuerpo: any }> {
+  // El mock de Vision responde con el texto que se "lee" en la imagen.
+  textoComprobanteMock =
+    textoImagen ??
+    [
+      "COMPROBANTE DE PAGO",
+      `Referencia: ${datos.referencia}`,
+      "Fecha: 12/11/2026",
+      ...MONTOS_COMPROBANTE_MOCK.map((monto) => `Total: $${monto.toFixed(2)}`),
+    ].join("\n");
+
   const fd = new FormData();
   fd.append("palabraClave", datos.palabraClave);
   fd.append("referencia", datos.referencia);

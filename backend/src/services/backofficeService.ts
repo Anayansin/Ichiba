@@ -698,6 +698,46 @@ export async function listarListaNegraAdmin(opciones: {
   };
 }
 
+/**
+ * RQNF1.9: agrega a la lista negra los datos de identificación de una cuenta
+ * ya registrada, sin suspenderla. La cuenta sigue operando, pero sus datos
+ * (RFC, CURP, código de la INE y correo) quedan bloqueados para nuevas altas.
+ */
+export async function agregarUsuarioAListaNegraAdmin(
+  id: string,
+  motivo?: string,
+): Promise<EntradaListaNegra> {
+  const idUsuario = Number(id);
+  if (!Number.isInteger(idUsuario) || idUsuario <= 0) {
+    throw new ErrorBackoffice(400, "Indica el usuario que quieres bloquear");
+  }
+
+  const usuario = await clientePrisma.usuario.findUnique({
+    where: { id: idUsuario },
+    select: {
+      nombreCompleto: true,
+      correo: true,
+      rfc: true,
+      curp: true,
+      ineCodigoReverso: true,
+    },
+  });
+
+  if (!usuario) {
+    throw new ErrorBackoffice(404, "Usuario no encontrado");
+  }
+
+  return agregarEntradaListaNegraAdmin({
+    rfc: usuario.rfc,
+    curp: usuario.curp ?? undefined,
+    ineCodigoReverso: usuario.ineCodigoReverso ?? undefined,
+    correo: usuario.correo,
+    nombreCompleto: usuario.nombreCompleto,
+    motivo:
+      (motivo ?? "").trim() || "Agregado desde Gestión de usuarios",
+  });
+}
+
 export async function agregarEntradaListaNegraAdmin(datos: {
   rfc?: string;
   curp?: string;

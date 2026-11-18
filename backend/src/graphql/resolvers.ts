@@ -24,6 +24,9 @@ import {
 import { calcularResumenAdmin } from "../services/resumenAdminService.js";
 import type { ContextoGraphQL } from "./contexto.js";
 
+const MENSAJE_CHAT_AJENO =
+  "No puedes acceder a este chat porque esta venta no pertenece a tu cuenta";
+
 type ArgumentosProducto = {
   id: string;
 };
@@ -224,7 +227,7 @@ export const resolutoresGraphQL = {
         compradorId,
       );
       if (!venta) {
-        throw new Error("No tienes acceso a este chat");
+        throw new Error(MENSAJE_CHAT_AJENO);
       }
 
       return Mensaje.find({ ventaId: argumentos.ventaId }).sort({
@@ -242,7 +245,7 @@ export const resolutoresGraphQL = {
         vendedorId,
       );
       if (!venta) {
-        throw new Error("No tienes acceso a este chat");
+        throw new Error(MENSAJE_CHAT_AJENO);
       }
 
       return Mensaje.find({ ventaId: argumentos.ventaId }).sort({
@@ -263,7 +266,9 @@ export const resolutoresGraphQL = {
       }
 
       if (productoEncontrado.vendedorId.toString() !== usuarioId) {
-        throw new Error("No tienes permiso sobre este producto");
+        throw new Error(
+          "No puedes modificar este producto porque pertenece a otro vendedor",
+        );
       }
 
       productoEncontrado.activo = !productoEncontrado.activo;
@@ -355,7 +360,7 @@ export const resolutoresGraphQL = {
         compradorId,
       );
       if (!venta) {
-        throw new Error("No tienes acceso a este chat");
+        throw new Error(MENSAJE_CHAT_AJENO);
       }
 
       const contenido = validarContenido(argumentos.contenido);
@@ -380,7 +385,7 @@ export const resolutoresGraphQL = {
         vendedorId,
       );
       if (!venta) {
-        throw new Error("No tienes acceso a este chat");
+        throw new Error(MENSAJE_CHAT_AJENO);
       }
 
       const contenido = validarContenido(argumentos.contenido);

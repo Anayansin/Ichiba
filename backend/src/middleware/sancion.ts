@@ -18,8 +18,12 @@ function responderBloqueo(res: Response, estado: EstadoBloqueo) {
     } de forma automática.`;
   }
 
+  const detalleRevision = estado.motivoRevision
+    ? ` Motivo: ${estado.motivoRevision}.`
+    : "";
+
   return res.status(403).json({
-    message: `Tu cuenta tiene una sanción activa y no puedes realizar esta acción. ${motivo}`,
+    message: `Tu cuenta tiene una sanción activa y no puedes realizar esta acción. ${motivo}${detalleRevision}`,
     sancion: {
       permanente: estado.permanente,
       hasta: estado.hasta,
@@ -45,6 +49,10 @@ function responderSuspension(
     ? String(suspension.motivoSuspension)
     : null;
   const saldo = Number(suspension.saldoPendiente ?? 0);
+  const detalle =
+    motivo && motivo !== "manual" && motivo !== "saldo_pendiente"
+      ? ` Motivo: ${motivo}.`
+      : "";
 
   return res.status(403).json({
     message:
@@ -52,7 +60,7 @@ function responderSuspension(
         ? `Tu cuenta está suspendida por un saldo pendiente de $${saldo.toFixed(
             2,
           )}. Puedes terminar tus entregas en curso, pero no publicar ni recibir clientes hasta que la administración registre la liquidación (RQNF37 / RQNF38).`
-        : "Tu cuenta está suspendida por la administración de Ichiba. Contacta al equipo para más información.",
+        : `Tu cuenta está suspendida por la administración de Ichiba.${detalle} Contacta al equipo para revisar tu caso y solicitar la reactivación.`,
     sancion: {
       permanente: true,
       hasta: null,

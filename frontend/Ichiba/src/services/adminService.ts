@@ -53,6 +53,17 @@ export async function reactivarUsuario(id: string): Promise<UsuarioAdmin> {
   return response.data;
 }
 
+/** RQNF1.9: manda los datos de una cuenta a la lista negra sin suspenderla. */
+export async function agregarUsuarioAListaNegra(
+  id: string,
+  motivo: string,
+): Promise<{ message: string; entrada: EntradaListaNegra }> {
+  const response = await api.post(`/admin/usuarios/${id}/lista-negra`, {
+    motivo,
+  });
+  return response.data;
+}
+
 export type ReportePendiente = {
   id: number;
   categoria: string;

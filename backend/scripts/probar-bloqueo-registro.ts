@@ -6,6 +6,8 @@
  *   2. esos datos (o su teléfono) ya pertenecen a otra cuenta;
  *   3. su correo ya tiene una cuenta registrada;
  * y que la persona puede pedir a los administradores que revisen su caso.
+ * También comprueba que el login explique el motivo cuando la cuenta está en
+ * la lista negra o suspendida.
  *
  * Necesita MongoDB y PostgreSQL (los mismos que usa el backend). Se ejecuta
  * con:
@@ -14,11 +16,14 @@
  */
 import "dotenv/config";
 import assert from "node:assert/strict";
+import type { Request, Response } from "express";
+import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { coneccionDB } from "../src/configuracion/db.js";
 import { ListaNegra } from "../src/models/ListaNegra.js";
 import { SolicitudRegistroBloqueado } from "../src/models/SolicitudRegistroBloqueado.js";
 import clientePrisma from "../src/configuracion/prisma.js";
+import { iniciarSesion } from "../src/controllers/usuarioController.js";
 import {
   CODIGO_DATOS_NO_REGISTRABLES,
   crearSolicitudDeRevision,
@@ -47,7 +52,7 @@ async function crearCuentaDePrueba() {
       telefono: TELEFONO_PRUEBA,
       correo,
       rfc: RFC_PRUEBA,
-      password: "hash-de-prueba",
+      password: await bcrypt.hash("ClavePrueba123!", 10),
       curp: CURP_PRUEBA,
       ineFrente: "/uploads/ine/prueba-frente.png",
       ineReverso: "/uploads/ine/prueba-reverso.png",
@@ -61,6 +66,26 @@ async function crearCuentaDePrueba() {
   });
   cuentaCreada = true;
   return correo;
+}
+
+/** Ejecuta el controlador real de login sin levantar el servidor HTTP. */
+async function intentarLogin(correo: string, password: string) {
+  let estado = 200;
+  let cuerpo: Record<string, unknown> = {};
+
+  const respuesta = {
+    status(codigo: number) {
+      estado = codigo;
+      return this;
+    },
+    json(payload: Record<string, unknown>) {
+      cuerpo = payload;
+      return this;
+    },
+  } as unknown as Response;
+
+  await iniciarSesion({ body: { correo, password } } as Request, respuesta);
+  return { estado, cuerpo };
 }
 
 async function main() {
@@ -120,6 +145,57 @@ async function main() {
   assert.equal(porListaNegra.motivo, "lista-negra");
   assert.ok(porListaNegra.campos.includes("rfc"));
 
+  console.log("4b) El login rechaza con el motivo de la lista negra");
+  const loginListaNegra = await intentarLogin(
+    "lista.negra@ichiba.mx",
+    "cualquier-password",
+  );
+  assert.equal(loginListaNegra.estado, 403, "el login debe responder 403");
+  assert.equal(loginListaNegra.cuerpo.codigo, "CUENTA_EN_LISTA_NEGRA");
+  assert.ok(
+    String(loginListaNegra.cuerpo.message).includes("lista negra") &&
+      String(loginListaNegra.cuerpo.message).includes(
+        "Prueba automática del bloqueo de registro",
+      ),
+    `el login debe explicar el motivo: ${String(loginListaNegra.cuerpo.message)}`,
+  );
+
+  console.log("4c) El login explica los casos genéricos de bloqueo");
+  const loginDesconocido = await intentarLogin(
+    "no-existe-login@ichiba.mx",
+    "cualquier-password",
+  );
+  assert.equal(loginDesconocido.estado, 401);
+  assert.ok(
+    String(loginDesconocido.cuerpo.message).includes("cuenta fue cancelada") &&
+      String(loginDesconocido.cuerpo.message).includes("lista negra"),
+    "el login debe explicar también los casos de cuenta cancelada y lista negra",
+  );
+
+  console.log("4d) Una cuenta suspendida explica el motivo del bloqueo");
+  const usuarioPrueba = await clientePrisma.usuario.findFirst({
+    where: { correo: correoExistente },
+  });
+  assert.ok(usuarioPrueba, "la cuenta de prueba debe existir");
+  await clientePrisma.usuario.update({
+    where: { id: usuarioPrueba!.id },
+    data: {
+      suspendido: true,
+      motivoSuspension: "investigación de fraude",
+    },
+  });
+
+  const loginSuspendido = await intentarLogin(
+    correoExistente,
+    "ClavePrueba123!",
+  );
+  assert.equal(loginSuspendido.estado, 403);
+  assert.equal(loginSuspendido.cuerpo.codigo, "CUENTA_SUSPENDIDA");
+  assert.ok(
+    String(loginSuspendido.cuerpo.message).includes("investigación de fraude"),
+    `el login debe explicar la suspensión: ${String(loginSuspendido.cuerpo.message)}`,
+  );
+
   console.log("5) El mensaje explica el bloqueo y el contacto con administradores");
   const mensaje = mensajeDeBloqueoRegistro(porListaNegra.motivo!);
   assert.ok(
@@ -129,6 +205,12 @@ async function main() {
   assert.ok(
     mensaje.includes("administradores"),
     "el mensaje debe indicar que puede comunicarse con los administradores",
+  );
+  const mensajeDatosEnUso = mensajeDeBloqueoRegistro("datos-en-uso");
+  assert.ok(
+    mensajeDatosEnUso.includes("otra cuenta") &&
+      mensajeDatosEnUso.includes("no pueden ser registrados"),
+    `el mensaje de datos en uso debe explicar el motivo: ${mensajeDatosEnUso}`,
   );
   assert.equal(CODIGO_DATOS_NO_REGISTRABLES, "DATOS_NO_REGISTRABLES");
 

@@ -97,7 +97,8 @@
 }
 
 .gestion-usuarios__suspender:disabled,
-.gestion-usuarios__reactivar:disabled {
+.gestion-usuarios__reactivar:disabled,
+.gestion-usuarios__lista-negra:disabled {
   opacity: 0.6;
   cursor: wait;
 }
@@ -109,7 +110,8 @@
 }
 
 .gestion-usuarios__suspender,
-.gestion-usuarios__reactivar {
+.gestion-usuarios__reactivar,
+.gestion-usuarios__lista-negra {
   border: none;
   border-radius: 999px;
   padding: 0.4rem 0.9rem;
@@ -118,12 +120,14 @@
   cursor: pointer;
 }
 
-.gestion-usuarios__suspender {
+.gestion-usuarios__suspender,
+.gestion-usuarios__lista-negra {
   background: #fdecec;
   color: #b3001b;
 }
 
-.gestion-usuarios__suspender:hover {
+.gestion-usuarios__suspender:hover,
+.gestion-usuarios__lista-negra:hover {
   background: #fbdcdc;
 }
 
@@ -137,7 +141,8 @@
 }
 
 .gestion-usuarios__suspender:disabled,
-.gestion-usuarios__reactivar:disabled {
+.gestion-usuarios__reactivar:disabled,
+.gestion-usuarios__lista-negra:disabled {
   opacity: 0.6;
   cursor: wait;
 }

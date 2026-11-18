@@ -198,9 +198,10 @@ export async function cambiarEstadoPromocional(
     }
 
     if (String(promocional.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso sobre este promocional" });
+      return res.status(403).json({
+        message:
+          "No puedes modificar este promocional porque pertenece a otro vendedor",
+      });
     }
 
     promocional.activo = !promocional.activo;
@@ -225,9 +226,10 @@ export async function actualizarPromocional(
       return res.status(404).json({ message: "Promocional no encontrado" });
 
     if (String(promocional.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso para editar este promocional" });
+      return res.status(403).json({
+        message:
+          "No puedes editar este promocional porque pertenece a otro vendedor",
+      });
     }
 
     const archivosNuevos = (req.files as Express.Multer.File[]) || [];
@@ -349,9 +351,10 @@ export async function eliminarPromocional(
       return res.status(404).json({ message: "Promocional no encontrado" });
 
     if (String(promocional.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso sobre este promocional" });
+      return res.status(403).json({
+        message:
+          "No puedes modificar este promocional porque pertenece a otro vendedor",
+      });
     }
 
     promocional.imagenes.forEach((rutaRelativa) => {

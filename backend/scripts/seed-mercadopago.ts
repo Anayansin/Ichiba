@@ -182,8 +182,8 @@ function validarDatos() {
 
 /**
  * Cuenta del vendedor que cobra con MercadoPago. El método de pago vive en
- * MongoDB (así lo lee `metodoDePagoDelVendedor` al crear la orden), y en
- * PostgreSQL solo va la cuenta de cobro dentro de `paypalEmail`.
+ * PostgreSQL (`metodoPago`), que es de donde lo lee
+ * `metodoDePagoDelVendedor` al crear la orden.
  */
 async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
   try {
@@ -209,6 +209,9 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
             suspendido: false,
             motivoSuspension: null,
             saldoPendiente: 0,
+            // RQF3: la cuenta demo siempre cobra con MercadoPago.
+            metodoPago: "mercadopago",
+            paypalEmail: DATOS_MP,
           },
         }),
       );
@@ -234,6 +237,7 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
           recibirNotificacionesPublicitarias: false,
           correoVerificado: true,
           paypalEmail: DATOS_MP,
+          metodoPago: "mercadopago",
           horarios: HORARIOS_VENDEDOR_MP,
           horarioConfirmadoEn: new Date(),
           diasSinConfirmarHorario: 0,
@@ -256,8 +260,6 @@ async function obtenerVendedorMercadoPago(): Promise<Vendedor> {
 
   return { id: "1", nombre: "Vendedor Mercado Pago" };
 }
-
-/** Copia la cuenta a MongoDB con `metodoPago: "mercadopago"`. */
 
 function documentosProducto(vendedor: Vendedor, imagenes: string[]) {
   const ahora = Date.now();

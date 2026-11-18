@@ -6,9 +6,11 @@ import { Promocional } from "../models/Promocional.js";
 import { Comentario } from "../models/Comentario.js";
 import { Venta } from "../models/Venta.js";
 import { Mensaje } from "../models/Mensaje.js";
+import { Reporte } from "../models/Reporte.js";
 import { Sancion } from "../models/Sancion.js";
 import { Suscripcion } from "../models/Suscripcion.js";
 import { SuscripcionCategoria } from "../models/SuscripcionCategoria.js";
+import { Usuario } from "../models/usuario.js";
 import {
   EstadoVinculacionPayPal,
   VinculoPayPal,
@@ -100,7 +102,15 @@ async function eliminarCuentaDeVendedor(
   // la cuenta misma (ventas y reportes tienen llave foránea hacia `usuario`).
   if (idPostgres !== null) {
     await clientePrisma.venta.deleteMany({ where: { vendedorId: idPostgres } });
-    await clientePrisma.reporte.deleteMany({ where: { vendedorId: idPostgres } });
+    // Reportes recibidos (vendedorId) y enviados por el vendedor
+    // (reportadoPorId, que se guarda como texto en el esquema). El cliente
+    // Prisma 8 no admite OR en deleteMany, así que se hacen dos bajas.
+    await clientePrisma.reporte.deleteMany({
+      where: { vendedorId: idPostgres },
+    });
+    await clientePrisma.reporte.deleteMany({
+      where: { reportadoPorId: String(idPostgres) },
+    });
     await clientePrisma.usuario.deleteMany({ where: { id: idPostgres } });
     // Vinculación con PayPal: el vínculo guarda el Merchant ID y el Token
     // de Acceso cifrado; no puede sobrevivir a la cuenta (RQNF4).
@@ -122,6 +132,21 @@ async function eliminarCuentaDeVendedor(
   await Sancion.deleteMany({ sujetoTipo: "usuario", sujetoId: idVendedor });
   await Suscripcion.deleteMany({ correo: usuario.correo });
   await SuscripcionCategoria.deleteMany({ correo: usuario.correo });
+
+  // Reportes en los que el vendedor fue el sujeto o el denunciante
+  // (RQNF6.6: se borran tanto los recibidos como los enviados).
+  await Reporte.deleteMany({
+    $or: [
+      { sujetoTipo: "usuario", sujetoId: idVendedor },
+      { reportadoPorTipo: "usuario", reportadoPorId: idVendedor },
+    ],
+  });
+
+  // El espejo de la cuenta en MongoDB se borra al final: si algo falla antes,
+  // la revisión del próximo mes vuelve a intentar la eliminación completa.
+  await Usuario.deleteMany({
+    $or: [{ usuarioId: idNumerico }, { correo: usuario.correo }],
+  });
 
   // Archivos en disco: productos, promocionales y las dos caras de la INE.
   for (const producto of productosDelVendedor) {

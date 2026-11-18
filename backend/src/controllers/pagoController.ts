@@ -826,7 +826,10 @@ export async function registrarComprobante(
       limpiarArchivo();
       return res
         .status(403)
-        .json({ message: "No puedes registrar el comprobante de esta compra" });
+        .json({
+          message:
+            "Solo el comprador de esta compra puede registrar el comprobante",
+        });
     }
 
     if (!archivo) {
@@ -1035,7 +1038,9 @@ export async function detalleDeVenta(req: Request, res: Response) {
 
     const rol = identificarRolEnVenta(req, venta);
     if (!rol) {
-      return res.status(403).json({ message: "No tienes acceso a esta compra" });
+      return res.status(403).json({
+        message: "No puedes acceder a esta compra porque no participas en ella",
+      });
     }
 
     const producto = await buscarProducto(venta.productoId);
@@ -1117,7 +1122,9 @@ export async function imagenDeComprobante(req: Request, res: Response) {
 
     const rol = identificarRolEnVenta(req, venta);
     if (!rol) {
-      return res.status(403).json({ message: "No tienes acceso a esta compra" });
+      return res.status(403).json({
+        message: "No puedes acceder a esta compra porque no participas en ella",
+      });
     }
 
     const nombreArchivo = path.basename(venta.comprobanteImagen);
@@ -1395,7 +1402,10 @@ export async function calificar(req: Request, res: Response) {
     if (!esElCompradorDeLaVenta && !esElVendedorDeLaVenta) {
       return res
         .status(403)
-        .json({ message: "No puedes calificar esta compra" });
+        .json({
+          message:
+            "Solo el comprador o el vendedor de esta compra pueden calificarla",
+        });
     }
 
     // RQF12 / RQNF10.3: el vendedor con cuenta cancelada solo conserva acceso
@@ -1639,7 +1649,10 @@ export async function imagenEvidenciaDisputa(req: Request, res: Response) {
     if (!autorizado) {
       return res
         .status(403)
-        .json({ message: "No tienes acceso a esta evidencia" });
+        .json({
+          message:
+            "No puedes ver esta evidencia porque solo el comprador, el vendedor o un administrador de esta disputa pueden consultarla",
+        });
     }
 
     const rutas =

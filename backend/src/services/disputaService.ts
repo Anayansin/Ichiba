@@ -282,7 +282,10 @@ export async function crearDisputa(datos: {
   }
 
   if (venta.compradorId !== datos.compradorId) {
-    throw new ErrorBackoffice(403, "No puedes abrir una disputa de esta compra");
+    throw new ErrorBackoffice(
+      403,
+      "Solo el comprador de esta compra puede abrir la disputa",
+    );
   }
 
   if (!ESTADOS_VENTA_DISPUTABLES.includes(String(venta.estado))) {
@@ -402,7 +405,10 @@ export async function responderDisputa(datos: {
   }
 
   if (Number(disputa.vendedorId) !== Number(datos.vendedorId)) {
-    throw new ErrorBackoffice(403, "No puedes responder esta disputa");
+    throw new ErrorBackoffice(
+      403,
+      "Solo el vendedor de esta compra puede responder la disputa",
+    );
   }
 
   if (disputa.estado !== "abierta") {

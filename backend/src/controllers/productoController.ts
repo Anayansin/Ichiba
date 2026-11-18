@@ -109,9 +109,10 @@ export async function actualizarProducto(
       return res.status(404).json({ message: "Producto no encontrado" });
 
     if (String(producto.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso para editar este producto" });
+      return res.status(403).json({
+        message:
+          "No puedes editar este producto porque pertenece a otro vendedor",
+      });
     }
 
     const filaEnPostgres = await clientePrisma.cola.findFirst({
@@ -588,9 +589,10 @@ export async function cambiarEstadoProducto(
       return res.status(404).json({ message: "Producto no encontrado" });
 
     if (String(producto.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso sobre este producto" });
+      return res.status(403).json({
+        message:
+          "No puedes modificar este producto porque pertenece a otro vendedor",
+      });
     }
 
     producto.activo = !producto.activo;
@@ -611,9 +613,10 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
       return res.status(404).json({ message: "Producto no encontrado" });
 
     if (String(producto.vendedorId) !== String(req.usuarioId)) {
-      return res
-        .status(403)
-        .json({ message: "No tienes permiso sobre este producto" });
+      return res.status(403).json({
+        message:
+          "No puedes modificar este producto porque pertenece a otro vendedor",
+      });
     }
 
     const filaEnPostgres = await clientePrisma.cola.findFirst({

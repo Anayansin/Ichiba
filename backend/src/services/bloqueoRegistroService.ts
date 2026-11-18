@@ -24,7 +24,10 @@ import {
 export const CODIGO_DATOS_NO_REGISTRABLES = "DATOS_NO_REGISTRABLES";
 
 export const MENSAJE_DATOS_NO_REGISTRABLES =
-  "Los datos ingresados no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
+  "Tus datos están en la lista negra de Ichiba: no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
+
+export const MENSAJE_DATOS_EN_USO =
+  "Tus datos de identificación o tu teléfono ya están asociados a otra cuenta, por eso no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
 
 export const MENSAJE_CORREO_EN_USO =
   "Ya existe una cuenta con ese correo, por eso los datos ingresados no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
@@ -62,9 +65,9 @@ export const ETIQUETAS_CAMPOS: Record<string, string> = {
 export function mensajeDeBloqueoRegistro(
   motivo: MotivoBloqueoRegistro,
 ): string {
-  return motivo === "correo-en-uso"
-    ? MENSAJE_CORREO_EN_USO
-    : MENSAJE_DATOS_NO_REGISTRABLES;
+  if (motivo === "correo-en-uso") return MENSAJE_CORREO_EN_USO;
+  if (motivo === "datos-en-uso") return MENSAJE_DATOS_EN_USO;
+  return MENSAJE_DATOS_NO_REGISTRABLES;
 }
 
 /**

@@ -11,6 +11,9 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 
+const MENSAJE_CHAT_AJENO =
+  "No puedes acceder a este chat porque esta venta no pertenece a tu cuenta";
+
 async function validarAccesoComprador(ventaId: string, compradorId: string) {
   const venta = await Venta.findById(ventaId);
   if (!venta) return null;
@@ -102,7 +105,7 @@ export async function fetchMensajesComoComprador(
 
     const venta = await validarAccesoComprador(ventaId, compradorId);
     if (!venta)
-      return res.status(403).json({ message: "No tienes acceso a este chat" });
+      return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
 
     const mensajes = await Mensaje.find({ ventaId }).sort({ createdAt: 1 });
     res.json(mensajes);
@@ -123,7 +126,7 @@ export async function enviarMensajeComoComprador(
     const venta = await validarAccesoComprador(ventaId, compradorId);
     if (!venta) {
       descartarImagen(req);
-      return res.status(403).json({ message: "No tienes acceso a este chat" });
+      return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
     }
 
     // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el
@@ -169,7 +172,7 @@ export async function fetchMensajesComoVendedor(
 
     const venta = await validarAccesoVendedor(ventaId, vendedorId);
     if (!venta)
-      return res.status(403).json({ message: "No tienes acceso a este chat" });
+      return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
 
     const mensajes = await Mensaje.find({ ventaId }).sort({ createdAt: 1 });
     res.json(mensajes);
@@ -190,7 +193,7 @@ export async function enviarMensajeComoVendedor(
     const venta = await validarAccesoVendedor(ventaId, vendedorId);
     if (!venta) {
       descartarImagen(req);
-      return res.status(403).json({ message: "No tienes acceso a este chat" });
+      return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
     }
 
     // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el

@@ -39,10 +39,34 @@ import {
   campoConPalabrasProhibidas,
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
+import {
+  buscarEnListaNegra,
+  type EntradaListaNegra,
+} from "../services/listaNegraService.js";
 
 const MINUTOS_EXPIRACION_RECUPERACION = 10;
 const MENSAJE_RECUPERACION_ENVIADA =
   "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
+
+/** Código para que el frontend identifique un login bloqueado por la lista negra. */
+export const CODIGO_CUENTA_EN_LISTA_NEGRA = "CUENTA_EN_LISTA_NEGRA";
+
+const MENSAJE_CREDENCIALES_INVALIDAS =
+  "No pudimos iniciar sesión: el correo no está registrado o la contraseña es incorrecta. Revisa tus datos; si olvidaste tu contraseña, usa “¿Olvidaste tu contraseña?”. Si tu cuenta fue cancelada de forma permanente y sus datos ya fueron eliminados, no podrás volver a ingresar; si tus datos están en la lista negra, tampoco podrás registrar una cuenta nueva. Si crees que se trata de un error, contacta a los administradores.";
+
+function mensajeDeCuentaEnListaNegra(entrada: EntradaListaNegra): string {
+  const motivo = entrada.motivo?.trim();
+  const detalle = motivo ? ` Motivo: ${motivo}.` : "";
+  return `No puedes iniciar sesión porque este correo está en la lista negra de Ichiba.${detalle} Si consideras que se trata de un error, contacta a los administradores para solicitar una revisión.`;
+}
+
+function mensajeDeSuspension(motivoSuspension: string | null): string {
+  const detalle =
+    motivoSuspension && motivoSuspension !== "manual"
+      ? ` Motivo: ${motivoSuspension}.`
+      : "";
+  return `Tu cuenta está suspendida por la administración de Ichiba.${detalle} Contacta al equipo para revisar tu caso y solicitar la reactivación.`;
+}
 
 function generarCodigoRecuperacion(): string {
   // El código de recuperación es de 6 dígitos (RQNF1.3 aplica al código de
@@ -451,27 +475,56 @@ export async function solicitarRevisionDeRegistro(req: Request, res: Response) {
 export async function iniciarSesion(req: Request, res: Response) {
   try {
     const { correo, password } = req.body;
+    const correoIngresado = String(correo ?? "").trim();
+
+    if (!correoIngresado || typeof password !== "string" || !password) {
+      return res.status(400).json({
+        message: "Escribe tu correo y contraseña para iniciar sesión.",
+      });
+    }
 
     const cuenta = await clientePrisma.usuario.findFirst({
       where: {
         correo: {
-          equals: String(correo ?? "").trim(),
+          equals: correoIngresado,
           mode: "insensitive",
         },
       },
     });
 
     if (!cuenta || typeof cuenta.password !== "string") {
-      return res
-        .status(401)
-        .json({ message: "Correo o contraseña incorrectos" });
+      // RQNF1.9: si la cuenta ya no existe, la lista negra puede conservar el
+      // motivo de un bloqueo manual. Las cuentas canceladas no conservan el
+      // correo (RQNF10.6), así que en ese caso se responde con el mensaje
+      // genérico. Una cuenta activa que esté en la lista negra sí puede
+      // ingresar: esa acción bloquea altas nuevas, no suspende la cuenta. Si
+      // MongoDB no responde, el login conserva esa respuesta.
+      let entradaListaNegra: EntradaListaNegra | null = null;
+      try {
+        entradaListaNegra = await buscarEnListaNegra({
+          correo: correoIngresado,
+        });
+      } catch (errorLista) {
+        console.error(
+          "[login] No se pudo consultar la lista negra:",
+          errorLista instanceof Error ? errorLista.message : errorLista,
+        );
+      }
+      if (entradaListaNegra) {
+        return res.status(403).json({
+          message: mensajeDeCuentaEnListaNegra(entradaListaNegra),
+          codigo: CODIGO_CUENTA_EN_LISTA_NEGRA,
+          motivo: entradaListaNegra.motivo,
+          origen: entradaListaNegra.origen,
+        });
+      }
+
+      return res.status(401).json({ message: MENSAJE_CREDENCIALES_INVALIDAS });
     }
 
     const passwordCorrecta = await bcrypt.compare(password, cuenta.password);
     if (!passwordCorrecta) {
-      return res
-        .status(401)
-        .json({ message: "Correo o contraseña incorrectos" });
+      return res.status(401).json({ message: MENSAJE_CREDENCIALES_INVALIDAS });
     }
 
     // RQNF37 / RQNF38: la suspensión administrativa vive en PostgreSQL. La
@@ -483,8 +536,8 @@ export async function iniciarSesion(req: Request, res: Response) {
       : null;
     if (cuenta.suspendido && motivoSuspension !== "saldo_pendiente") {
       return res.status(403).json({
-        message:
-          "Tu cuenta está suspendida por la administración de Ichiba. Contacta al equipo para más información.",
+        message: mensajeDeSuspension(motivoSuspension),
+        codigo: "CUENTA_SUSPENDIDA",
         suspendido: true,
         motivoSuspension,
       });

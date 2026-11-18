@@ -185,6 +185,21 @@ coneccionDB().then(() => {
   const servidorHttp = app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
   });
+
+  // Sin este manejador, un EADDRINUSE se reporta como error del WebSocket y el
+  // proceso sigue vivo sin escuchar, dejando instancias colgadas que ocupan el
+  // puerto en los siguientes arranques.
+  servidorHttp.on("error", (error: NodeJS.ErrnoException) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(
+        `El puerto ${PORT} ya está en uso. Cierra la otra instancia del backend y vuelve a intentarlo.`,
+      );
+    } else {
+      console.error("No se pudo iniciar el servidor HTTP:", error);
+    }
+    process.exit(1);
+  });
+
   iniciarServidorDeSuscripciones(servidorHttp, esquemaGraphQL);
 });
 
