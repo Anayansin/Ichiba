@@ -400,9 +400,6 @@ export const resolutoresGraphQL = {
       return mensajeGuardado;
     },
   },
-  // Fase 4 — BackOffice en vivo: cada suscripción entrega un evento del canal
-  // correspondiente. `resumenAdmin` recalcula el resumen completo y fresco en
-  // cada emisión; los demás canales llevan el payload ya armado.
   Subscription: {
     resumenAdmin: {
       subscribe: () => suscribirseAlCanal(CANAL_RESUMEN_ADMIN),
@@ -420,12 +417,10 @@ export const resolutoresGraphQL = {
       subscribe: () => suscribirseAlCanal(CANAL_LISTA_NEGRA),
       resolve: (evento: unknown) => evento,
     },
-    // RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
     disputasActualizadas: {
       subscribe: () => suscribirseAlCanal(CANAL_DISPUTAS),
       resolve: (evento: unknown) => evento,
     },
-    // RQNF1.9: solicitudes de revisión de altas denegadas.
     solicitudesRegistro: {
       subscribe: () => suscribirseAlCanal(CANAL_SOLICITUDES_REGISTRO),
       resolve: (evento: unknown) => evento,

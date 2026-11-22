@@ -1,11 +1,3 @@
-# Arranca las dos bases de datos locales de Ichiba sin necesidad de
-# permisos de administrador: MongoDB (puerto 27017) y PostgreSQL (puerto 5432).
-#
-# Uso:  powershell -ExecutionPolicy Bypass -File herramientas\arrancar-bases.ps1
-#
-# Si ya están escuchando no hace nada, así que se puede ejecutar cuantas veces
-# se quiera (también al iniciar sesión, desde la carpeta Inicio de Windows).
-
 $ErrorActionPreference = "Stop"
 
 $raizMongo = Join-Path $env:LOCALAPPDATA "Programs\mongodb"
@@ -26,7 +18,6 @@ function Esta-Escuchando([int]$puerto) {
   }
 }
 
-# ---------- MongoDB ----------
 if (Esta-Escuchando 27017) {
   Write-Host "MongoDB ya estaba corriendo en el puerto 27017"
 } elseif (Test-Path $rutaMongod) {
@@ -52,7 +43,6 @@ if (Esta-Escuchando 27017) {
   Write-Warning "No se encontro mongod.exe en $rutaMongod"
 }
 
-# ---------- PostgreSQL ----------
 if (Esta-Escuchando 5432) {
   Write-Host "PostgreSQL ya estaba corriendo en el puerto 5432"
 } elseif (Test-Path $rutaPg) {

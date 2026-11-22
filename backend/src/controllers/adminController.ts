@@ -22,14 +22,6 @@ import {
 } from "../services/backofficeService.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
-/**
- * Endpoints REST del BackOffice (`/api/admin/*`).
- *
- * Toda la lógica vive en `backofficeService` porque la comparten los endpoints
- * REST, las suscripciones GraphQL y el servidor MCP. Aquí solo se traduce la
- * petición HTTP a la llamada del servicio y sus errores al código de estado.
- */
-
 function responderError(
   res: Response,
   error: unknown,
@@ -78,10 +70,6 @@ export async function reactivarUsuario(req: Request, res: Response) {
   }
 }
 
-/**
- * RQNF1.9: desde Gestión de usuarios se puede mandar una cuenta a la lista
- * negra. No suspende la cuenta: solo bloquea sus datos para futuras altas.
- */
 export async function agregarUsuarioAListaNegra(req: Request, res: Response) {
   try {
     const entrada = await agregarUsuarioAListaNegraAdmin(
@@ -179,10 +167,6 @@ export async function quitarEntradaListaNegra(req: Request, res: Response) {
   }
 }
 
-/**
- * RQNF1.9: solicitudes de revisión que enviaron las personas a las que se
- * les denegó el alta de la cuenta.
- */
 export async function obtenerSolicitudesRegistro(req: Request, res: Response) {
   try {
     res.json(
@@ -197,7 +181,6 @@ export async function obtenerSolicitudesRegistro(req: Request, res: Response) {
   }
 }
 
-/** El administrador atiende la solicitud de revisión. */
 export async function resolverSolicitudRegistro(
   req: RequestConUsuario,
   res: Response,
@@ -227,11 +210,6 @@ export async function resolverSolicitudRegistro(
   }
 }
 
-/**
- * Dashboard del administrador: el cálculo vive en `resumenAdminService`
- * porque también lo usa la suscripción GraphQL `resumenAdmin` (Fase 4) y la
- * herramienta MCP `resumen_backoffice`.
- */
 export async function obtenerResumenAdmin(_req: Request, res: Response) {
   try {
     res.json(await obtenerResumenAdminServicio());
@@ -240,15 +218,10 @@ export async function obtenerResumenAdmin(_req: Request, res: Response) {
   }
 }
 
-/** Identificador numérico del administrador autenticado (para auditoría). */
 function idAdmin(req: RequestConUsuario): number | null {
   const id = Number(req.usuarioId);
   return Number.isInteger(id) ? id : null;
 }
-
-// ---------------------------------------------------------------------------
-// Disputas y ventas retenidas (RQF40 / RQNF32)
-// ---------------------------------------------------------------------------
 
 export async function obtenerDisputas(req: Request, res: Response) {
   try {
@@ -295,10 +268,6 @@ export async function resolverVentaRetenida(
     responderError(res, error, "Error al resolver la venta retenida");
   }
 }
-
-// ---------------------------------------------------------------------------
-// Adeudos del vendedor (RQNF37 / RQNF38)
-// ---------------------------------------------------------------------------
 
 export async function obtenerAdeudos(req: Request, res: Response) {
   try {

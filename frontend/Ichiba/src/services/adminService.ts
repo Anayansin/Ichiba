@@ -7,20 +7,13 @@ export type UsuarioAdmin = {
   correo: string;
   tipo: string;
   suspendido: boolean;
-  /** RQNF10.1 / RQNF10.3: puntos por infracciones acumulados (8 = cancelación). */
   puntosReputacion: number;
-  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta: string;
   fechaRegistro: string | null;
-  /** RQNF37 / RQNF38: motivo de la suspensión (p. ej. saldo_pendiente). */
   motivoSuspension?: string | null;
-  /** RQNF37 / RQNF38: adeudo pendiente de liquidar. */
   saldoPendiente?: number;
-  /** RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente. */
   sancionHasta?: string | null;
-  /** RQNF34 / RQNF35: la sanción es indefinida. */
   sancionPermanente?: boolean;
-  /** RQNF35: la cuenta está en revisión administrativa. */
   revisionAdministrativa?: boolean;
 };
 
@@ -53,7 +46,6 @@ export async function reactivarUsuario(id: string): Promise<UsuarioAdmin> {
   return response.data;
 }
 
-/** RQNF1.9: manda los datos de una cuenta a la lista negra sin suspenderla. */
 export async function agregarUsuarioAListaNegra(
   id: string,
   motivo: string,
@@ -75,13 +67,9 @@ export type ReportePendiente = {
   sujetoTipo: string;
   reportadoPorTipo: string;
   vendedorNombre: string;
-  /** RQNF10.1: puntos que suma este reporte si el administrador lo confirma. */
   puntos: number;
-  /** RQNF10.1: puntos que ya lleva acumulados el vendedor. */
   puntosReputacion: number;
-  /** RQNF10.3: puntos con los que la cuenta se cancela (8). */
   puntosCancelacion: number;
-  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta: string;
   fecha: string;
 };
@@ -91,11 +79,8 @@ export type RespuestaResolucion = {
   estado?: string;
   faltasLeves?: number;
   faltaGraveRegistrada?: boolean;
-  /** RQNF10.1: puntos que sumó el reporte al confirmarse. */
   puntos?: number;
-  /** RQNF10.1: puntos totales del vendedor después de confirmar. */
   puntosReputacion?: number;
-  /** RQNF10.3: true si con este reporte la cuenta llegó a 8 puntos y se canceló. */
   cuentaCancelada?: boolean;
 };
 
@@ -194,21 +179,15 @@ export async function quitarEntradaListaNegra(
   return response.data;
 }
 
-// ---------------------------------------------------------------------------
-// RQNF1.9: solicitudes de revisión de altas denegadas.
-// ---------------------------------------------------------------------------
-
 export type SolicitudRegistroAdmin = {
   id: string;
   nombreCompleto: string;
   correo: string;
   telefono: string;
   rfc: string;
-  /** "lista-negra" | "datos-en-uso" | "correo-en-uso". */
   motivoBloqueo: string;
   camposCoincidentes: string[];
   mensaje: string;
-  /** "pendiente" | "en-revision" | "resuelta" | "descartada". */
   estado: string;
   respuesta: string;
   revisadaPor: string;
@@ -247,10 +226,6 @@ export async function resolverSolicitudRegistro(
   return response.data;
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard del administrador: cifras en vivo (se recalculan en cada lectura).
-// ---------------------------------------------------------------------------
-
 export type ResumenAdmin = {
   generadoEn: string;
   periodoMes: { desde: string };
@@ -260,7 +235,6 @@ export type ResumenAdmin = {
     suspendidos: number;
     administradores: number;
     nuevos30Dias: number;
-    /** RQNF10.3: cuentas canceladas de forma permanente por llegar a 8 puntos. */
     cancelados: number;
   };
   catalogo: {
@@ -293,10 +267,6 @@ export async function fetchResumenAdmin(): Promise<ResumenAdmin> {
   return response.data;
 }
 
-// ---------------------------------------------------------------------------
-// RQF40 / RQNF32: disputas de reembolso y ventas con retención preventiva.
-// ---------------------------------------------------------------------------
-
 export type DisputaAdmin = {
   id: string;
   ventaIdPg: number;
@@ -308,12 +278,10 @@ export type DisputaAdmin = {
   monto: number;
   motivo: string;
   descripcion: string | null;
-  /** Rutas autorizadas de las evidencias (se descargan como blob). */
   evidenciasComprador: string[];
   respuestaVendedor: string | null;
   evidenciasVendedor: string[];
   respondidaEn: string | null;
-  /** "abierta" | "reembolsada" | "rechazada". */
   estado: string;
   resueltaEn: string | null;
   resueltaPor: string | null;
@@ -400,10 +368,6 @@ export async function resolverVentaRetenidaAdmin(
   return response.data;
 }
 
-// ---------------------------------------------------------------------------
-// RQNF37 / RQNF38: adeudos de los vendedores y su liquidación.
-// ---------------------------------------------------------------------------
-
 export type AdeudoAdmin = {
   id: string;
   usuarioId: number;
@@ -413,7 +377,6 @@ export type AdeudoAdmin = {
   monto: number;
   motivo: string;
   causa: string;
-  /** "pendiente" | "liquidado". */
   estado: string;
   fecha: string;
   liquidadoEn: string | null;
@@ -427,7 +390,6 @@ export type RespuestaAdeudos = {
   porPagina: number;
   total: number;
   totalPaginas: number;
-  /** Suma de todos los adeudos pendientes de liquidar. */
   pendienteTotal: number;
 };
 
@@ -457,7 +419,6 @@ export async function liquidarAdeudoAdmin(
   return response.data;
 }
 
-/** RQNF37: causas de un adeudo, para el dictamen de ventas retenidas. */
 export const CAUSAS_ADEUDO_ADMIN: { valor: string; etiqueta: string }[] = [
   { valor: "", etiqueta: "No registrar adeudo" },
   { valor: "reporte_confirmado", etiqueta: "Reporte confirmado al vendedor" },
@@ -468,7 +429,6 @@ export const CAUSAS_ADEUDO_ADMIN: { valor: string; etiqueta: string }[] = [
   { valor: "otro", etiqueta: "Otro motivo (irregularidad)" },
 ];
 
-/** RQNF37: causa legible de un adeudo ya registrado. */
 export function textoCausaAdeudo(causa: string): string {
   const encontrada = CAUSAS_ADEUDO_ADMIN.find((item) => item.valor === causa);
   return encontrada?.etiqueta ?? causa;

@@ -1,27 +1,8 @@
 import fs from "fs";
 
-/**
- * RQNF7.3 — Moderación de las fotografías de productos con la Cloud Vision
- * API de Google.
- *
- * Analiza cada imagen con detección de etiquetas y bloquea la publicación
- * cuando reconoce artículos excluidos del catálogo: carros, motos, casas,
- * terrenos, mascotas, personas, armas, sustancias controladas o productos
- * perecederos (esos anuncios van a la zona de promocionales, no al catálogo).
- *
- * Requiere GOOGLE_VISION_API_KEY (Google Cloud → Cloud Vision API →
- * credenciales). GOOGLE_VISION_ENDPOINT y VISION_MODERACION="omitir" solo
- * existen para pruebas y para desarrollo local sin llave.
- */
-
 const ENDPOINT_POR_DEFECTO =
   "https://vision.googleapis.com/v1/images:annotate";
 
-/**
- * `GOOGLE_VISION_ENDPOINT` solo se acepta fuera de producción. En producción
- * se ignora para que un mock o un endpoint mal configurado no pueda saltarse
- * la moderación.
- */
 function endpointVision(): string {
   if (process.env.NODE_ENV === "production") {
     if (process.env.GOOGLE_VISION_ENDPOINT) {
@@ -36,10 +17,6 @@ function endpointVision(): string {
 
 const ENDPOINT = endpointVision();
 
-/**
- * `VISION_MODERACION="omitir"` solo funciona en desarrollo. En producción se
- * ignora y la moderación sigue activa (fail-closed).
- */
 function moderacionOmitida(): boolean {
   if (process.env.VISION_MODERACION !== "omitir") return false;
   if (process.env.NODE_ENV === "production") {
@@ -51,14 +28,8 @@ function moderacionOmitida(): boolean {
   return true;
 }
 
-/** Confianza mínima de la etiqueta para tomar la decisión. */
 const UMBRAL_CONFIANZA = 0.7;
 
-/**
- * Etiquetas en inglés (las que devuelve Vision) que señalan artículos
- * excluidos, agrupadas por categoría. La comparación es por palabra
- * completa: "sports car" coincide con "car", pero "carpet" no.
- */
 const ETIQUETAS_EXCLUIDAS: { categoria: string; etiquetas: string[] }[] = [
   {
     categoria: "carros",
@@ -177,7 +148,6 @@ function contienePalabraCompleta(texto: string, palabra: string): boolean {
   return new RegExp(`(^|[^a-z0-9])${escapada}([^a-z0-9]|$)`, "i").test(texto);
 }
 
-/** Devuelve la categoría excluida que corresponde a una etiqueta de Vision. */
 export function categoriaExcluidaPorEtiqueta(etiqueta: string): string | null {
   const limpia = etiqueta.trim();
   if (!limpia) return null;
@@ -194,7 +164,6 @@ export function categoriaExcluidaPorEtiqueta(etiqueta: string): string | null {
 
 type AnalisisFoto = {
   permitido: boolean;
-  /** Por qué se bloqueó: sin llave, fallo del servicio o artículo excluido. */
   motivo?: "no-configurada" | "error" | "excluido";
   categoria?: string;
 };
@@ -251,14 +220,6 @@ async function analizarFotoProducto(rutaArchivo: string): Promise<AnalisisFoto> 
   }
 }
 
-/**
- * Analiza todas las fotos subidas de un producto. Devuelve el mensaje en
- * español del bloqueo, o null si todo está permitido.
- *
- * RQNF7.3: si la moderación no puede ejecutarse (sin llave o con error de
- * Cloud Vision), la publicación queda bloqueada —nunca se publica sin
- * analizar— a menos que VISION_MODERACION="omitir" (solo desarrollo local).
- */
 export async function moderarFotosProducto(
   rutasArchivos: string[],
 ): Promise<string | null> {
@@ -285,11 +246,6 @@ export async function moderarFotosProducto(
   return null;
 }
 
-/**
- * RQNF18 (para RQF22): moderación de contenido de las imágenes de
- * comprobante con la detección de contenido inseguro (SafeSearch) de Cloud
- * Vision. Debe correr ANTES de mostrársela al vendedor.
- */
 type AnalisisSeguro = {
   permitido: boolean;
   motivo?: "no-configurada" | "error" | "inapropiado";
@@ -354,15 +310,6 @@ async function analizarContenidoInseguro(
   }
 }
 
-/**
- * RQNF22.5: verifica el contenido del comprobante con Document Text
- * Detection: el texto de la imagen debe contener la referencia capturada por
- * el comprador, el monto de la compra y una fecha legible.
- *
- * Devuelve el motivo del rechazo para que el controlador muestre un mensaje
- * en español. Si Cloud Vision no está disponible el comprobante **no pasa**
- * (falla cerrada, igual que la moderación).
- */
 export type VerificacionComprobante = {
   verificado: boolean;
   motivo?:
@@ -374,7 +321,6 @@ export type VerificacionComprobante = {
     | "fecha";
 };
 
-/** Quita espacios y separadores para comparar referencias y montos. */
 function normalizarParaComparar(texto: string): string {
   return texto.toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -409,7 +355,6 @@ function elTextoTieneElMonto(texto: string, monto: number): boolean {
     const numero = Number(coincidencia.replace(/,/g, ""));
     if (!Number.isFinite(numero) || numero <= 0) continue;
     if (Math.abs(numero - esperado) <= tolerancia) return true;
-    // Algunos comprobantes muestran el importe en centavos (19000 = $190.00).
     if (Math.abs(numero / 100 - esperado) <= tolerancia) return true;
   }
   return false;
@@ -481,7 +426,6 @@ export async function verificarComprobanteConTexto(
   }
 }
 
-/** Mensaje en español del rechazo de la verificación del comprobante. */
 export function mensajeDeVerificacionComprobante(
   motivo: NonNullable<VerificacionComprobante["motivo"]>,
 ): string {
@@ -503,14 +447,6 @@ export function mensajeDeVerificacionComprobante(
   return "No se encontró una fecha legible en el comprobante. Sube una imagen donde se vea la fecha de la operación.";
 }
 
-/**
- * Analiza una imagen enviada por el usuario (comprobante o chat). Devuelve el
- * mensaje en español del bloqueo, o null si está permitida.
- *
- * Igual que RQNF7.3: si la moderación no puede ejecutarse (sin llave o con
- * error de Cloud Vision) la imagen queda bloqueada -nunca se muestra sin
- * analizar- a menos que VISION_MODERACION="omitir".
- */
 export async function moderarComprobante(
   rutaArchivo: string,
   contexto: "comprobante" | "chat" = "comprobante",

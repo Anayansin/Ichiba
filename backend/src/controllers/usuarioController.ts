@@ -48,7 +48,6 @@ const MINUTOS_EXPIRACION_RECUPERACION = 10;
 const MENSAJE_RECUPERACION_ENVIADA =
   "Si existe una cuenta con ese correo, recibirás un código para restablecer tu contraseña";
 
-/** Código para que el frontend identifique un login bloqueado por la lista negra. */
 export const CODIGO_CUENTA_EN_LISTA_NEGRA = "CUENTA_EN_LISTA_NEGRA";
 
 const MENSAJE_CREDENCIALES_INVALIDAS =
@@ -69,8 +68,6 @@ function mensajeDeSuspension(motivoSuspension: string | null): string {
 }
 
 function generarCodigoRecuperacion(): string {
-  // El código de recuperación es de 6 dígitos (RQNF1.3 aplica al código de
-  // confirmación del registro, que es de 4).
   return crypto.randomInt(100000, 999999).toString();
 }
 
@@ -98,7 +95,6 @@ export async function registrarUsuario(req: Request, res: Response) {
       aceptaTerminos,
       recibirNotificacionesCriticas,
       recibirNotificacionesPublicitarias,
-      metodoPago,
       datosMetodoPago,
     } = req.body;
 
@@ -151,7 +147,6 @@ export async function registrarUsuario(req: Request, res: Response) {
         .json({ message: "Todos los campos son obligatorios" });
     }
 
-    // RQNF1.2: el teléfono debe tener exactamente 10 dígitos numéricos.
     if (!/^\d{10}$/.test(telefono)) {
       if (ineFrente || ineReverso) {
         limpiarArchivos(
@@ -163,10 +158,7 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    if (
-      !datosMetodoPago ||
-      (metodoPago !== "paypal" && metodoPago !== "mercadopago")
-    ) {
+    if (!datosMetodoPago || !FORMATO_CORREO.test(String(datosMetodoPago).trim())) {
       if (ineFrente || ineReverso) {
         limpiarArchivos(
           [ineFrente, ineReverso].filter(Boolean) as Express.Multer.File[],
@@ -174,7 +166,7 @@ export async function registrarUsuario(req: Request, res: Response) {
       }
       return res
         .status(400)
-        .json({ message: "Indica tu método de pago y el dato para recibirlo" });
+        .json({ message: "Indica el correo de tu cuenta de PayPal" });
     }
 
     if (aceptaTerminos !== "true") {
@@ -216,6 +208,20 @@ export async function registrarUsuario(req: Request, res: Response) {
         .json({ message: "Debes subir el frente y el reverso de tu INE" });
     }
 
+    const revisionPrevia = await revisarBloqueoDeRegistro({
+      rfc,
+      correo,
+      telefono,
+    });
+    if (revisionPrevia.bloqueado && revisionPrevia.motivo) {
+      limpiarArchivos([ineFrente, ineReverso]);
+      return res.status(403).json({
+        message: mensajeDeBloqueoRegistro(revisionPrevia.motivo),
+        codigo: CODIGO_DATOS_NO_REGISTRABLES,
+        motivo: revisionPrevia.motivo,
+      });
+    }
+
     const frenteDimensionesOk = await validarDimensionesINE(ineFrente.path);
     const reversoDimensionesOk = await validarDimensionesINE(ineReverso.path);
 
@@ -239,8 +245,6 @@ export async function registrarUsuario(req: Request, res: Response) {
 
     const datosINE = await extraerDatosINE(ineFrente.path);
 
-    console.log("=== DATOS COMPLETOS DE STRUCTOCR (FRENTE) ===");
-    console.log(JSON.stringify(datosINE, null, 2));
 
     if (!datosINE.given_names || !datosINE.surname) {
       limpiarArchivos([ineFrente, ineReverso]);
@@ -277,8 +281,6 @@ export async function registrarUsuario(req: Request, res: Response) {
 
     const datosReverso = await extraerDatosINE(ineReverso.path);
 
-    console.log("=== DATOS DEL REVERSO (STRUCTOCR) ===");
-    console.log(JSON.stringify(datosReverso, null, 2));
 
     const mrzCompleto = [
       datosReverso.additional_fields?.mrz_line_1,
@@ -296,9 +298,6 @@ export async function registrarUsuario(req: Request, res: Response) {
       });
     }
 
-    // RQNF1.9: si el RFC, la CURP, el código de la INE o el correo ya están
-    // en la lista negra, o si esos datos (o el teléfono) ya pertenecen a
-    // otra cuenta, el registro se deniega con un mensaje claro.
     const revision = await revisarBloqueoDeRegistro({
       rfc,
       curp,
@@ -330,8 +329,8 @@ export async function registrarUsuario(req: Request, res: Response) {
         rfc,
         password: passwordHasheada,
         curp,
-        paypalEmail: datosMetodoPago,
-        metodoPago,
+        paypalEmail: String(datosMetodoPago).trim(),
+        metodoPago: "paypal",
         ineFrente: `/uploads/ine/${ineFrente.filename}`,
         ineReverso: `/uploads/ine/${ineReverso.filename}`,
         ineCodigoReverso: mrzCompleto,
@@ -345,7 +344,6 @@ export async function registrarUsuario(req: Request, res: Response) {
       },
     });
 
-    // Fase 4: el BackOffice ve al nuevo usuario registrado al instante.
     await publicarEventoUsuario(
       "registrado",
       `Nuevo usuario registrado: ${nombreCompleto}`,
@@ -395,11 +393,6 @@ export async function registrarUsuario(req: Request, res: Response) {
   }
 }
 
-/**
- * RQNF1.9: una persona a la que se le denegó el alta puede solicitar que los
- * administradores revisen el caso. La solicitud queda registrada en el
- * BackOffice y se avisa por correo a los administradores.
- */
 export async function solicitarRevisionDeRegistro(req: Request, res: Response) {
   try {
     const { nombreCompleto, correo, telefono, rfc, mensaje, motivo } =
@@ -439,8 +432,6 @@ export async function solicitarRevisionDeRegistro(req: Request, res: Response) {
       mensaje: typeof mensaje === "string" ? mensaje.slice(0, 1000) : "",
     });
 
-    // El aviso a los administradores se manda sin esperar: la persona no
-    // debe quedarse viendo el formulario por un problema del correo.
     void enviarCorreoSolicitudRevisionRegistro(solicitud).catch((errorCorreo) => {
       console.error(
         "[registro] No se pudo avisar por correo la solicitud de revisión:",
@@ -467,11 +458,6 @@ export async function solicitarRevisionDeRegistro(req: Request, res: Response) {
   }
 }
 
-/**
- * RQNF6: la autenticación consulta PostgreSQL (fuente de verdad de las
- * cuentas) y la contraseña se compara contra su hash bcryptjs, nunca en
- * texto plano.
- */
 export async function iniciarSesion(req: Request, res: Response) {
   try {
     const { correo, password } = req.body;
@@ -493,12 +479,6 @@ export async function iniciarSesion(req: Request, res: Response) {
     });
 
     if (!cuenta || typeof cuenta.password !== "string") {
-      // RQNF1.9: si la cuenta ya no existe, la lista negra puede conservar el
-      // motivo de un bloqueo manual. Las cuentas canceladas no conservan el
-      // correo (RQNF10.6), así que en ese caso se responde con el mensaje
-      // genérico. Una cuenta activa que esté en la lista negra sí puede
-      // ingresar: esa acción bloquea altas nuevas, no suspende la cuenta. Si
-      // MongoDB no responde, el login conserva esa respuesta.
       let entradaListaNegra: EntradaListaNegra | null = null;
       try {
         entradaListaNegra = await buscarEnListaNegra({
@@ -527,10 +507,6 @@ export async function iniciarSesion(req: Request, res: Response) {
       return res.status(401).json({ message: MENSAJE_CREDENCIALES_INVALIDAS });
     }
 
-    // RQNF37 / RQNF38: la suspensión administrativa vive en PostgreSQL. La
-    // suspensión por saldo pendiente permite ingresar solo para terminar las
-    // entregas en curso (el middleware bloquea el resto); las demás impiden
-    // el ingreso.
     const motivoSuspension = cuenta.motivoSuspension
       ? String(cuenta.motivoSuspension)
       : null;
@@ -543,8 +519,6 @@ export async function iniciarSesion(req: Request, res: Response) {
       });
     }
 
-    // El token conserva el id numérico de PostgreSQL, que es el que usan el
-    // middleware y el resto de los módulos de la plataforma.
     const idCuenta = Number(cuenta.id);
     const tipoCuenta = cuenta.tipo;
 
@@ -561,8 +535,6 @@ export async function iniciarSesion(req: Request, res: Response) {
         nombreCompleto: cuenta.nombreCompleto,
         correo: cuenta.correo,
         tipo: tipoCuenta,
-        // RQNF10.3 / RQNF37: la UI avisa cuando la cuenta está cancelada o
-        // suspendida por saldo pendiente (solo entregas en curso).
         estadoCuenta: cuenta.estadoCuenta ?? "activa",
         suspendido: cuenta.suspendido === true,
         motivoSuspension,
@@ -600,7 +572,6 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
         horarios: true,
         horarioConfirmadoEn: true,
         diasSinConfirmarHorario: true,
-        // RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y puntos acumulados.
         estadoCuenta: true,
         puntosReputacion: true,
         createdAt: true,
@@ -611,7 +582,6 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // RQNF10.1: promedio de calificaciones recibidas en ventas completadas.
     const reputacion = await calcularReputacionVendedor(usuario.id);
 
     res.json({
@@ -655,7 +625,6 @@ export async function obtenerPerfilPublico(req: Request, res: Response) {
       ? null
       : obtenerTextoDeProximoBloque(horarios, ahora);
 
-    // RQNF10.1: reputación pública del vendedor (promedio de calificaciones).
     const reputacion = await calcularReputacionVendedor(Number(req.params.id));
 
     res.json({
@@ -697,10 +666,6 @@ export async function confirmarHorario(req: RequestConUsuario, res: Response) {
   }
 }
 
-/**
- * Actualiza las preferencias de notificaciones del vendedor desde su panel:
- * acepta solo booleanos y guarda en PostgreSQL y en el espejo de MongoDB.
- */
 export async function actualizarPreferencias(
   req: RequestConUsuario,
   res: Response,
@@ -720,8 +685,6 @@ export async function actualizarPreferencias(
           message: "La preferencia de notificaciones críticas no es válida",
         });
       }
-      // Las notificaciones críticas son obligatorias desde el registro
-      // (estado de la cuenta, fila virtual y pagos): no se pueden apagar.
       if (recibirNotificacionesCriticas !== true) {
         return res.status(400).json({
           message:
@@ -898,8 +861,6 @@ export async function restablecerPassword(req: Request, res: Response) {
       },
     });
 
-    // RQNF6: la autenticación consulta PostgreSQL, así que el nuevo hash
-    // bcryptjs queda en la fuente de verdad y el usuario puede entrar con él.
     res.json({ message: "Contraseña actualizada correctamente" });
   } catch (error) {
     console.error("Error real:", error);

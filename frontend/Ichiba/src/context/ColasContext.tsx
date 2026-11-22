@@ -1,10 +1,12 @@
 import { createContext, useContext } from "react";
-import type { Fila } from "../services/colaService";
+import type { AvisoFila, Fila } from "../services/colaService";
 
 type ColasContextType = {
   filas: Fila[];
   cantidadFilas: number;
   recargarFilas: () => void;
+  avisos: AvisoFila[];
+  descartarAviso: (id: string) => void;
 };
 
 export const ColasContext = createContext<ColasContextType | undefined>(

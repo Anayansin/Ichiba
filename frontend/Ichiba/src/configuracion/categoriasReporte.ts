@@ -1,8 +1,3 @@
-/**
- * Categorías y elementos de reporte (espejo de
- * backend/src/configuracion/categoriasReporte.ts).
- * El backend es quien valida y decide el tipo de falta.
- */
 export type TipoFalta = "leve" | "grave";
 
 export type CategoriaReporte = {
@@ -11,14 +6,18 @@ export type CategoriaReporte = {
   tipoFalta: TipoFalta;
 };
 
-export const ELEMENTOS_REPORTE = [
-  { id: "mensaje", nombre: "Mensaje en el chat" },
-  { id: "comentario", nombre: "Comentario" },
-  { id: "comprobante", nombre: "Comprobante de pago" },
-  { id: "estafa", nombre: "Estafa o dinero no entregado" },
-  { id: "producto", nombre: "Producto" },
-  { id: "otro", nombre: "Otro" },
+export type ElementoReporte = "publicacion" | "vendedor" | "mensaje" | "cliente";
+
+export const ELEMENTOS_REPORTE: { id: ElementoReporte; nombre: string }[] = [
+  { id: "publicacion", nombre: "Una publicación" },
+  { id: "vendedor", nombre: "Un vendedor" },
+  { id: "mensaje", nombre: "Un mensaje" },
+  { id: "cliente", nombre: "Un cliente" },
 ];
+
+export function nombreElementoReporte(id: string): string {
+  return ELEMENTOS_REPORTE.find((elemento) => elemento.id === id)?.nombre ?? id;
+}
 
 export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
   {
@@ -64,11 +63,6 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
   {
     id: "estafa",
     nombre: "Estafa o dinero no entregado",
-    tipoFalta: "grave",
-  },
-  {
-    id: "datos_falsos",
-    nombre: "Datos falsos (INE, correo o PayPal)",
     tipoFalta: "grave",
   },
   {

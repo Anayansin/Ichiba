@@ -19,10 +19,6 @@ export type EntradaListaNegra = {
   fecha: Date | null;
 };
 
-/**
- * Normaliza un valor alfanumérico (sin acentos, sin espacios y en
- * mayúsculas) para comparar RFC, CURP y el código del reverso de la INE.
- */
 export function normalizar(valor?: string | null): string | undefined {
   if (!valor) return undefined;
   const limpio = valor
@@ -33,18 +29,12 @@ export function normalizar(valor?: string | null): string | undefined {
   return limpio.length > 0 ? limpio : undefined;
 }
 
-/** Normaliza un correo (minúsculas y sin espacios) para compararlo. */
 export function normalizarCorreo(valor?: string | null): string | undefined {
   if (!valor) return undefined;
   const limpio = valor.trim().toLowerCase();
   return limpio.length > 0 ? limpio : undefined;
 }
 
-/**
- * RQNF1.9: devuelve la entrada de la lista negra que coincida con el RFC,
- * la CURP, el código de la INE o el correo recibidos; si no hay coincidencia,
- * null.
- */
 export async function buscarEnListaNegra(
   datos: DatosParaChequear,
 ): Promise<EntradaListaNegra | null> {
@@ -60,8 +50,6 @@ export async function buscarEnListaNegra(
   if (curp) condiciones.push({ curp });
   if (ineCodigoReverso) condiciones.push({ ineCodigoReverso: ineCodigoReverso });
   if (correo) {
-    // El correo se compara sin distinguir mayúsculas: las altas viejas lo
-    // guardaron tal como lo escribió la persona.
     const patron = new RegExp(
       `^${correo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
       "i",
@@ -78,10 +66,6 @@ export async function buscarEnListaNegra(
   return resumirEntrada(entrada);
 }
 
-/**
- * Agrega una entrada a la lista negra. Omite los campos vacíos para no
- * chocar con los índices únicos de rfc y curp.
- */
 export async function agregarAListaNegra(datos: {
   rfc?: string | null;
   curp?: string | null;

@@ -14,7 +14,6 @@ import "./ListaNegra.css";
 
 const ENTRADAS_POR_PAGINA = 20;
 
-/** Fase 4: la lista se refresca al instante cuando entra o sale un registro. */
 const CONSULTA_LISTA_NEGRA = `
   subscription ListaNegraEnVivo {
     listaNegraActualizada { tipo mensaje entradas generadoEn }
@@ -43,8 +42,6 @@ function ListaNegra() {
   const [formulario, setFormulario] = useState(FORM_INICIAL);
   const [enviando, setEnviando] = useState(false);
 
-  // La suscripción se abre una sola vez; este ref le da siempre la página
-  // visible en el momento del evento.
   const paginaRef = useRef(pagina);
   useEffect(() => {
     paginaRef.current = pagina;
@@ -78,8 +75,6 @@ function ListaNegra() {
     cargar(pagina);
   }, [cargar, pagina]);
 
-  // Fase 4: altas y bajas (incluidas las automáticas por cancelación de
-  // cuenta) llegan por GraphQL Subscription y la tabla se refresca sola.
   useEffect(() => {
     return suscribirse<EventoListaNegra>(
       CONSULTA_LISTA_NEGRA,

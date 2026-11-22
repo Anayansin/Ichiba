@@ -11,7 +11,6 @@ import {
 } from "../../services/suscripcionesService";
 import "./RevisionReportes.css";
 
-/** Fase 4: la bandeja se refresca al instante cuando cambia cualquier reporte. */
 const CONSULTA_REPORTES = `
   subscription ReportesEnVivo {
     reportesPendientes { tipo mensaje pendientes generadoEn }
@@ -43,8 +42,6 @@ function RevisionReportes() {
   useEffect(() => {
     cargar();
 
-    // Fase 4: un reporte nuevo (o resuelto por otro administrador) aparece
-    // sin recargar la página; el aviso indica cuántos quedan pendientes.
     return suscribirse<EventoReporte>(
       CONSULTA_REPORTES,
       "reportesPendientes",
@@ -137,7 +134,6 @@ function RevisionReportes() {
                 {new Date(reporte.fecha).toLocaleString("es-MX")}
               </p>
 
-              {/* RQNF10.1 / RQNF10.3: puntos que suma el reporte y acumulado. */}
               <p className="revision-reportes__puntos">
                 Al confirmarlo suma {reporte.puntos} punto(s) · El vendedor lleva{" "}
                 {reporte.puntosReputacion}/{reporte.puntosCancelacion} puntos

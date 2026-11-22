@@ -1,4 +1,3 @@
-/* Aviso de que el promocional no se compra dentro de la plataforma */
 .registrar-promocional-aviso {
   background-color: #fff4e5;
   border-left: 4px solid #e69500;
@@ -19,7 +18,6 @@
   font-weight: 600;
 }
 
-/* La casilla siempre va a la izquierda del texto, sin encimarse. */
 .registrar-promocional-switch input[type="checkbox"] {
   position: static;
   flex-shrink: 0;

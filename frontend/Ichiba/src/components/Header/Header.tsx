@@ -5,7 +5,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   CATEGORIAS_PRODUCTO,
-  TIPOS_PROMOCIONAL,
   textoCategoria,
 } from "../../configuracion/categorias";
 import "./Header.css";
@@ -18,19 +17,15 @@ interface HeaderProps {
 
 function Header({ onOpenLogin }: HeaderProps) {
   const [categoriasAbiertas, setCategoriasAbiertas] = useState(false);
-  const [promocionalesAbiertos, setPromocionalesAbiertos] = useState(false);
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
   const [busquedaAbierta, setBusquedaAbierta] = useState(false);
   const [textoBusqueda, setTextoBusqueda] = useState("");
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Al picar la lupa se esconde el resto de la barra (menos el logo y el
-  // avatar) y el buscador se ocupa el espacio que dejaron los enlaces.
   function abrirBusqueda() {
     setBusquedaAbierta(true);
     setCategoriasAbiertas(false);
-    setPromocionalesAbiertos(false);
     setMenuUsuarioAbierto(false);
   }
 
@@ -64,7 +59,7 @@ function Header({ onOpenLogin }: HeaderProps) {
       className={`header${busquedaAbierta ? " header--buscando" : ""}`}
     >
       <Link
-        to="/Inicio"
+        to="/inicio"
         className="header__logo"
         onClick={() => setBusquedaAbierta(false)}
       >
@@ -72,10 +67,10 @@ function Header({ onOpenLogin }: HeaderProps) {
       </Link>
 
       <nav className="header__nav">
-        <Link to="/Inicio" className="header__link">
+        <Link to="/inicio" className="header__link">
           Inicio
         </Link>
-        <Link to="/Chats" className="header__link">
+        <Link to="/chats" className="header__link">
           Chats
         </Link>
 
@@ -83,7 +78,7 @@ function Header({ onOpenLogin }: HeaderProps) {
           className="header__menu"
           onClick={() => setCategoriasAbiertas(!categoriasAbiertas)}
         >
-          <p className="header__link header__nav"> Categorias ▾</p>
+          <p className="header__link header__nav">Categorías ▾</p>
 
           {categoriasAbiertas && (
             <div className="header__menu-despliega">
@@ -97,40 +92,18 @@ function Header({ onOpenLogin }: HeaderProps) {
                 </Link>
               ))}
 
-              <div
-                className="header__submenu"
-                onMouseEnter={() => setPromocionalesAbiertos(true)}
-                onMouseLeave={() => setPromocionalesAbiertos(false)}
-              >
-                <Link to="/promocionales" className="header__menu-item">
-                  Promocionales ▸
-                </Link>
-
-                {promocionalesAbiertos && (
-                  <div className="header__submenu-despliega">
-                    <span className="header__submenu-titulo">
-                      Tipos de promocional
-                    </span>
-                    {TIPOS_PROMOCIONAL.map((tipo) => (
-                      <Link
-                        key={tipo.valor}
-                        to={`/promocionales?tipo=${tipo.valor}`}
-                        className="header__menu-item"
-                      >
-                        {tipo.texto}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>
 
+        <Link to="/promocionales" className="header__link">
+          Promocionales
+        </Link>
+
         <Link to="/" className="header__link">
           Nosotros
         </Link>
-        <Link to="/Ayuda" className="header__link">
+        <Link to="/ayuda" className="header__link">
           Ayuda
         </Link>
 

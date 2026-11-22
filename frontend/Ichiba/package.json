@@ -13,14 +13,11 @@
     "axios": "^1.19.0",
     "graphql": "^17.0.2",
     "graphql-ws": "^6.4.1",
-    "mongodb": "^7.5.0",
-    "node-cron": "^4.6.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
-    "@types/node-cron": "^3.0.11",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@typescript-eslint/eslint-plugin": "^7.2.0",

@@ -17,10 +17,6 @@ const HORARIO_VACIO: BloqueHorario[] = [
   { dia: "domingo", activo: false, horaInicio: "09:00", horaFin: "18:00" },
 ];
 
-/**
- * Mes en curso en hora de zona centro (GMT-6), igual que el backend:
- * México no aplica horario de verano desde 2022, es un desfijo fijo.
- */
 function mesEnZonaCentro(fecha: Date): string {
   const enZonaCentro = new Date(fecha.getTime() - 6 * 60 * 60 * 1000);
   return `${enZonaCentro.getUTCFullYear()}-${enZonaCentro.getUTCMonth()}`;
@@ -31,11 +27,6 @@ function confirmadoEsteMes(fecha: string | null | undefined): boolean {
   return mesEnZonaCentro(new Date(fecha)) === mesEnZonaCentro(new Date());
 }
 
-/**
- * RQNF5.3: modal bloqueante que exige al vendedor confirmar su horario del mes
- * antes de usar las funciones de su panel. Sin botón de cerrar: solo se sale
- * confirmando (o manteniendo y confirmando) el horario.
- */
 function ModalConfirmacionHorario() {
   const [cargando, setCargando] = useState(true);
   const [pendiente, setPendiente] = useState(false);
@@ -52,8 +43,6 @@ function ModalConfirmacionHorario() {
         setPendiente(!confirmadoEsteMes(perfil.horarioConfirmadoEn));
       })
       .catch(() => {
-        // Sin perfil (no vendedor o sin sesión) no se bloquea aquí:
-        // el backend ya protege cada ruta con su propio middleware.
       })
       .finally(() => setCargando(false));
   }, []);

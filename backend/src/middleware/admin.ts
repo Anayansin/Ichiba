@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import clientePrisma from "../configuracion/prisma.js";
 import { RequestConUsuario } from "./auth.js";
 
-/** Solo los usuarios con tipo "admin" pueden revisar y confirmar reportes. */
 export async function requiereAdmin(
   req: RequestConUsuario,
   res: Response,

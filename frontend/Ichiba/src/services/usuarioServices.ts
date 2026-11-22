@@ -14,7 +14,6 @@ export type DatosRegistro = {
   ineFrente: File;
   ineReverso: File;
   recibirNotificacionesPublicitarias: boolean;
-  metodoPago: "paypal" | "mercadopago";
   datosMetodoPago: string;
   horarios: BloqueHorario[];
 };
@@ -38,7 +37,6 @@ export async function registrarUsuario(datos: DatosRegistro) {
     "recibirNotificacionesPublicitarias",
     String(datos.recibirNotificacionesPublicitarias),
   );
-  formData.append("metodoPago", datos.metodoPago);
   formData.append("datosMetodoPago", datos.datosMetodoPago);
   formData.append("horarios", JSON.stringify(datos.horarios));
 
@@ -48,10 +46,6 @@ export async function registrarUsuario(datos: DatosRegistro) {
   return response.data;
 }
 
-/**
- * RQNF1.9: pide a los administradores que revisen un alta que el sistema
- * denegó (datos en la lista negra o ya usados por otra cuenta).
- */
 export type SolicitudRevisionRegistro = {
   nombreCompleto: string;
   correo: string;
@@ -71,11 +65,8 @@ export async function solicitarRevisionRegistro(
   return response.data;
 }
 
-/** RQNF10.1: reputación calculada por el backend a partir de las ventas. */
 export type ReputacionVendedor = {
-  /** Promedio de 1 a 5 con un decimal, o null si aún no hay calificaciones. */
   promedio: number | null;
-  /** Cuántas calificaciones de compradores recibió. */
   totalCalificaciones: number;
 };
 
@@ -89,15 +80,10 @@ export type PerfilUsuario = {
   recibirNotificacionesCriticas?: boolean;
   recibirNotificacionesPublicitarias?: boolean;
   horarios: BloqueHorario[];
-  /** RQNF5.3: fecha de la última confirmación mensual del horario. */
   horarioConfirmadoEn?: string | null;
-  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta?: string;
-  /** RQNF10.1: puntos por infracciones acumulados (8 = cancelación). */
   puntosReputacion?: number;
-  /** RQNF10.3: puntos con los que se cancela la cuenta (8). */
   puntosCancelacion?: number;
-  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
   reputacion?: ReputacionVendedor | null;
 };
 
@@ -124,11 +110,9 @@ export type PerfilPublico = {
     nombreCompleto: string;
     ventasExitosas: number;
     totalReportes: number;
-    /** RQNF10.3 / RQF12: "activa" | "cancelada". */
     estadoCuenta?: string;
   };
   productos: Producto[];
-  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
   reputacion: ReputacionVendedor | null;
   vendedorDisponibleAhora: boolean;
   proximoBloque: string | null;

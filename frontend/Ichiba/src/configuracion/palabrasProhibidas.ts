@@ -1,19 +1,4 @@
-/**
- * RQNF10/RQNF10.1 — Alerta inmediata de palabras no permitidas.
- *
- * Espejo del filtro del backend (`backend/src/configuracion/palabrasProhibidas.ts`
- * y `backend/src/utils/filtroPalabras.ts`): mientras el vendedor escribe en
- * los campos de texto de sus publicaciones, el formulario avisa de inmediato
- * si el contenido coincide con una palabra no permitida, usando exactamente
- * la misma normalización que el servidor para que el veredicto de la alerta
- * en vivo siempre coincida con el del envío.
- *
- * ⚠️ El backend sigue siendo la autoridad: al enviar, el servidor vuelve a
- * validar todo el contenido (RQNF10.2/RQNF7.7). Si aquí se agrega o quita
- * una palabra, hay que hacerlo también en el backend.
- */
 export const PALABRAS_PROHIBIDAS: string[] = [
-  // Insultos directos
   "puto",
   "puta",
   "putos",
@@ -106,7 +91,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "pendejadas",
   "mamarracho",
   "mamarracha",
-  // Vulgaridades y lenguaje sexual
   "verga",
   "vergas",
   "culo",
@@ -131,7 +115,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "mamada",
   "mamadas",
   "mamaste",
-  // Groserías y expresiones fuertes
   "chingar",
   "chingada",
   "chingadas",
@@ -155,7 +138,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "alv",
   "ptm",
   "ctm",
-  // Abreviaturas y formas evadidas
   "pto",
   "ptas",
   "pndjo",
@@ -180,7 +162,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "imbcls",
   "trdo",
   "culr",
-  // Inglés (común en redes sociales)
   "fuck",
   "fucker",
   "fuckers",
@@ -228,7 +209,6 @@ function planoParaFiltro(texto: string): string {
 
 type Entrada = {
   palabra: string;
-  /** Detecta la palabra escrita con separadores entre letras: "p.u.t.o". */
   obfuscada: RegExp;
 };
 
@@ -245,10 +225,6 @@ const ENTRADAS: Entrada[] = Array.from(
   ),
 }));
 
-/**
- * Misma detección que el backend: mayúsculas, acentos, plurales, letras
- * repetidas y evasiones con puntos o espacios entre letras.
- */
 export function contienePalabrasProhibidas(texto: string): boolean {
   if (!texto) return false;
 
@@ -275,7 +251,6 @@ export function contienePalabrasProhibidas(texto: string): boolean {
   return false;
 }
 
-/** Mismo texto que devuelve el backend, para que la alerta sea idéntica. */
 export function mensajePalabrasNoPermitidas(campo: string): string {
   return `El campo "${campo}" contiene palabras no permitidas. Revisa tu texto antes de continuar.`;
 }

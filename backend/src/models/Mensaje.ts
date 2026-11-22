@@ -9,7 +9,6 @@ const mensajeSchema = new Schema(
       required: true,
     },
     remitenteId: { type: String, required: true },
-    // Un mensaje puede llevar texto, una imagen adjunta o ambos
     contenido: { type: String, default: "" },
     imagen: { type: String, default: null },
     leido: { type: Boolean, default: false },

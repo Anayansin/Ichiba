@@ -1,24 +1,37 @@
 import api from "./api";
 
 export type DatosReporte = {
-  /** Compra que relaciona al reportero con la persona reportada. */
-  ventaId: string;
   elemento: string;
   categoria: string;
-  detalle?: string;
+  detalle: string;
+  ventaId?: string;
+  productoId?: string;
+  promocionalId?: string;
+  vendedorId?: string;
   mensajeId?: string;
 };
 
 export type RespuestaReporte = {
+  id: number;
+  estado: "pendiente" | "confirmado" | "rechazado";
   message: string;
-  sujetoSancionado?: boolean;
 };
 
-/**
- * Envía un reporte. Funciona tanto para el comprador (x-comprador-id)
- * como para el vendedor (JWT); el backend resuelve a quién se reporta
- * a partir de la venta.
- */
+export type MiReporte = {
+  id: number;
+  elemento: string;
+  categoriaNombre: string;
+  detalle: string | null;
+  estado: "pendiente" | "confirmado" | "rechazado";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function fetchMisReportes(): Promise<MiReporte[]> {
+  const response = await api.get("/reportes/mios");
+  return response.data;
+}
+
 export async function crearReporte(
   datos: DatosReporte,
 ): Promise<RespuestaReporte> {
@@ -28,9 +41,8 @@ export async function crearReporte(
 
 export type DatosReporteComprador = {
   ventaId: string;
-  elemento: string;
-  motivo: string;
-  detalle?: string;
+  categoria: string;
+  detalle: string;
 };
 
 export async function crearReporteComprador(

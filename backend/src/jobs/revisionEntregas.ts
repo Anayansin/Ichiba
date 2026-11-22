@@ -1,4 +1,3 @@
-import cron from "node-cron";
 import clientePrisma from "../configuracion/prisma.js";
 import {
   cancelarEscrow,
@@ -7,27 +6,14 @@ import {
   type UsuarioEscrow,
   type VentaEscrow,
 } from "../services/escrowService.js";
+import { Venta } from "../models/Venta.js";
+import { Producto } from "../models/producto.js";
+import {
+  finDeBloquesDeAtencion,
+  type BloqueHorario,
+} from "../utils/validarHorario.js";
 import { purgarCuentasCanceladasResueltas } from "../services/cancelacionCuentaService.js";
 
-/**
- * RQNF23 / RQNF24 / RQNF28 / RQNF31: revisión automática del escrow.
- *
- * Cada minuto busca transacciones vencidas y las cancela con reembolso al
- * comprador (y reanudación de la fila):
- *
- *   1. `pendiente_comprobante`: pasaron más de 24 h y el comprador nunca
- *      subió su comprobante (RQNF23: se libera el turno al siguiente).
- *   2. `pendiente_confirmacion`: el vendedor no confirmó antes de que
- *      finalizara su siguiente bloque de atención (RQNF24).
- *   3. `en_entrega`: pasaron los 15 días del plazo de entrega sin registrar
- *      el código (RQNF28; también cubre al vendedor con cuenta cancelada,
- *      RQNF10.2).
- *   4. `en_entrega` sin mensajes en el chat durante 3 bloques de atención del
- *      vendedor (RQNF31).
- *
- * Las ventas con `retenido = true` (RQNF32) no se tocan: las resuelve un
- * administrador.
- */
 export async function revisarEntregasVencidas(): Promise<string[]> {
   const ahora = new Date();
   const acciones: string[] = [];
@@ -98,10 +84,21 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
           continue;
         }
 
-        // RQNF31: inactividad prolongada en el chat (3 bloques del vendedor).
         const vendedor = (await clientePrisma.usuario.findUnique({
           where: { id: Number(venta.vendedorId) },
         })) as UsuarioEscrow | null;
+
+        const vencioCoordinacion = await coordinacionVencida(venta, vendedor, ahora);
+        if (vencioCoordinacion) {
+          const resultado = await cancelarEscrow(venta, {
+            motivo: vencioCoordinacion,
+            culpaVendedor: { causa: "entrega_vencida" },
+          });
+          if (!resultado.error && !resultado.omitida) {
+            acciones.push(`Venta ${venta.id}: cancelada por falta de coordinación de entrega`);
+          }
+          continue;
+        }
 
         const limiteInactividad = limiteDeInactividadDeChat(venta, vendedor);
         if (limiteInactividad && ahora > limiteInactividad) {
@@ -123,9 +120,6 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
     }
   }
 
-  // RQNF10.6 / RQF12: las cuentas canceladas por 8 puntos que ya resolvieron
-  // todas sus entregas se purgan aquí (nombre, correo, contraseña,
-  // publicaciones, chats y token de PayPal).
   try {
     const purgadas = await purgarCuentasCanceladasResueltas();
     for (const id of purgadas) {
@@ -143,15 +137,39 @@ export async function revisarEntregasVencidas(): Promise<string[]> {
   return acciones;
 }
 
-export function iniciarJobRevisionEntregas() {
-  cron.schedule("* * * * *", async () => {
-    try {
-      const acciones = await revisarEntregasVencidas();
-      for (const accion of acciones) {
-        console.log(`[escrow] ${accion}`);
-      }
-    } catch (error) {
-      console.error("Error al revisar las entregas del escrow:", error);
+async function coordinacionVencida(
+  venta: VentaEscrow,
+  vendedor: UsuarioEscrow | null,
+  ahora: Date,
+): Promise<string | null> {
+  const espejo = await Venta.findOne({ paypalOrderId: venta.paypalOrderId });
+  if (!espejo) return null;
+  const producto = await Producto.findById(espejo.productoId).select(
+    "metodoEntrega",
+  );
+  if (producto?.metodoEntrega !== "tienda" && producto?.metodoEntrega !== "punto-encuentro") {
+    return null;
+  }
+
+  const horarios = (Array.isArray(vendedor?.horarios)
+    ? vendedor?.horarios
+    : []) as BloqueHorario[];
+  const propuesta = espejo.propuestaEntrega;
+  if (propuesta?.estado === "aceptada") return null;
+
+  if (propuesta?.estado === "pendiente" && propuesta.registradaEn) {
+    const limite = finDeBloquesDeAtencion(horarios, new Date(propuesta.registradaEn), 3);
+    if (limite && ahora > limite) {
+      return "El comprador no aceptó ni rechazó la propuesta de entrega durante 3 bloques de atención del vendedor";
     }
-  });
+    return null;
+  }
+
+  const desde = propuesta?.respondidaEn ?? venta.comprobanteConfirmadoEn;
+  if (!desde) return null;
+  const limite = finDeBloquesDeAtencion(horarios, new Date(desde), 3);
+  if (limite && ahora > limite) {
+    return "El vendedor no registró la propuesta de entrega durante 3 bloques de atención";
+  }
+  return null;
 }

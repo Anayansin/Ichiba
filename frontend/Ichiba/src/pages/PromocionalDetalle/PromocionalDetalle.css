@@ -73,7 +73,6 @@
   color: #888888;
 }
 
-/* Aviso central: la compra ocurre fuera de ICHIBA */
 .promocional-detalle__aviso {
   background-color: #fff4e5;
   border-left: 4px solid #e69500;
@@ -330,4 +329,11 @@
     flex-direction: column;
     padding: 2rem 1.5rem;
   }
+}
+
+.promocional-detalle__reportes {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
 }

@@ -6,6 +6,7 @@ import {
   carpetaComprobantes,
   carpetaDisputas,
 } from "../configuracion/almacenamiento.js";
+import { enviarArchivoGuardado } from "../configuracion/archivosPersistentes.js";
 import { Producto } from "../models/producto.js";
 import { Venta } from "../models/Venta.js";
 import { Disputa } from "../models/Disputa.js";
@@ -14,14 +15,10 @@ import {
   crearOrdenPaypal,
   autorizarOrdenPaypal,
   obtenerOrdenPaypal,
+  verificarFirmaWebhookPaypal,
 } from "../services/paypalService.js";
-import {
-  crearPagoMercadoPago,
-  llavePublicaMercadoPago,
-  obtenerPagoMercadoPago,
-  pagoAprobado,
-} from "../services/mercadopagoService.js";
 import { registrarVentaExitosa } from "../services/ventaService.js";
+import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 import { enviarCorreoPalabraClaveCompra } from "../services/emailService.js";
 import {
   mensajeDeVerificacionComprobante,
@@ -64,7 +61,11 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 
-// RQF40: evidencias de las disputas (solo se sirven con autorización).
+const ESTADOS_CON_CODIGO_ENTREGA = [
+  "pendiente_comprobante",
+  "pendiente_confirmacion",
+  "en_entrega",
+];
 
 async function buscarProducto(productoId: unknown) {
   if (typeof productoId !== "string" || !/^[0-9a-fA-F]{24}$/.test(productoId))
@@ -78,12 +79,6 @@ async function buscarVendedorDeProducto(vendedorId: unknown) {
   return clientePrisma.usuario.findUnique({ where: { id: idNumerico } });
 }
 
-/**
- * RQNF10.6 / RQF12: al completarse o cancelarse una entrega se revisa si el
- * vendedor tiene cuenta cancelada y ya no le quedan entregas con pago
- * confirmado; si es así, se purgan de inmediato sus datos personales (nombre,
- * correo, contraseña, publicaciones, chats y token de PayPal).
- */
 async function purgarCuentaSiYaNoTieneEntregas(vendedorId: number) {
   try {
     await purgarCuentaSiCorresponde(vendedorId);
@@ -92,33 +87,6 @@ async function purgarCuentaSiYaNoTieneEntregas(vendedorId: number) {
       "[cancelacion] No se pudo purgar la cuenta tras resolver la entrega:",
       error instanceof Error ? error.message : error,
     );
-  }
-}
-
-/**
- * Método de pago elegido por el vendedor al registrarse.
- *
- * Vive en MongoDB: en PostgreSQL solo se guarda la cuenta de cobro dentro de
- * `paypalEmail`, así que hay que mirar ahí para decidir con qué pasarela
- * cobrar. Si Mongo no responde se cae a PayPal, que es lo que siempre hizo
- * esta tienda.
- */
-async function metodoDePagoDelVendedor(
-  correo: string,
-): Promise<"paypal" | "mercadopago"> {
-  try {
-    const cuenta = await clientePrisma.usuario.findFirst({
-      where: { correo: { equals: correo.trim(), mode: "insensitive" } },
-      select: { metodoPago: true },
-    });
-
-    return cuenta?.metodoPago === "mercadopago" ? "mercadopago" : "paypal";
-  } catch (error) {
-    console.error(
-      "[pago] No se pudo leer el método de pago del vendedor:",
-      (error as { message?: string })?.message ?? error,
-    );
-    return "paypal";
   }
 }
 
@@ -147,7 +115,6 @@ function identificarQuienCalifica(req: Request): IdentidadQueCalifica | null {
   return null;
 }
 
-/** ¿Quién está consultando esta venta: el comprador o el vendedor? */
 function identificarRolEnVenta(
   req: Request,
   venta: { compradorId: string; vendedorId: number },
@@ -176,17 +143,12 @@ function identificarRolEnVenta(
         return "vendedor";
       }
     } catch {
-      // Token inválido: se responde como acceso denegado.
     }
   }
 
   return null;
 }
 
-/**
- * RQNF20 / RQNF24.1: avisa al comprador su palabra clave de pago y el bloque
- * de atención del vendedor, si dejó correo al entrar a la fila.
- */
 async function avisarPalabraClave(
   productoId: string,
   compradorId: string,
@@ -213,12 +175,6 @@ async function avisarPalabraClave(
   }
 }
 
-/**
- * RQNF16 / RQNF18: el comprador solo puede pagar cuando es el primero de la
- * fila y su tiempo de pago sigue vigente. Devuelve el mensaje de error, o
- * null si puede continuar. Lo comparten la creación de la orden y el envío
- * del formulario embebido de MercadoPago.
- */
 async function asegurarTurnoDePago(
   productoId: string,
   compradorId: string,
@@ -266,25 +222,7 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     if (!vendedor)
       return res.status(404).json({ message: "Vendedor no encontrado" });
 
-    // RQNF24.1: antes de pagar se advierte que la atención será únicamente
-    // dentro del bloque de horario de atención vigente del vendedor.
     const avisoAtencion = avisoDeAtencion(vendedor as UsuarioEscrow);
-
-    const metodo = await metodoDePagoDelVendedor(vendedor.correo);
-
-    if (metodo === "mercadopago") {
-      // Checkout API: el formulario (Payment Brick) se monta en la página del
-      // producto con la llave pública; el cobro se crea al enviarlo
-      // (`procesarPagoMercadoPago`), sin salir de Ichiba.
-      return res.json({
-        metodo: "mercadopago",
-        llavePublica: llavePublicaMercadoPago(),
-        monto: producto.precio,
-        correoComprador:
-          (await correoDelComprador(productoId, compradorId)) ?? null,
-        avisoAtencion,
-      });
-    }
 
     const paypalEmail = (vendedor as { paypalEmail?: string | null })
       .paypalEmail;
@@ -295,8 +233,6 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       });
     }
 
-    // RQNF4: si el vendedor vinculó su cuenta por OAuth 2.0, el pago se
-    // dirige a su Merchant ID (token guardado cifrado); si no, al correo.
     const vinculo = await VinculoPayPal.findOne({ usuarioId: vendedor.id })
       .select("merchantId")
       .lean();
@@ -306,6 +242,7 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
       paypalEmail,
       productoId,
       vinculo?.merchantId,
+      compradorId,
     );
 
     const linkAprobacion = orden.links?.find(
@@ -320,7 +257,6 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     }
 
     res.json({
-      metodo: "paypal",
       orderId: orden.id,
       linkAprobacion,
       avisoAtencion,
@@ -336,125 +272,146 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
   }
 }
 
-/**
- * RQNF4 (escrow) / RQF21: el comprador vuelve de PayPal y se AUTORIZA el
- * pago: el dinero queda retenido en escrow (no se cobra al vendedor todavía).
- * La venta nace en `pendiente_comprobante` con su palabra clave de 4 dígitos
- * (RQNF20) que se muestra aquí y se envía por correo.
- */
-export async function capturarOrden(req: RequestConComprador, res: Response) {
-  try {
-    const orderId = req.params.orderId as string;
-    const compradorId = req.compradorId as string;
+type ResultadoAutorizacion =
+  | { ok: true; datos: Record<string, unknown> }
+  | { ok: false; estado: number; message: string };
 
-    // Idempotencia: si la venta ya se registró (recarga de la página de
-    // vuelta), se responde con los mismos datos sin volver a llamar a PayPal.
-    const ventaExistente = await clientePrisma.venta.findFirst({
-      where: { paypalOrderId: orderId },
-    });
-    if (ventaExistente) {
-      return res.json({
+async function autorizarYRegistrarOrden(
+  orderId: string,
+  compradorId: string,
+): Promise<ResultadoAutorizacion> {
+  const ventaExistente = await clientePrisma.venta.findFirst({
+    where: { paypalOrderId: orderId },
+  });
+  if (ventaExistente) {
+    return {
+      ok: true,
+      datos: {
         message: "Pago autorizado",
         ventaId: Number(ventaExistente.id),
         vendedorId: Number(ventaExistente.vendedorId),
         productoId: String(ventaExistente.productoId),
         codigoPago: ventaExistente.codigoPago ?? null,
         estado: ventaExistente.estado,
-      });
-    }
+      },
+    };
+  }
 
-    let resultado: any;
-    try {
-      resultado = await autorizarOrdenPaypal(orderId);
-    } catch (error) {
-      const respuesta = (error as any)?.respuestaPaypal;
-      const nombreError = respuesta?.name ?? "";
-      const incidencia = respuesta?.details?.[0]?.issue ?? "";
+  let resultado: any;
+  try {
+    resultado = await autorizarOrdenPaypal(orderId);
+  } catch (error) {
+    const respuesta = (error as any)?.respuestaPaypal;
+    const nombreError = respuesta?.name ?? "";
+    const incidencia = respuesta?.details?.[0]?.issue ?? "";
 
-      if (nombreError === "ORDER_ALREADY_AUTHORIZED") {
-        // Doble clic o recarga: se consulta la orden, que ya trae su
-        // autorización, y se continúa como si fuera la primera vez.
-        resultado = await obtenerOrdenPaypal(orderId);
-      } else if (
-        incidencia === "PAYER_NOT_APPROVED" ||
-        incidencia === "ORDER_NOT_APPROVED" ||
-        incidencia === "INSTRUMENT_DECLINED" ||
-        nombreError === "ORDER_NOT_APPROVED"
-      ) {
-        // El comprador aún no termina el pago en PayPal (o lo canceló):
-        // no es un error del servidor, se reintenta desde el frontend.
-        return res.status(400).json({
-          message:
-            incidencia === "INSTRUMENT_DECLINED"
-              ? "PayPal rechazó el método de pago elegido, prueba con otro"
-              : "El pago aún no se ha aprobado en PayPal, completa el pago antes de confirmar",
-        });
-      } else {
-        throw error;
-      }
-    }
-
-    const unidadDeCompra = resultado?.purchase_units?.[0];
-    const autorizacion = unidadDeCompra?.payments?.authorizations?.[0];
-    const productoId = String(unidadDeCompra?.reference_id ?? "");
-    const autorizacionPaypalId = String(autorizacion?.id ?? "");
-
-    if (!autorizacionPaypalId) {
-      const detalle =
-        resultado?.details?.[0]?.description ?? resultado?.name ?? null;
-      return res.status(400).json({
-        message: detalle
-          ? `El pago no se autorizó correctamente (${detalle})`
-          : "El pago no se autorizó correctamente",
-      });
-    }
-
-    if (String(autorizacion?.status ?? "") !== "CREATED") {
-      return res.status(400).json({
+    if (nombreError === "ORDER_ALREADY_AUTHORIZED") {
+      resultado = await obtenerOrdenPaypal(orderId);
+    } else if (
+      incidencia === "PAYER_NOT_APPROVED" ||
+      incidencia === "ORDER_NOT_APPROVED" ||
+      incidencia === "INSTRUMENT_DECLINED" ||
+      nombreError === "ORDER_NOT_APPROVED"
+    ) {
+      return {
+        ok: false,
+        estado: 400,
         message:
-          "La autorización de este pago ya no está activa; crea una orden nueva.",
-      });
+          incidencia === "INSTRUMENT_DECLINED"
+            ? "PayPal rechazó el método de pago elegido, prueba con otro"
+            : "El pago aún no se ha aprobado en PayPal, completa el pago antes de confirmar",
+      };
+    } else {
+      throw error;
     }
+  }
 
-    const producto = await buscarProducto(productoId);
-    if (!producto || typeof productoId !== "string")
-      return res.status(404).json({ message: "Producto no encontrado" });
+  const unidadDeCompra = resultado?.purchase_units?.[0];
+  const autorizacion = unidadDeCompra?.payments?.authorizations?.[0];
+  const productoId = String(unidadDeCompra?.reference_id ?? "");
+  const autorizacionPaypalId = String(autorizacion?.id ?? "");
+  const compradorFinal = String(unidadDeCompra?.custom_id || compradorId || "");
 
-    const vendedorId = Number(producto.vendedorId);
-    if (!Number.isInteger(vendedorId)) {
-      return res.status(404).json({ message: "Vendedor no encontrado" });
-    }
+  if (!autorizacionPaypalId) {
+    const detalle =
+      resultado?.details?.[0]?.description ?? resultado?.name ?? null;
+    return {
+      ok: false,
+      estado: 400,
+      message: detalle
+        ? `El pago no se autorizó correctamente (${detalle})`
+        : "El pago no se autorizó correctamente",
+    };
+  }
 
-    const monto = Number(autorizacion?.amount?.value) || producto.precio;
+  if (String(autorizacion?.status ?? "") !== "CREATED") {
+    return {
+      ok: false,
+      estado: 400,
+      message:
+        "La autorización de este pago ya no está activa; crea una orden nueva.",
+    };
+  }
 
-    const { nueva, venta } = await registrarVentaExitosa({
+  if (!compradorFinal) {
+    return { ok: false, estado: 400, message: "Falta identificador de comprador" };
+  }
+
+  const producto = await buscarProducto(productoId);
+  if (!producto) {
+    return { ok: false, estado: 404, message: "Producto no encontrado" };
+  }
+
+  const vendedorId = Number(producto.vendedorId);
+  if (!Number.isInteger(vendedorId)) {
+    return { ok: false, estado: 404, message: "Vendedor no encontrado" };
+  }
+
+  const monto = Number(autorizacion?.amount?.value) || producto.precio;
+
+  const { nueva, venta } = await registrarVentaExitosa({
+    productoId,
+    compradorId: compradorFinal,
+    vendedorId,
+    monto,
+    referenciaExterna: orderId,
+    autorizacionPaypalId,
+  });
+
+  const vendedor = await buscarVendedorDeProducto(vendedorId);
+  if (nueva) {
+    await avisarPalabraClave(
       productoId,
-      compradorId,
-      vendedorId,
-      monto,
-      referenciaExterna: orderId,
-      autorizacionPaypalId,
-    });
+      compradorFinal,
+      producto.nombre,
+      venta?.codigoPago ?? null,
+      vendedor as UsuarioEscrow | null,
+    );
+  }
 
-    const vendedor = await buscarVendedorDeProducto(vendedorId);
-    if (nueva) {
-      await avisarPalabraClave(
-        productoId,
-        compradorId,
-        producto.nombre,
-        venta?.codigoPago ?? null,
-        vendedor as UsuarioEscrow | null,
-      );
-    }
-
-    res.json({
+  return {
+    ok: true,
+    datos: {
       message: "Pago autorizado",
       ventaId: venta?.id ?? null,
       vendedorId,
       productoId,
       codigoPago: venta?.codigoPago ?? null,
       estado: venta?.estado ?? "pendiente_comprobante",
-    });
+    },
+  };
+}
+
+export async function capturarOrden(req: RequestConComprador, res: Response) {
+  try {
+    const resultado = await autorizarYRegistrarOrden(
+      req.params.orderId as string,
+      req.compradorId as string,
+    );
+    if (!resultado.ok) {
+      return res.status(resultado.estado).json({ message: resultado.message });
+    }
+    res.json(resultado.datos);
   } catch (error) {
     console.error("[paypal] Error al autorizar el pago:", error);
     const detalle = error instanceof Error ? error.message : "";
@@ -466,337 +423,32 @@ export async function capturarOrden(req: RequestConComprador, res: Response) {
   }
 }
 
-/**
- * Confirma un pago de MercadoPago consultándolo por su id (por ejemplo, un
- * OXXO o SPEI que el comprador terminó de pagar, o la vuelta de una compra
- * antigua con `?fuente=mercadopago&payment_id=...`).
- *
- * No hay paso de captura: se consulta el pago a MercadoPago (fuente única de
- * verdad, lo que hace la operación idempotente) y, si está aprobado, se
- * registran los mismos efectos que con PayPal. El dinero entra a la cuenta de
- * la plataforma (escrow interno) y se reembolsa por la API si se cancela.
- */
-export async function confirmarMercadoPago(
-  req: RequestConComprador,
-  res: Response,
-) {
+export async function webhookPaypal(req: Request, res: Response) {
   try {
-    const paymentId = String(
-      req.body?.paymentId ?? req.body?.payment_id ?? "",
-    ).trim();
-
-    if (!paymentId) {
-      return res.status(400).json({
-        message: "No llegó el identificador del pago de MercadoPago",
-      });
+    const evento = req.body ?? {};
+    const valido = await verificarFirmaWebhookPaypal(req.headers, evento);
+    if (!valido) {
+      return res.status(400).json({ message: "Firma del webhook no válida" });
     }
 
-    const pago = await obtenerPagoMercadoPago(paymentId);
-
-    // La referencia que guardamos al crear el pago es `mp:<productoId>`.
-    const referenciaExterna = String(pago?.external_reference ?? "");
-    const productoId = referenciaExterna.startsWith("mp:")
-      ? referenciaExterna.slice(3)
-      : "";
-
-    if (!/^[0-9a-fA-F]{24}$/.test(productoId)) {
-      return res.status(400).json({
-        message: "El pago de MercadoPago no trae un producto reconocible",
-      });
-    }
-
-    if (!pagoAprobado(pago)) {
-      const estado = String(pago?.status ?? "");
-      const detalle = String(pago?.status_detail ?? "");
-      return res.status(400).json({
-        message:
-          estado === "pending"
-            ? "El pago está pendiente de acreditación, te avisaremos cuando se confirme"
-            : estado === "rejected"
-              ? `MercadoPago rechazó el pago${detalle ? ` (${detalle})` : ""}`
-              : "El pago aún no se ha aprobado, completa el pago antes de confirmar",
-      });
-    }
-
-    const producto = await buscarProducto(productoId);
-    if (!producto)
-      return res.status(404).json({ message: "Producto no encontrado" });
-
-    const vendedorId = Number(producto.vendedorId);
-    if (!Number.isInteger(vendedorId)) {
-      return res.status(404).json({ message: "Vendedor no encontrado" });
-    }
-
-    // El importe lo fija MercadoPago según el pago que creamos en el
-    // servidor; si no coincide con el precio actual es porque el vendedor lo
-    // editó mientras el comprador pagaba. Se registra lo realmente cobrado
-    // (el dinero ya se movió) y se deja constancia.
-    const monto = Number(pago.transaction_amount);
-    if (Math.abs(monto - producto.precio) > 0.01) {
-      console.warn(
-        `[mercadopago] Cobro ${monto} distinto al precio actual ${producto.precio} del producto ${productoId}`,
-      );
-    }
-
-    const compradorId = req.compradorId as string;
-    const { nueva, venta } = await registrarVentaExitosa({
-      productoId,
-      compradorId,
-      vendedorId,
-      monto,
-      referenciaExterna: `mp:${paymentId}`,
-    });
-
-    if (nueva) {
-      const vendedor = await buscarVendedorDeProducto(vendedorId);
-      await avisarPalabraClave(
-        productoId,
-        compradorId,
-        producto.nombre,
-        venta?.codigoPago ?? null,
-        vendedor as UsuarioEscrow | null,
-      );
-    }
-
-    res.json({
-      message: "Pago completado",
-      ventaId: venta?.id ?? null,
-      vendedorId,
-      productoId,
-      codigoPago: venta?.codigoPago ?? null,
-      estado: venta?.estado ?? "pendiente_comprobante",
-    });
-  } catch (error) {
-    console.error("[mercadopago] Error al confirmar el pago:", error);
-    const detalle = error instanceof Error ? error.message : "";
-    res.status(500).json({
-      message: detalle
-        ? `No se pudo confirmar el pago con MercadoPago: ${detalle}`
-        : "Error al confirmar el pago",
-    });
-  }
-}
-
-/**
- * Checkout API (Payment Brick): el comprador envía el formulario embebido de
- * la página del producto y aquí se crea el pago contra la API de MercadoPago.
- *
- * - Aprobado (tarjeta): se registra la venta en el escrow igual que con
- *   PayPal y se responde con su palabra clave.
- * - Pendiente (OXXO/SPEI): se devuelve el enlace del comprobante; la venta se
- *   registrará sola por webhook cuando MercadoPago acredite el pago.
- * - Rechazado: se devuelve el motivo para que el comprador corrija.
- */
-export async function procesarPagoMercadoPago(
-  req: RequestConComprador,
-  res: Response,
-) {
-  try {
-    const compradorId = req.compradorId as string;
-    const {
-      productoId,
-      token,
-      payment_method_id: metodoPago,
-      issuer_id,
-      installments,
-      payer,
-    } = (req.body ?? {}) as {
-      productoId?: string;
-      token?: string;
-      payment_method_id?: string;
-      issuer_id?: string | number;
-      installments?: string | number;
-      payer?: {
-        email?: string;
-        identification?: { type?: string; number?: string };
-      };
-    };
-
-    if (!productoId || !metodoPago) {
-      return res.status(400).json({
-        message: "El formulario de pago llegó incompleto",
-      });
-    }
-
-    const problemaDeTurno = await asegurarTurnoDePago(productoId, compradorId);
-    if (problemaDeTurno) {
-      return res.status(403).json({ message: problemaDeTurno });
-    }
-
-    const producto = await buscarProducto(productoId);
-    if (!producto)
-      return res.status(404).json({ message: "Producto no encontrado" });
-
-    const vendedorId = Number(producto.vendedorId);
-    if (!Number.isInteger(vendedorId)) {
-      return res.status(404).json({ message: "Vendedor no encontrado" });
-    }
-
-    const vendedor = await buscarVendedorDeProducto(vendedorId);
-    if (!vendedor)
-      return res.status(404).json({ message: "Vendedor no encontrado" });
-
-    const metodo = await metodoDePagoDelVendedor(vendedor.correo);
-    if (metodo !== "mercadopago") {
-      return res.status(400).json({
-        message: "Este producto no se cobra con MercadoPago",
-      });
-    }
-
-    const pago = await crearPagoMercadoPago({
-      productoId,
-      compradorId,
-      titulo: producto.nombre,
-      precio: producto.precio,
-      pago: {
-        token,
-        payment_method_id: metodoPago,
-        issuer_id,
-        installments,
-        payer,
-      },
-    });
-
-    if (!pagoAprobado(pago)) {
-      const estado = String(pago?.status ?? "");
-      const detalle = String(pago?.status_detail ?? "");
-      const urlVoucher =
-        pago?.transaction_details?.external_resource_url ??
-        pago?.point_of_interaction?.transaction_data?.ticket_url ??
-        null;
-
-      if (estado === "pending" || estado === "in_process") {
-        return res.json({
-          estado: "pendiente",
-          pagoId: pago?.id ?? null,
-          urlVoucher,
-          mensaje: urlVoucher
-            ? "Tu pago quedó pendiente: completa el pago con el comprobante y te avisaremos en cuanto se acredite."
-            : "Tu pago quedó pendiente de acreditación; te avisaremos en cuanto MercadoPago lo confirme.",
-        });
+    if (evento.event_type === "CHECKOUT.ORDER.APPROVED") {
+      const orden = evento.resource ?? {};
+      const compradorId = String(orden.purchase_units?.[0]?.custom_id ?? "");
+      if (orden.id && compradorId) {
+        const resultado = await autorizarYRegistrarOrden(String(orden.id), compradorId);
+        if (!resultado.ok) {
+          console.warn(`[paypal] Webhook sin registrar la orden ${orden.id}: ${resultado.message}`);
+        }
       }
-
-      return res.status(400).json({
-        estado: "rechazado",
-        message: `MercadoPago rechazó el pago${detalle ? ` (${detalle})` : ""}`,
-      });
     }
 
-    const { nueva, venta } = await registrarVentaExitosa({
-      productoId,
-      compradorId,
-      vendedorId,
-      monto: Number(pago.transaction_amount),
-      referenciaExterna: `mp:${pago.id}`,
-    });
-
-    if (nueva) {
-      await avisarPalabraClave(
-        productoId,
-        compradorId,
-        producto.nombre,
-        venta?.codigoPago ?? null,
-        vendedor as UsuarioEscrow | null,
-      );
-    }
-
-    res.json({
-      estado: "aprobado",
-      pagoId: pago?.id ?? null,
-      message: "Pago completado",
-      ventaId: venta?.id ?? null,
-      codigoPago: venta?.codigoPago ?? null,
-      estadoVenta: venta?.estado ?? "pendiente_comprobante",
-    });
+    res.json({ recibido: true });
   } catch (error) {
-    console.error("[mercadopago] Error al procesar el pago:", error);
-    const detalle = error instanceof Error ? error.message : "";
-    res.status(500).json({
-      message: detalle
-        ? `No se pudo procesar el pago con MercadoPago: ${detalle}`
-        : "Error al procesar el pago con MercadoPago",
-    });
+    console.error("[paypal] Error en el webhook:", error);
+    res.status(500).json({ message: "Error al procesar el webhook" });
   }
 }
 
-/**
- * Webhook (IPN) de MercadoPago: avisa de cambios de estado aunque el
- * comprador cierre el navegador antes de volver del checkout.
- *
- * Es público a propósito y responde 200 de inmediato (MercadoPago reintenta
- * si no recibe 200). La única fuente de verdad sigue siendo la consulta a la
- * API: aquí nunca se confía en lo que llega por el cuerpo del aviso, solo se
- * usa para saber qué pago reconsultar, así que un aviso falsificado no puede
- * registrar ventas.
- */
-export async function webhookMercadoPago(req: Request, res: Response) {
-  res.sendStatus(200);
-
-  try {
-    const cuerpo = (req.body ?? {}) as {
-      type?: string;
-      data?: { id?: string | number };
-    };
-
-    if (cuerpo.type !== "payment" || !cuerpo.data?.id) return;
-
-    const paymentId = String(cuerpo.data.id);
-    const pago = await obtenerPagoMercadoPago(paymentId);
-
-    if (!pagoAprobado(pago)) return;
-
-    const referenciaExterna = String(pago?.external_reference ?? "");
-    const productoId = referenciaExterna.startsWith("mp:")
-      ? referenciaExterna.slice(3)
-      : "";
-    if (!/^[0-9a-fA-F]{24}$/.test(productoId)) return;
-
-    const metadata = (pago?.metadata ?? {}) as Record<string, unknown>;
-    const compradorId = String(metadata.compradorId ?? "");
-    if (!compradorId) {
-      console.warn(
-        `[mercadopago] Webhook sin compradorId para el pago ${paymentId}`,
-      );
-      return;
-    }
-
-    const producto = await buscarProducto(productoId);
-    if (!producto) return;
-
-    const vendedorId = Number(producto.vendedorId);
-    if (!Number.isInteger(vendedorId)) return;
-
-    const { nueva, venta } = await registrarVentaExitosa({
-      productoId,
-      compradorId,
-      vendedorId,
-      monto: Number(pago.transaction_amount),
-      referenciaExterna: `mp:${paymentId}`,
-    });
-
-    if (nueva) {
-      console.log(
-        `[mercadopago] Venta registrada por webhook: producto ${productoId}`,
-      );
-      const vendedor = await buscarVendedorDeProducto(vendedorId);
-      await avisarPalabraClave(
-        productoId,
-        compradorId,
-        producto.nombre,
-        venta?.codigoPago ?? null,
-        vendedor as UsuarioEscrow | null,
-      );
-    }
-  } catch (error) {
-    console.error("[mercadopago] Error en el webhook:", error);
-  }
-}
-
-/**
- * RQF22 / RQNF18 / RQNF24.4: el comprador registra su comprobante (palabra
- * clave + referencia + fotografía). La imagen se moderó antes de guardarse;
- * la venta pasa a `pendiente_confirmacion` y la fila queda en reposo.
- */
 export async function registrarComprobante(
   req: RequestConComprador,
   res: Response,
@@ -837,8 +489,6 @@ export async function registrarComprobante(
       });
     }
 
-    // El filtro global de palabras corre antes de Multer, así que aquí se
-    // revisa otra vez la referencia escrita.
     const referencia = String(req.body?.referencia ?? "").trim();
     const campoProhibido = campoConPalabrasProhibidas({ referencia });
     if (campoProhibido) {
@@ -848,15 +498,34 @@ export async function registrarComprobante(
         .json({ message: mensajePalabrasProhibidas(campoProhibido) });
     }
 
-    // RQNF18 (de RQF22): moderación de contenido antes de mostrarla.
+    const palabraClave = String(req.body?.palabraClave ?? "").trim();
+    if (!/^d{4}$/.test(palabraClave)) {
+      limpiarArchivo();
+      return res
+        .status(400)
+        .json({ message: "Ingresa la palabra clave de 4 dígitos de tu compra" });
+    }
+    if (!/^d{6,8}$/.test(referencia)) {
+      limpiarArchivo();
+      return res.status(400).json({
+        message:
+          "El número de referencia debe ser numérico y tener entre 6 y 8 dígitos",
+      });
+    }
+    if (!(await validarDimensionesProducto(archivo.path))) {
+      limpiarArchivo();
+      return res.status(400).json({
+        message:
+          "La imagen del comprobante debe medir entre 420x540 y 2560x2560 píxeles",
+      });
+    }
+
     const bloqueo = await moderarComprobante(archivo.path);
     if (bloqueo) {
       limpiarArchivo();
       return res.status(400).json({ message: bloqueo });
     }
 
-    // RQNF22.5: el texto del comprobante debe coincidir con la referencia
-    // capturada, con el monto de la compra y con una fecha legible.
     const verificacion = await verificarComprobanteConTexto(archivo.path, {
       referencia,
       monto: Number(venta.monto ?? 0),
@@ -869,7 +538,7 @@ export async function registrarComprobante(
     }
 
     const resultado = await registrarComprobanteDeVenta(venta, {
-      palabraClave: String(req.body?.palabraClave ?? ""),
+      palabraClave,
       referencia,
       imagen: `/uploads/comprobantes/${archivo.filename}`,
     });
@@ -892,7 +561,6 @@ export async function registrarComprobante(
   }
 }
 
-/** RQF31: el vendedor confirma el comprobante (cierra reposo, abre chat). */
 export async function confirmarComprobante(
   req: RequestConUsuario,
   res: Response,
@@ -928,7 +596,6 @@ export async function confirmarComprobante(
   }
 }
 
-/** RQF31 / RQNF23: el vendedor rechaza el comprobante (se reembolsa). */
 export async function rechazarComprobante(
   req: RequestConUsuario,
   res: Response,
@@ -955,8 +622,6 @@ export async function rechazarComprobante(
       return res.status(400).json({ message: resultado.error });
     }
 
-    // RQNF10.6: el rechazo cancela la compra; si era la última entrega
-    // pendiente de un vendedor cancelado, se purga su cuenta.
     await purgarCuentaSiYaNoTieneEntregas(vendedorId);
 
     res.json({
@@ -971,11 +636,6 @@ export async function rechazarComprobante(
   }
 }
 
-/**
- * RQF33 / RQNF27: el vendedor registra el código de confirmación de entrega
- * que le dio el comprador. Con esto se libera el dinero del escrow y la
- * transacción queda completada (RQNF26 cierra el chat).
- */
 export async function registrarEntrega(
   req: RequestConUsuario,
   res: Response,
@@ -1002,8 +662,6 @@ export async function registrarEntrega(
       return res.status(400).json({ message: resultado.error });
     }
 
-    // RQNF10.6 / RQF12: al completar la entrega, si la cuenta estaba
-    // cancelada y ya no quedan pendientes, se purgan sus datos personales.
     await purgarCuentaSiYaNoTieneEntregas(vendedorId);
 
     res.json({
@@ -1018,11 +676,6 @@ export async function registrarEntrega(
   }
 }
 
-/**
- * Detalle completo de una compra. Cada parte ve lo que le corresponde: el
- * comprador su palabra clave y su código de entrega; el vendedor las fechas
- * y el comprobante para revisarlo (RQF30), nunca los códigos secretos.
- */
 export async function detalleDeVenta(req: Request, res: Response) {
   try {
     const ventaId = Number(req.params.ventaId);
@@ -1052,8 +705,6 @@ export async function detalleDeVenta(req: Request, res: Response) {
       estado: venta.estado,
       rol,
       monto: Number(venta.monto),
-      // RNF-PAG-19 / RNF-PAG-20: el vendedor ve la comisión y su neto. El
-      // comprador no necesita este desglose.
       ...(rol === "vendedor"
         ? { comision: comisionDeVenta(Number(venta.monto), venta.estado) }
         : {}),
@@ -1070,11 +721,9 @@ export async function detalleDeVenta(req: Request, res: Response) {
             nombreCompleto: vendedor.nombreCompleto,
           }
         : null,
-      // RQNF20: solo el comprador conoce la palabra clave.
       codigoPago: rol === "comprador" ? (venta.codigoPago ?? null) : null,
-      // RQNF24.4: el código de entrega es del comprador (RQNF26).
       codigoEntrega:
-        rol === "comprador" && venta.estado === "en_entrega"
+        rol === "comprador" && ESTADOS_CON_CODIGO_ENTREGA.includes(venta.estado)
           ? (venta.codigoEntrega ?? null)
           : null,
       comprobante: venta.comprobanteImagen
@@ -1103,10 +752,6 @@ export async function detalleDeVenta(req: Request, res: Response) {
   }
 }
 
-/**
- * Sirve la fotografía del comprobante. Nunca se expone como archivo
- * estático: solo la ven las partes de la venta y ya pasó la moderación.
- */
 export async function imagenDeComprobante(req: Request, res: Response) {
   try {
     const ventaId = Number(req.params.ventaId);
@@ -1129,21 +774,15 @@ export async function imagenDeComprobante(req: Request, res: Response) {
     const nombreArchivo = path.basename(venta.comprobanteImagen);
     const rutaAbsoluta = path.join(carpetaComprobantes, nombreArchivo);
 
-    if (!fs.existsSync(rutaAbsoluta)) {
+    if (!(await enviarArchivoGuardado(res, [rutaAbsoluta]))) {
       return res.status(404).json({ message: "Comprobante no encontrado" });
     }
-
-    res.sendFile(rutaAbsoluta);
   } catch (error) {
     console.error("[pago] Error al servir el comprobante:", error);
     res.status(500).json({ message: "Error al obtener el comprobante" });
   }
 }
 
-/**
- * RQF30 / RQF32 / RQF33: ventas del vendedor para su panel: comprobantes por
- * revisar, entregas en curso e historial.
- */
 export async function ventasDelVendedor(
   req: RequestConUsuario,
   res: Response,
@@ -1178,17 +817,12 @@ export async function ventasDelVendedor(
       productos.map((producto) => [String(producto._id), producto]),
     );
 
-    // RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y reputación promedio
-    // para el encabezado del panel del vendedor.
     const cuenta = await clientePrisma.usuario.findUnique({
       where: { id: vendedorId },
       select: { estadoCuenta: true, puntosReputacion: true },
     });
     const reputacion = await calcularReputacionVendedor(vendedorId);
 
-    // RNF-PAG-19 / RNF-PAG-20: totales de comisión para el encabezado del
-    // panel. Solo se suman las ventas completadas (cobradas) y las que aún
-    // pueden completarse (estimadas); las reembolsadas no generan comisión.
     const comisiones = ventas.reduce(
       (acumulado, venta) => {
         const desglose = comisionDeVenta(Number(venta.monto), venta.estado);
@@ -1271,10 +905,6 @@ export async function ventasDelVendedor(
   }
 }
 
-/**
- * Seguimiento de compras del comprador: estado del escrow, palabra clave,
- * código de entrega y si el chat está habilitado.
- */
 export async function misComprasDelComprador(
   req: RequestConComprador,
   res: Response,
@@ -1326,7 +956,7 @@ export async function misComprasDelComprador(
             : null,
           codigoPago: venta.codigoPago ?? null,
           codigoEntrega:
-            venta.estado === "en_entrega"
+            ESTADOS_CON_CODIGO_ENTREGA.includes(venta.estado)
               ? (venta.codigoEntrega ?? null)
               : null,
           comprobanteEnviadoEn: venta.comprobanteEnviadoEn ?? null,
@@ -1373,7 +1003,6 @@ export async function calificar(req: Request, res: Response) {
       return res.status(404).json({ message: "Compra no encontrada" });
     }
 
-    // RQF27: la calificación se hace después de confirmada la entrega.
     if (venta.estado !== "completada") {
       return res.status(400).json({
         message:
@@ -1407,8 +1036,6 @@ export async function calificar(req: Request, res: Response) {
         });
     }
 
-    // RQF12 / RQNF10.3: el vendedor con cuenta cancelada solo conserva acceso
-    // a completar sus entregas pendientes; calificar no forma parte de eso.
     if (esElVendedorDeLaVenta) {
       const vendedor = await clientePrisma.usuario.findUnique({
         where: { id: Number(venta.vendedorId) },
@@ -1450,11 +1077,6 @@ export async function calificar(req: Request, res: Response) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Disputas de reembolso (RQF40 / RQNF32)
-// ---------------------------------------------------------------------------
-
-/** Archivos subidos por Multer para una disputa (si los hay). */
 function archivosDeDisputa(req: Request): Express.Multer.File[] {
   return (req.files as Express.Multer.File[] | undefined) ?? [];
 }
@@ -1469,11 +1091,6 @@ function rutasDeEvidencias(archivos: Express.Multer.File[]): string[] {
   return archivos.map((archivo) => `/uploads/disputas/${archivo.filename}`);
 }
 
-/**
- * RQF40: el comprador abre una disputa de reembolso sobre una compra en
- * entrega o completada (motivo + descripción + hasta 5 evidencias). El pago
- * queda retenido (RQNF32) mientras la administración la resuelve.
- */
 export async function abrirDisputa(req: RequestConComprador, res: Response) {
   const archivos = archivosDeDisputa(req);
 
@@ -1484,8 +1101,6 @@ export async function abrirDisputa(req: RequestConComprador, res: Response) {
     const motivo = String(req.body?.motivo ?? "").trim();
     const descripcion = String(req.body?.descripcion ?? "").trim();
 
-    // El filtro global de palabras corre antes de Multer, así que aquí se
-    // revisan otra vez los campos escritos.
     const campoProhibido = campoConPalabrasProhibidas({ motivo, descripcion });
     if (campoProhibido) {
       limpiarArchivosDeDisputa(archivos);
@@ -1515,10 +1130,6 @@ export async function abrirDisputa(req: RequestConComprador, res: Response) {
   }
 }
 
-/**
- * RQF40: el vendedor responde la disputa con su versión y sus propias
- * evidencias (hasta 5 imágenes).
- */
 export async function responderDisputaDeVenta(
   req: RequestConUsuario,
   res: Response,
@@ -1557,7 +1168,6 @@ export async function responderDisputaDeVenta(
   }
 }
 
-/** RQF40: disputas del comprador para «Mis pedidos». */
 export async function misDisputasDelComprador(
   req: RequestConComprador,
   res: Response,
@@ -1571,7 +1181,6 @@ export async function misDisputasDelComprador(
   }
 }
 
-/** RQF40: disputas del vendedor para su panel. */
 export async function disputasDelVendedor(
   req: RequestConUsuario,
   res: Response,
@@ -1585,11 +1194,6 @@ export async function disputasDelVendedor(
   }
 }
 
-/**
- * RQF40: sirve una evidencia de una disputa (imagen). Nunca se expone como
- * archivo estático: solo la ven el comprador, el vendedor de la disputa y la
- * administración.
- */
 export async function imagenEvidenciaDisputa(req: Request, res: Response) {
   try {
     const disputaId = String(req.params.disputaId ?? "");
@@ -1612,8 +1216,6 @@ export async function imagenEvidenciaDisputa(req: Request, res: Response) {
       return res.status(404).json({ message: "Evidencia no encontrada" });
     }
 
-    // Autorización: el comprador de la disputa (x-comprador-id), su vendedor
-    // (JWT) o cualquier administrador (JWT con tipo admin).
     let autorizado = false;
 
     const compradorIdCabecera = req.headers["x-comprador-id"];
@@ -1640,7 +1242,6 @@ export async function imagenEvidenciaDisputa(req: Request, res: Response) {
             autorizado = true;
           }
         } catch {
-          // Token inválido: se responde como acceso denegado.
         }
       }
     }
@@ -1666,11 +1267,9 @@ export async function imagenEvidenciaDisputa(req: Request, res: Response) {
     }
 
     const rutaAbsoluta = path.join(carpetaDisputas, path.basename(String(ruta)));
-    if (!fs.existsSync(rutaAbsoluta)) {
+    if (!(await enviarArchivoGuardado(res, [rutaAbsoluta]))) {
       return res.status(404).json({ message: "Evidencia no encontrada" });
     }
-
-    res.sendFile(rutaAbsoluta);
   } catch (error) {
     console.error("[disputas] Error al servir la evidencia:", error);
     res.status(500).json({ message: "Error al obtener la evidencia" });

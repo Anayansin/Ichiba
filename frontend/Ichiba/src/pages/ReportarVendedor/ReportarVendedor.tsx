@@ -1,94 +1,57 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
+import { useEffect, useState } from "react";
 import {
   fetchMisVentasComprador,
   type VentaConProducto,
 } from "../../services/mensajeService";
-import { crearReporte } from "../../services/reporteService";
 import {
-  CATEGORIAS_REPORTE,
-  ELEMENTOS_REPORTE,
-} from "../../configuracion/categoriasReporte";
+  fetchMisReportes,
+  type MiReporte,
+} from "../../services/reporteService";
+import { nombreElementoReporte } from "../../configuracion/categoriasReporte";
+import BotonReportar from "../../components/BotonReportar/BotonReportar";
 import "./ReportarVendedor.css";
+
+const TEXTO_ESTADO: Record<MiReporte["estado"], string> = {
+  pendiente: "En revisión",
+  confirmado: "Confirmado",
+  rechazado: "Rechazado",
+};
 
 function ReportarVendedor() {
   const [ventas, setVentas] = useState<VentaConProducto[]>([]);
   const [ventaId, setVentaId] = useState("");
-  const [elemento, setElemento] = useState(ELEMENTOS_REPORTE[0].id);
-  const [categoria, setCategoria] = useState(CATEGORIAS_REPORTE[0].id);
-  const [detalle, setDetalle] = useState("");
-  const [enviado, setEnviado] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-  const [error, setError] = useState("");
+  const [reportes, setReportes] = useState<MiReporte[]>([]);
 
   useEffect(() => {
     fetchMisVentasComprador()
       .then(setVentas)
       .catch(() => setVentas([]));
+
+    function cargarReportes() {
+      fetchMisReportes()
+        .then(setReportes)
+        .catch(() => setReportes([]));
+    }
+    cargarReportes();
+    const intervalo = setInterval(cargarReportes, 15000);
+    return () => clearInterval(intervalo);
   }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    const venta = ventas.find((v) => v._id === ventaId);
-    if (!venta) {
-      setError("Selecciona la compra relacionada con tu reporte");
-      return;
-    }
-
-    setEnviando(true);
-    try {
-      await crearReporte({
-        ventaId,
-        elemento,
-        categoria,
-        detalle: detalle.trim(),
-      });
-      setEnviado(true);
-    } catch (err) {
-      setError(
-        (axios.isAxiosError(err) && err.response?.data?.message) ||
-          "Error al enviar el reporte",
-      );
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  if (enviado) {
-    return (
-      <div className="reportar">
-        <h1>Reporte enviado</h1>
-        <p>Nuestro equipo revisará tu reporte a la brevedad.</p>
-        <p className="reportar__nota">
-          Los reportes por reincidencia generan faltas leves o graves y pueden
-          bloquear temporal o permanentemente a la otra persona.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="reportar">
-      <h1>Reportar un vendedor</h1>
+      <h1>Reportar a los administradores</h1>
       <p className="reportar__nota">
-        El reporte se aplica al vendedor de la compra seleccionada. Las
-        categorías marcadas como falta grave pueden provocar bloqueos por
-        reincidencia.
+        Puedes reportar desde aquí eligiendo una compra relacionada, o con el
+        botón «Reportar» que aparece en cada publicación, promocional, perfil
+        de vendedor y conversación. Los reportes de «Otro motivo» los revisa un
+        administrador; el resto se registra automáticamente.
       </p>
 
-      <form className="reportar__form" onSubmit={handleSubmit}>
-        {error && <p className="reportar__error">{error}</p>}
-
+      <div className="reportar__form">
         <label>
-          Compra relacionada
-          <select
-            value={ventaId}
-            onChange={(e) => setVentaId(e.target.value)}
-            required
-          >
-            <option value="">Selecciona una compra</option>
+          Compra relacionada (opcional)
+          <select value={ventaId} onChange={(e) => setVentaId(e.target.value)}>
+            <option value="">Sin compra relacionada</option>
             {ventas.map((venta) => (
               <option key={venta._id} value={venta._id}>
                 {venta.productoId.nombre}
@@ -97,49 +60,41 @@ function ReportarVendedor() {
           </select>
         </label>
 
-        <label>
-          ¿Qué quieres reportar?
-          <select
-            value={elemento}
-            onChange={(e) => setElemento(e.target.value)}
-          >
-            {ELEMENTOS_REPORTE.map((op) => (
-              <option key={op.id} value={op.id}>
-                {op.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Categoría
-          <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-          >
-            {CATEGORIAS_REPORTE.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.nombre} ({cat.tipoFalta})
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          Detalle (opcional)
-          <textarea
-            value={detalle}
-            onChange={(e) => setDetalle(e.target.value)}
-            rows={4}
-            maxLength={1000}
-            placeholder="Cuéntanos qué sucedió"
+        {ventaId ? (
+          <BotonReportar
+            elementos={["vendedor", "mensaje", "publicacion"]}
+            ventaId={ventaId}
+            texto="Reportar esta compra"
+            className="reportar__boton"
           />
-        </label>
+        ) : (
+          <p className="reportar__nota">
+            Sin compra relacionada, abre la publicación o el perfil del vendedor
+            y usa su botón «Reportar».
+          </p>
+        )}
+      </div>
 
-        <button type="submit" className="reportar__boton" disabled={enviando}>
-          {enviando ? "Enviando..." : "Enviar reporte"}
-        </button>
-      </form>
+      {reportes.length > 0 && (
+        <div className="reportar__historial">
+          <h2>Mis reportes</h2>
+          <ul>
+            {reportes.map((reporte) => (
+              <li key={reporte.id}>
+                <span>
+                  {nombreElementoReporte(reporte.elemento)} ·{" "}
+                  {reporte.categoriaNombre}
+                </span>
+                <span
+                  className={`reportar__estado reportar__estado--${reporte.estado}`}
+                >
+                  {TEXTO_ESTADO[reporte.estado] ?? reporte.estado}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

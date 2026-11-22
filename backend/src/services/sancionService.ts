@@ -11,29 +11,6 @@ import {
 } from "../graphql/suscripciones.js";
 import { resumirUsuario } from "./resumenAdminService.js";
 
-/**
- * RQNF33 / RQNF34 / RQNF35: sanciones automáticas por faltas.
- *
- * Reglas (interpretación aprobada por el cliente):
- *   - 3 faltas leves   -> bloqueo temporal de 7 días (y cada leve adicional
- *     mientras el conteo siga en 3 o más extiende el bloqueo otros 7 días
- *     desde esa falta: la duración crece con la reincidencia, RQNF34).
- *   - 1 falta grave    -> bloqueo temporal de 30 días.
- *   - 2 faltas graves  -> suspensión indefinida (RQNF34).
- *   - falta grave de revisión inmediata (estafa o fraude comprobado,
- *     suplantación de identidad, amenazas y comprobantes falsos) ->
- *     suspensión indefinida + envío a revisión administrativa (RQNF35).
- *
- * El estado completo se recalcula desde el historial de faltas, de modo que:
- *   - un reporte RECHAZADO por el administrador revierte la falta y el
- *     bloqueo que había generado (`quitarFalta`);
- *   - las faltas solo cuentan 13 meses: al cumplirlos se purgan junto con
- *     los reportes que las originaron (`purgarFaltasExpiradas`, RQNF14.1).
- *
- * RQNF33: el trabajo `revisionSanciones` levanta (avisa) los bloqueos
- * temporales en cuanto concluye su periodo, de forma automática.
- */
-
 export type EstadoBloqueo = {
   bloqueada: boolean;
   permanente: boolean;
@@ -68,12 +45,6 @@ function laMasTardia(actual: Date | null, candidata: Date): Date {
   return actual;
 }
 
-/**
- * Recalcula contadores, bloqueos y revisión administrativa a partir del
- * historial de faltas (fuente de verdad de la sanción). Es idempotente y lo
- * usan tanto el registro de una falta nueva como la reversión por rechazo o
- * la purga de faltas de más de 13 meses.
- */
 function recalcularDesdeHistorial(sancion: any): void {
   const entradas: EntradaHistorial[] = [...(sancion.historial ?? [])].sort(
     (a, b) => fechaDeEntrada(a).getTime() - fechaDeEntrada(b).getTime(),
@@ -95,14 +66,12 @@ function recalcularDesdeHistorial(sancion: any): void {
       faltasGraves += 1;
 
       if (categoriaRequiereRevisionInmediata(entrada.categoria)) {
-        // RQNF35: suspensión indefinida + revisión administrativa.
         bloqueoPermanente = true;
         bloqueosAplicados += 1;
         revisionAdministrativa = true;
         revisionMotivo = `Falta grave de revisión inmediata (${entrada.categoria})`;
         revisionIniciadaEn = revisionIniciadaEn ?? fecha;
       } else if (faltasGraves >= 2) {
-        // RQNF34: la segunda falta grave suspende de forma indefinida.
         bloqueoPermanente = true;
         bloqueosAplicados += 1;
       } else {
@@ -116,8 +85,6 @@ function recalcularDesdeHistorial(sancion: any): void {
     }
 
     faltasLeves += 1;
-    // RQNF33 / RQNF34: desde la tercera falta leve cada una suma un bloqueo
-    // de 7 días contado desde esa falta (el bloqueo vigente nunca se acorta).
     if (faltasLeves >= 3) {
       bloqueosAplicados += 1;
       bloqueadoHasta = laMasTardia(
@@ -137,12 +104,9 @@ function recalcularDesdeHistorial(sancion: any): void {
   sancion.revisionIniciadaEn = revisionIniciadaEn ?? undefined;
 }
 
-/** Estado de bloqueo de una sanción (nula = sin sanciones). */
 export function estadoBloqueo(sancion: any): EstadoBloqueo {
   const faltasLeves: number = sancion?.faltasLeves ?? 0;
   const faltasGraves: number = sancion?.faltasGraves ?? 0;
-  // El levantamiento manual del administrador desactiva la sanción vigente
-  // (RQNF33: la administración puede revertirla antes de los 13 meses).
   const levantada = Boolean(sancion?.levantadaPorAdminEn);
   const base = {
     faltasLeves,
@@ -194,7 +158,6 @@ type FaltaARegistrar = {
   reportadoPor: string;
 };
 
-/** Correo del usuario sancionado (solo los usuarios registrados lo tienen). */
 async function correoDelSujeto(sancion: {
   sujetoTipo: string;
   sujetoId: string;
@@ -216,10 +179,6 @@ async function correoDelSujeto(sancion: {
   return null;
 }
 
-/**
- * Refleja el estado de la sanción en la cuenta (PostgreSQL, fuente de verdad)
- * y avisa al BackOffice con la suscripción de usuarios.
- */
 async function sincronizarCuenta(
   sancion: {
     sujetoTipo: string;
@@ -240,9 +199,6 @@ async function sincronizarCuenta(
         sancionHasta: estado.hasta,
         sancionPermanente: estado.permanente,
         revisionAdministrativa: estado.revisionAdministrativa,
-        // El motivo de la suspensión solo se cambia cuando la sanción es una
-        // revisión administrativa: si no, se respeta el que puso el
-        // administrador o el adeudo (por ejemplo "saldo_pendiente").
         ...(estado.motivoRevision
           ? { motivoSuspension: estado.motivoRevision }
           : {}),
@@ -264,7 +220,6 @@ async function sincronizarCuenta(
   publicarResumenAdmin();
 }
 
-/** Texto legible del estado de bloqueo para correos y mensajes. */
 export function describirEstadoBloqueo(estado: EstadoBloqueo): string {
   if (estado.permanente && estado.revisionAdministrativa) {
     return "Tu cuenta quedó suspendida de forma indefinida y fue enviada a revisión administrativa.";
@@ -282,10 +237,6 @@ export function describirEstadoBloqueo(estado: EstadoBloqueo): string {
   return "Tu cuenta tiene una sanción activa.";
 }
 
-/**
- * Registra una falta por un reporte recién creado y aplica las reglas de
- * reincidencia. Devuelve el estado de bloqueo resultante del sujeto.
- */
 export async function registrarFalta(
   falta: FaltaARegistrar,
 ): Promise<EstadoBloqueo> {
@@ -306,8 +257,6 @@ export async function registrarFalta(
           fecha: new Date(),
         },
       },
-      // Una falta nueva descarta el levantamiento manual anterior: las reglas
-      // de reincidencia vuelven a aplicar (RQNF34).
       $unset: { levantadaPorAdminEn: 1, levantadaPorAdminMotivo: 1 },
     },
     { new: true, upsert: true, setDefaultsOnInsert: true },
@@ -318,8 +267,6 @@ export async function registrarFalta(
 
   const estado = estadoBloqueo(sancion);
 
-  // RQNF33 / RQNF35: se avisa al sancionado cuando la falta le aplica un
-  // bloqueo nuevo o lo manda a revisión administrativa.
   if (estado.bloqueosAplicados > bloqueosAntes || (!revisionAntes && estado.revisionAdministrativa)) {
     const contacto = await correoDelSujeto(falta);
     if (contacto) {
@@ -350,11 +297,6 @@ export async function registrarFalta(
   return estado;
 }
 
-/**
- * Revierte la falta que había generado un reporte (RQNF33): la usa el
- * administrador cuando RECHAZA un reporte. Recalcula el estado completo
- * desde el historial restante y avisa si el bloqueo se levantó.
- */
 export async function quitarFalta(
   reporteId: string,
 ): Promise<EstadoBloqueo | null> {
@@ -404,12 +346,6 @@ export async function quitarFalta(
   return despues;
 }
 
-/**
- * RQNF33 / RQNF34 / RQNF35: levantamiento manual de la sanción por parte del
- * administrador (p. ej. al concluir una revisión administrativa o al aprobar
- * una apelación). La sanción deja de bloquear; si el sujeto recibe una falta
- * nueva, el levantamiento se descarta y las reglas vuelven a aplicarse.
- */
 export async function levantarSancionPorAdmin(
   sujetoTipo: "usuario" | "comprador",
   sujetoId: string,
@@ -431,11 +367,6 @@ export async function levantarSancionPorAdmin(
   return estadoBloqueo(sancion);
 }
 
-/**
- * RQNF33: levanta automáticamente los bloqueos temporales concluidos. El
- * estado ya se calcula por fecha, así que aquí solo se avisa (una sola vez)
- * al sancionado y al BackOffice. Devuelve cuántos avisos se enviaron.
- */
 export async function desbloquearSancionesExpiradas(
   ahora = new Date(),
 ): Promise<number> {
@@ -485,10 +416,6 @@ export async function desbloquearSancionesExpiradas(
   return avisadas;
 }
 
-/**
- * RQNF14.1: purga las faltas de más de 13 meses y recalcula el estado de las
- * sanciones afectadas. Las faltas solo cuentan durante ese periodo.
- */
 export async function purgarFaltasExpiradas(
   ahora = new Date(),
 ): Promise<{ sanciones: number; faltas: number }> {

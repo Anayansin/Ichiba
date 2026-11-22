@@ -1,5 +1,3 @@
-// Node 24 (usado por Vercel) no incluye Temporal, y las columnas de fecha
-// timestamptz de Prisma ORM 8 lo necesitan para leerse.
 import "temporal-polyfill/full/global";
 import "dotenv/config";
 import postgres from "@prisma/orm-postgres/runtime";
@@ -30,7 +28,6 @@ type Modelo = {
   create: (args: { data: Condicion }) => Promise<DatosFila>;
   update: (args: ArgumentosModificar) => Promise<DatosFila | null>;
   updateMany: (args: ArgumentosModificar) => Promise<{ count: number }>;
-  /** RQNF6.6: borra las filas que cumplan el `where` (vacío = no borra nada). */
   deleteMany: (args: { where: Condicion }) => Promise<{ count: number }>;
   count: (args?: { where?: Condicion }) => Promise<number>;
 };
@@ -120,7 +117,6 @@ function coincideValor(actual: unknown, esperado: unknown): boolean {
   return String(actual) === String(esperado);
 }
 
-/** Valor comparable para rangos de fechas y números. */
 function aComparable(valor: unknown): number | string | null {
   if (valor === null || valor === undefined) return null;
   if (valor instanceof Date) return valor.getTime();
@@ -133,7 +129,6 @@ function aComparable(valor: unknown): number | string | null {
   return String(valor);
 }
 
-/** Comparación sin distinguir mayúsculas (modo "insensitive"). */
 function coincideTexto(actual: unknown, esperado: unknown): boolean {
   if (actual === null || actual === undefined) return false;
   return (
@@ -270,7 +265,6 @@ async function consultar(modelo: any, args: ArgumentosConsulta) {
 
   const filasOrdenadas = ordenarFilas(filas, args.orderBy);
 
-  // Paginación (skip/limit) como en Prisma: se aplica después del orden.
   let resultados = filasOrdenadas;
   if (typeof args.skip === "number" && args.skip > 0) {
     resultados = resultados.slice(args.skip);
@@ -380,7 +374,6 @@ function crearModelo(modelo: any): Modelo {
     async deleteMany(args) {
       await asegurarConexion();
 
-      // Un `where` vacío no borra nada: evitar borrados accidentales totales.
       if (Object.keys(args.where ?? {}).length === 0) return { count: 0 };
 
       const { condicionSimple, requiereRevision } = dividirCondicion(args.where);
@@ -390,8 +383,6 @@ function crearModelo(modelo: any): Modelo {
         return { count: Array.isArray(borradas) ? borradas.length : 0 };
       }
 
-      // Condiciones complejas (`in`, `null`, …): borrar fila por fila, que
-      // siempre tiene `id` en las tablas del contrato.
       const filas = await consultar(modelo, { where: args.where });
       for (const fila of filas) {
         await modelo.where({ id: fila.id }).deleteAll();

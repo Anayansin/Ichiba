@@ -5,7 +5,6 @@ export type Mensaje = {
   ventaId: string;
   remitente: "comprador" | "vendedor";
   contenido: string;
-  /** Ruta relativa de la imagen adjunta (ej. /uploads/archivo.png) */
   imagen?: string | null;
   createdAt: string;
 };
@@ -15,7 +14,6 @@ export type VentaConProducto = {
   productoId: { _id: string; nombre: string; imagenes: string[] };
   monto: number;
   createdAt: string;
-  /** Estado del escrow (RQNF4). El chat solo escribe en `en_entrega`. */
   estado?:
     | "pendiente_comprobante"
     | "pendiente_confirmacion"
@@ -23,11 +21,9 @@ export type VentaConProducto = {
     | "completada"
     | "reembolsada"
     | "cancelada";
-  /** RQNF24.4: código de entrega del comprador (visible tras confirmar). */
   codigoEntrega?: string | null;
   canceladoMotivo?: string | null;
   entregaLimite?: string | null;
-  /** Id de la venta en PostgreSQL (para enlazar al flujo del comprobante). */
   ventaIdPg?: number | null;
 };
 
@@ -48,22 +44,8 @@ export async function fetchMensajesComprador(
   return response.data;
 }
 
-function crearFormData(contenido: string, imagen?: File | null) {
-  const formData = new FormData();
-  formData.append("contenido", contenido);
-  if (imagen) formData.append("imagen", imagen);
-  return formData;
-}
-
-export async function enviarMensajeComprador(
-  ventaId: string,
-  contenido: string,
-  imagen?: File | null,
-) {
-  const response = await api.post(
-    `/mensajes/comprador/${ventaId}`,
-    crearFormData(contenido, imagen),
-  );
+export async function enviarMensajeComprador(ventaId: string, contenido: string) {
+  const response = await api.post(`/mensajes/comprador/${ventaId}`, { contenido });
   return response.data;
 }
 
@@ -74,14 +56,7 @@ export async function fetchMensajesVendedor(
   return response.data;
 }
 
-export async function enviarMensajeVendedor(
-  ventaId: string,
-  contenido: string,
-  imagen?: File | null,
-) {
-  const response = await api.post(
-    `/mensajes/vendedor/${ventaId}`,
-    crearFormData(contenido, imagen),
-  );
+export async function enviarMensajeVendedor(ventaId: string, contenido: string) {
+  const response = await api.post(`/mensajes/vendedor/${ventaId}`, { contenido });
   return response.data;
 }

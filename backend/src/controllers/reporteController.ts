@@ -5,9 +5,13 @@ import { Producto } from "../models/producto.js";
 import { Mensaje } from "../models/Mensaje.js";
 import clientePrisma from "../configuracion/prisma.js";
 import {
+  CATEGORIA_REVISION_MANUAL,
   ELEMENTOS_REPORTABLES,
   categoriaReporte,
 } from "../configuracion/categoriasReporte.js";
+import { Promocional } from "../models/Promocional.js";
+import { ErrorBackoffice } from "../services/errorBackoffice.js";
+import { resolverReporteAdmin } from "../services/backofficeService.js";
 import { registrarFalta } from "../services/sancionService.js";
 import {
   acumularPuntosDeReporte,
@@ -21,7 +25,6 @@ import {
 } from "../graphql/suscripciones.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
-const LIMITE_DETALLE = 1000;
 
 type Identidad = { tipo: "usuario" | "comprador"; id: string };
 
@@ -48,6 +51,129 @@ async function identificarReportero(req: Request): Promise<Identidad | null> {
   return null;
 }
 
+const DETALLE_MINIMO = 30;
+const DETALLE_MAXIMO = 500;
+
+type DatosNuevoReporte = {
+  reportero: Identidad;
+  sujeto: Identidad;
+  elemento: string;
+  categoria: string;
+  detalle: string;
+  ventaRelacionada: any;
+  productoId?: string;
+  mensajeId?: string;
+  vendedorRelacionado: number;
+};
+
+function validarDetalle(detalle: unknown): string | null {
+  const texto = typeof detalle === "string" ? detalle.trim() : "";
+  if (texto.length < DETALLE_MINIMO || texto.length > DETALLE_MAXIMO) {
+    return `El detalle debe tener entre ${DETALLE_MINIMO} y ${DETALLE_MAXIMO} caracteres`;
+  }
+  return null;
+}
+
+async function registrarReporte(datos: DatosNuevoReporte) {
+  const infoCategoria = categoriaReporte(datos.categoria);
+  if (!infoCategoria) {
+    throw new ErrorBackoffice(400, "Selecciona una categoría válida");
+  }
+
+  const duplicado = await clientePrisma.reporte.findFirst({
+    where: {
+      reportadoPorTipo: datos.reportero.tipo,
+      reportadoPorId: datos.reportero.id,
+      sujetoTipo: datos.sujeto.tipo,
+      sujetoId: datos.sujeto.id,
+      categoria: infoCategoria.id,
+    },
+  });
+  if (duplicado) {
+    throw new ErrorBackoffice(
+      400,
+      "Ya enviaste un reporte con esta categoría para esta persona",
+    );
+  }
+
+  const reporte = await clientePrisma.reporte.create({
+    data: {
+      tipoReportado: datos.sujeto.tipo === "comprador" ? "comprador" : "vendedor",
+      sujetoTipo: datos.sujeto.tipo,
+      sujetoId: datos.sujeto.id,
+      reportadoPorTipo: datos.reportero.tipo,
+      reportadoPorId: datos.reportero.id,
+      ventaId: datos.ventaRelacionada ? String(datos.ventaRelacionada.id) : undefined,
+      productoId: datos.productoId || undefined,
+      mensajeId: datos.mensajeId || undefined,
+      elemento: datos.elemento,
+      categoria: infoCategoria.id,
+      categoriaNombre: infoCategoria.nombre,
+      tipoFalta: infoCategoria.tipoFalta,
+      detalle: datos.detalle.trim(),
+      vendedorId: datos.vendedorRelacionado,
+    },
+  });
+
+  if (datos.sujeto.tipo === "usuario" && !isNaN(Number(datos.sujeto.id))) {
+    await clientePrisma.usuario.update({
+      where: { id: Number(datos.sujeto.id) },
+      data: { totalReportes: { increment: 1 } },
+    });
+  }
+
+  await registrarFalta({
+    sujetoTipo: datos.sujeto.tipo,
+    sujetoId: datos.sujeto.id,
+    reporteId: String(reporte.id),
+    categoria: infoCategoria.id,
+    tipoFalta: infoCategoria.tipoFalta,
+    elemento: datos.elemento,
+    reportadoPor: `${datos.reportero.tipo}:${datos.reportero.id}`,
+  });
+
+  if (infoCategoria.id === CATEGORIA_REVISION_MANUAL) {
+    if (datos.ventaRelacionada) {
+      try {
+        await marcarVentaRetenidaPorReporte(Number(datos.ventaRelacionada.id));
+      } catch (error) {
+        console.error(
+          "[reportes] No se pudo retener el pago de la venta reportada:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+    await publicarReportesPendientes(
+      "creado",
+      "Nuevo reporte de «Otro motivo» pendiente de revisión",
+    );
+    publicarResumenAdmin();
+    return {
+      id: reporte.id,
+      estado: "pendiente",
+      message:
+        "Reporte enviado. Como elegiste «Otro motivo», un administrador lo revisará manualmente.",
+    };
+  }
+
+  const resolucion = await resolverReporteAdmin(reporte.id, "confirmado");
+  return {
+    id: reporte.id,
+    estado: "confirmado",
+    message: resolucion.cuentaCancelada
+      ? "Reporte enviado y registrado. La cuenta reportada alcanzó el límite de puntos y fue cancelada."
+      : "Reporte enviado y registrado en el historial de la cuenta reportada.",
+  };
+}
+
+function responderErrorReporte(res: Response, error: unknown) {
+  if (error instanceof ErrorBackoffice) {
+    return res.status(error.estado).json({ message: error.message });
+  }
+  console.error("[reportes] Error al enviar el reporte:", error);
+  return res.status(500).json({ message: "Error al enviar el reporte" });
+}
+
 export async function crearReporte(req: Request, res: Response) {
   try {
     const reportero = await identificarReportero(req);
@@ -60,89 +186,83 @@ export async function crearReporte(req: Request, res: Response) {
     const {
       ventaId,
       productoId,
+      promocionalId,
       mensajeId,
-      sujetoId,
-      sujetoTipo,
+      vendedorId,
       elemento,
       categoria,
       detalle,
-    } = req.body;
+    } = req.body ?? {};
 
     if (!ELEMENTOS_REPORTABLES.includes(elemento)) {
-      return res
-        .status(400)
-        .json({ message: "Selecciona qué quieres reportar" });
+      return res.status(400).json({ message: "Selecciona qué quieres reportar" });
     }
-
-    const infoCategoria = categoriaReporte(categoria);
-    if (!infoCategoria) {
-      return res
-        .status(400)
-        .json({ message: "Selecciona una categoría válida" });
+    if (!categoriaReporte(categoria)) {
+      return res.status(400).json({ message: "Selecciona una categoría válida" });
     }
-
-    if (
-      detalle !== undefined &&
-      detalle !== null &&
-      (typeof detalle !== "string" || detalle.length > LIMITE_DETALLE)
-    ) {
-      return res
-        .status(400)
-        .json({ message: "El detalle del reporte es demasiado largo" });
-    }
+    const errorDetalle = validarDetalle(detalle);
+    if (errorDetalle) return res.status(400).json({ message: errorDetalle });
 
     let sujeto: Identidad | null = null;
     let ventaRelacionada: any = null;
+    let productoRelacionado: string | undefined;
 
-    if (sujetoId && sujetoTipo) {
-      if (sujetoTipo !== "usuario" && sujetoTipo !== "comprador") {
-        return res
-          .status(400)
-          .json({ message: "Persona a reportar no válida" });
-      }
-      sujeto = { tipo: sujetoTipo, id: String(sujetoId) };
-    } else if (ventaId) {
+    if (ventaId) {
       const venta = await buscarVentaDelReporte(ventaId);
       if (!venta) {
         return res.status(404).json({ message: "Compra no encontrada" });
       }
-
       const esComprador = venta.compradorId === reportero.id;
       const esVendedor =
         reportero.tipo === "usuario" &&
         venta.vendedorId.toString() === reportero.id;
-
       if (!esComprador && !esVendedor) {
-        return res
-          .status(403)
-          .json({
-            message:
-              "Solo el comprador o el vendedor de esta compra pueden reportarla",
-          });
+        return res.status(403).json({
+          message:
+            "Solo el comprador o el vendedor de esta compra pueden reportarla",
+        });
       }
-
-      sujeto = esComprador
-        ? { tipo: "usuario", id: venta.vendedorId.toString() }
-        : { tipo: "comprador", id: venta.compradorId };
+      sujeto = esVendedor
+        ? { tipo: "comprador", id: venta.compradorId }
+        : { tipo: "usuario", id: venta.vendedorId.toString() };
       ventaRelacionada = venta;
+      productoRelacionado = String(venta.productoId);
     } else if (productoId) {
       const producto = esObjectId(productoId)
         ? await Producto.findById(productoId)
         : null;
       if (!producto) {
-        return res.status(404).json({ message: "Producto no encontrado" });
+        return res.status(404).json({ message: "Publicación no encontrada" });
       }
       sujeto = { tipo: "usuario", id: String(producto.vendedorId) };
+      productoRelacionado = String(producto._id);
+    } else if (promocionalId) {
+      const promocional = esObjectId(promocionalId)
+        ? await Promocional.findById(promocionalId)
+        : null;
+      if (!promocional) {
+        return res.status(404).json({ message: "Publicación no encontrada" });
+      }
+      sujeto = { tipo: "usuario", id: String(promocional.vendedorId) };
+      productoRelacionado = String(promocional._id);
+    } else if (vendedorId && !isNaN(Number(vendedorId))) {
+      const vendedor = await clientePrisma.usuario.findUnique({
+        where: { id: Number(vendedorId) },
+        select: { id: true },
+      });
+      if (!vendedor) {
+        return res.status(404).json({ message: "Vendedor no encontrado" });
+      }
+      sujeto = { tipo: "usuario", id: String(vendedor.id) };
     } else {
       return res.status(400).json({
-        message: "Indica la compra o el producto relacionado con tu reporte",
+        message:
+          "Indica la compra, la publicación o el vendedor que quieres reportar",
       });
     }
 
     if (sujeto.tipo === reportero.tipo && sujeto.id === reportero.id) {
-      return res
-        .status(400)
-        .json({ message: "No puedes reportarte a ti mismo" });
+      return res.status(400).json({ message: "No puedes reportarte a ti mismo" });
     }
 
     if (mensajeId) {
@@ -152,112 +272,119 @@ export async function crearReporte(req: Request, res: Response) {
       if (!mensaje) {
         return res.status(404).json({ message: "Mensaje no encontrado" });
       }
-
-      if (ventaRelacionada) {
-        const ventaDelMensaje = await Venta.findById(mensaje.ventaId);
-        if (
-          ventaDelMensaje &&
-          ventaDelMensaje.paypalOrderId !== ventaRelacionada.paypalOrderId
-        ) {
-          return res.status(400).json({
-            message: "El mensaje reportado no pertenece a esta compra",
-          });
-        }
-      }
-    }
-
-    const duplicado = await clientePrisma.reporte.findFirst({
-      where: {
-        reportadoPorTipo: reportero.tipo,
-        reportadoPorId: reportero.id,
-        sujetoTipo: sujeto.tipo,
-        sujetoId: sujeto.id,
-        categoria: infoCategoria.id,
-      },
-    });
-    if (duplicado) {
-      return res.status(400).json({
-        message:
-          "Ya enviaste un reporte con esta categoría para esta persona; nuestro equipo ya lo está revisando.",
-      });
     }
 
     const vendedorRelacionado = ventaRelacionada
       ? Number(ventaRelacionada.vendedorId)
-      : sujeto.tipo === "usuario" && !isNaN(Number(sujeto.id))
-        ? Number(sujeto.id)
-        : null;
+      : Number(sujeto.id);
 
-    if (vendedorRelacionado === null) {
-      return res.status(400).json({
-        message: "Indica la compra relacionada con tu reporte",
-      });
+    const vendedorExiste =
+      Number.isInteger(vendedorRelacionado) &&
+      (await clientePrisma.usuario.findUnique({
+        where: { id: vendedorRelacionado },
+        select: { id: true },
+      }));
+    if (!vendedorExiste) {
+      return res
+        .status(404)
+        .json({ message: "La cuenta del vendedor ya no existe" });
     }
 
-    const reporte = await clientePrisma.reporte.create({
-      data: {
-        tipoReportado: sujeto.tipo === "comprador" ? "comprador" : "vendedor",
-        sujetoTipo: sujeto.tipo,
-        sujetoId: sujeto.id,
-        reportadoPorTipo: reportero.tipo,
-        reportadoPorId: reportero.id,
-        ventaId: ventaRelacionada ? String(ventaRelacionada.id) : undefined,
-        productoId: productoId || undefined,
-        mensajeId: mensajeId || undefined,
-        elemento,
-        categoria: infoCategoria.id,
-        categoriaNombre: infoCategoria.nombre,
-        tipoFalta: infoCategoria.tipoFalta,
-        detalle: typeof detalle === "string" ? detalle.trim() : undefined,
-        vendedorId: vendedorRelacionado,
-      },
-    });
-
-    if (sujeto.tipo === "usuario" && !isNaN(Number(sujeto.id))) {
-      await clientePrisma.usuario.update({
-        where: { id: Number(sujeto.id) },
-        data: { totalReportes: { increment: 1 } },
-      });
-    }
-
-    const estado = await registrarFalta({
-      sujetoTipo: sujeto.tipo,
-      sujetoId: sujeto.id,
-      reporteId: String(reporte.id),
-      categoria: infoCategoria.id,
-      tipoFalta: infoCategoria.tipoFalta,
+    const resultado = await registrarReporte({
+      reportero,
+      sujeto,
       elemento,
-      reportadoPor: `${reportero.tipo}:${reportero.id}`,
+      categoria,
+      detalle,
+      ventaRelacionada,
+      productoId: productoRelacionado,
+      mensajeId,
+      vendedorRelacionado,
     });
 
-    // RQNF32: si el reporte está ligado a una compra cuyo pago aún no se
-    // liberó al vendedor, el escrow lo retiene de forma preventiva hasta que
-    // la administración resuelva el reporte.
-    if (ventaRelacionada) {
-      try {
-        await marcarVentaRetenidaPorReporte(Number(ventaRelacionada.id));
-      } catch (error) {
-        console.error(
-          "[reportes] No se pudo retener el pago de la venta reportada:",
-          error instanceof Error ? error.message : error,
-        );
-      }
+    res.status(201).json(resultado);
+  } catch (error) {
+    responderErrorReporte(res, error);
+  }
+}
+
+export async function crearReporteComprador(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    if (!req.usuarioId) {
+      return res
+        .status(401)
+        .json({ message: "Identifícate para enviar un reporte" });
     }
 
-    // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
-    await publicarReportesPendientes(
-      "creado",
-      "Nuevo reporte pendiente de revisión",
-    );
-    publicarResumenAdmin();
+    const idVendedor = String(req.usuarioId);
+    const { ventaId, motivo, categoria, detalle } = req.body ?? {};
+    const categoriaElegida = categoria ?? motivo;
 
-    res.status(201).json({
-      message: "Reporte enviado correctamente",
-      sujetoSancionado: estado.bloqueada,
+    if (!ventaId) {
+      return res
+        .status(400)
+        .json({ message: "Indica la compra relacionada con tu reporte" });
+    }
+    if (!categoriaReporte(categoriaElegida)) {
+      return res.status(400).json({ message: "Selecciona una categoría válida" });
+    }
+    const errorDetalle = validarDetalle(detalle);
+    if (errorDetalle) return res.status(400).json({ message: errorDetalle });
+
+    const venta = await buscarVentaDelReporte(ventaId);
+    if (!venta) {
+      return res.status(404).json({ message: "Compra no encontrada" });
+    }
+    if (venta.vendedorId.toString() !== idVendedor) {
+      return res.status(403).json({
+        message: "Solo el vendedor de esta compra puede reportar al cliente",
+      });
+    }
+
+    const resultado = await registrarReporte({
+      reportero: { tipo: "usuario", id: idVendedor },
+      sujeto: { tipo: "comprador", id: venta.compradorId },
+      elemento: "cliente",
+      categoria: categoriaElegida,
+      detalle,
+      ventaRelacionada: venta,
+      productoId: String(venta.productoId),
+      vendedorRelacionado: Number(idVendedor),
     });
+
+    res.status(201).json(resultado);
   } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al enviar el reporte" });
+    responderErrorReporte(res, error);
+  }
+}
+
+export async function misReportes(req: Request, res: Response) {
+  try {
+    const reportero = await identificarReportero(req);
+    if (!reportero) return res.json([]);
+
+    const reportes = await clientePrisma.reporte.findMany({
+      where: { reportadoPorTipo: reportero.tipo, reportadoPorId: reportero.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(
+      reportes.map((reporte) => ({
+        id: reporte.id,
+        elemento: reporte.elemento,
+        categoriaNombre: reporte.categoriaNombre,
+        detalle: reporte.detalle,
+        estado: reporte.estado,
+        createdAt: reporte.createdAt,
+        updatedAt: reporte.updatedAt,
+      })),
+    );
+  } catch (error) {
+    console.error("[reportes] Error al listar mis reportes:", error);
+    res.status(500).json({ message: "Error al obtener tus reportes" });
   }
 }
 
@@ -282,140 +409,6 @@ async function buscarVentaDelReporte(ventaId: unknown) {
   return clientePrisma.venta.findFirst({
     where: { paypalOrderId: ventaEnMongo.paypalOrderId },
   });
-}
-
-export async function crearReporteComprador(
-  req: RequestConUsuario,
-  res: Response,
-) {
-  try {
-    if (!req.usuarioId) {
-      return res
-        .status(401)
-        .json({ message: "Identifícate para enviar un reporte" });
-    }
-
-    const idVendedor = String(req.usuarioId);
-    const { ventaId, elemento, motivo, detalle } = req.body;
-
-    if (!ventaId) {
-      return res.status(400).json({
-        message: "Indica la compra relacionada con tu reporte",
-      });
-    }
-
-    const venta = await buscarVentaDelReporte(ventaId);
-    if (!venta) {
-      return res.status(404).json({ message: "Compra no encontrada" });
-    }
-
-    if (venta.vendedorId.toString() !== idVendedor) {
-      return res
-        .status(403)
-        .json({
-          message:
-            "Solo el vendedor de esta compra puede reportar al comprador",
-        });
-    }
-
-    if (elemento !== undefined && !ELEMENTOS_REPORTABLES.includes(elemento)) {
-      return res
-        .status(400)
-        .json({ message: "Selecciona qué quieres reportar" });
-    }
-
-    const elementoReportado = ELEMENTOS_REPORTABLES.includes(elemento)
-      ? elemento
-      : "otro";
-
-    const infoMotivo = categoriaReporte(motivo);
-    if (!infoMotivo) {
-      return res
-        .status(400)
-        .json({ message: "Selecciona una categoría válida" });
-    }
-
-    if (
-      detalle !== undefined &&
-      detalle !== null &&
-      (typeof detalle !== "string" || detalle.length > LIMITE_DETALLE)
-    ) {
-      return res
-        .status(400)
-        .json({ message: "El detalle del reporte es demasiado largo" });
-    }
-
-    const idComprador = venta.compradorId;
-
-    const duplicado = await clientePrisma.reporte.findFirst({
-      where: {
-        reportadoPorTipo: "usuario",
-        reportadoPorId: idVendedor,
-        sujetoTipo: "comprador",
-        sujetoId: idComprador,
-        categoria: infoMotivo.id,
-      },
-    });
-    if (duplicado) {
-      return res.status(400).json({
-        message:
-          "Ya enviaste un reporte con esta categoría para esta persona; nuestro equipo ya lo está revisando.",
-      });
-    }
-
-    const reporte = await clientePrisma.reporte.create({
-      data: {
-        tipoReportado: "comprador",
-        sujetoTipo: "comprador",
-        sujetoId: idComprador,
-        reportadoPorTipo: "usuario",
-        reportadoPorId: idVendedor,
-        ventaId: String(venta.id),
-        elemento: elementoReportado,
-        categoria: infoMotivo.id,
-        categoriaNombre: infoMotivo.nombre,
-        tipoFalta: infoMotivo.tipoFalta,
-        detalle: typeof detalle === "string" ? detalle.trim() : undefined,
-        vendedorId: Number(idVendedor),
-      },
-    });
-
-    const estado = await registrarFalta({
-      sujetoTipo: "comprador",
-      sujetoId: idComprador,
-      reporteId: String(reporte.id),
-      categoria: infoMotivo.id,
-      tipoFalta: infoMotivo.tipoFalta,
-      elemento: elementoReportado,
-      reportadoPor: `usuario:${idVendedor}`,
-    });
-
-    // RQNF32: retención preventiva del pago si la compra reportada aún no se
-    // liberó al vendedor.
-    try {
-      await marcarVentaRetenidaPorReporte(Number(venta.id));
-    } catch (error) {
-      console.error(
-        "[reportes] No se pudo retener el pago de la venta reportada:",
-        error instanceof Error ? error.message : error,
-      );
-    }
-
-    // Fase 4: el BackOffice ve el nuevo reporte pendiente al instante.
-    await publicarReportesPendientes(
-      "creado",
-      "Nuevo reporte pendiente de revisión",
-    );
-    publicarResumenAdmin();
-
-    res.status(201).json({
-      message: "Reporte enviado correctamente",
-      sujetoSancionado: estado.bloqueada,
-    });
-  } catch (error) {
-    console.error("Error real:", error);
-    res.status(500).json({ message: "Error al enviar el reporte" });
-  }
 }
 
 export async function listarReportes(req: Request, res: Response) {
@@ -512,15 +505,12 @@ export async function confirmarReporte(req: Request, res: Response) {
       vendedor.faltasLeves,
     );
 
-    // RQNF10.1 / RQNF10.3: los puntos se suman al confirmar el reporte y al
-    // llegar a 8 se cancela la cuenta (RQNF10.5 / RQNF10.6 / RQNF10.7).
     const resultadoPuntos = await acumularPuntosDeReporte(
       idVendedor,
       reporte.categoria,
       reporte.tipoFalta,
     );
 
-    // Fase 4: bandeja y dashboard del BackOffice al instante.
     await publicarReportesPendientes(
       "resuelto",
       "Se confirmó un reporte de la bandeja",

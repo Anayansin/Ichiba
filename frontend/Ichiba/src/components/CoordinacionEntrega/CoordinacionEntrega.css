@@ -1,0 +1,107 @@
+.coordinacion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.8rem 1.2rem;
+  border-top: 1px solid #eee;
+  background: #fffaf9;
+  font-size: 0.88rem;
+}
+
+.coordinacion h4 {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+}
+
+.coordinacion p {
+  margin: 0;
+}
+
+.coordinacion__recordatorio {
+  padding: 0.5rem 0.7rem;
+  border-left: 4px solid #d90429;
+  background: #fff1f1;
+  border-radius: 4px;
+}
+
+.coordinacion__acordado {
+  padding: 0.5rem 0.7rem;
+  border-left: 4px solid #2e7d32;
+  background: #eef8ef;
+  border-radius: 4px;
+}
+
+.coordinacion__pendiente,
+.coordinacion__nota {
+  color: #555;
+}
+
+.coordinacion__rechazo,
+.coordinacion__error {
+  color: #b00020;
+  font-weight: 600;
+}
+
+.coordinacion__formulario,
+.coordinacion__respuesta,
+.coordinacion__datos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.coordinacion__formulario label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.coordinacion__formulario input {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+  min-width: 0;
+}
+
+.coordinacion__fila,
+.coordinacion__acciones {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.coordinacion__boton {
+  align-self: flex-start;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  background: #d90429;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.coordinacion__boton--secundario {
+  background: #fff;
+  color: #d90429;
+  border: 1px solid #d90429;
+}
+
+.coordinacion__boton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .coordinacion {
+    padding: 0.7rem 0.8rem;
+  }
+
+  .coordinacion__boton {
+    align-self: stretch;
+  }
+}

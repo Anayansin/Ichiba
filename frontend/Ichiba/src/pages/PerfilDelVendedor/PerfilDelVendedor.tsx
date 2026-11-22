@@ -5,6 +5,7 @@ import {
   type PerfilPublico,
 } from "../../services/usuarioServices";
 import { URL_BACKEND } from "../../services/api";
+import BotonReportar from "../../components/BotonReportar/BotonReportar";
 import "./PerfilDelVendedor.css";
 
 function VendedorPerfil() {
@@ -26,12 +27,20 @@ function VendedorPerfil() {
     return <p className="vendedor-perfil__cargando">Vendedor no encontrado</p>;
 
   const fueraDeHorario = perfil.vendedorDisponibleAhora === false;
-  // RQNF10.1: promedio de calificaciones de ventas completadas.
   const reputacion = perfil.reputacion?.promedio ?? null;
 
   return (
     <div className="vendedor-perfil">
-      <h1>{perfil.usuario.nombreCompleto}</h1>
+      <div className="vendedor-perfil__encabezado">
+        <h1>{perfil.usuario.nombreCompleto}</h1>
+        {id && (
+          <BotonReportar
+            elemento="vendedor"
+            vendedorId={id}
+            texto="Reportar vendedor"
+          />
+        )}
+      </div>
 
       {fueraDeHorario && (
         <div className="vendedor-perfil__aviso">
@@ -43,7 +52,6 @@ function VendedorPerfil() {
         </div>
       )}
 
-      {/* RQNF10.3: cuenta cancelada de forma permanente por 8 puntos. */}
       {perfil.usuario.estadoCuenta === "cancelada" && (
         <div className="vendedor-perfil__aviso vendedor-perfil__aviso--cancelado">
           <p>
@@ -60,7 +68,6 @@ function VendedorPerfil() {
           </span>
           <span className="vendedor-perfil__stat-label">Productos activos</span>
         </div>
-        {/* RQNF10.1: promedio de calificaciones de ventas completadas. */}
         <div className="vendedor-perfil__stat-card">
           <span className="vendedor-perfil__stat-numero">
             {reputacion === null ? "—" : reputacion.toFixed(1)}
@@ -109,23 +116,16 @@ function VendedorPerfil() {
                 </>
               );
 
-              if (fueraDeHorario) {
-                return (
-                  <div
-                    key={producto._id}
-                    className="vendedor-perfil__item vendedor-perfil__item-bloqueado"
-                    title="Vuelve cuando el vendedor esté en su horario de atención"
-                  >
-                    {ficha}
-                  </div>
-                );
-              }
-
               return (
                 <Link
                   key={producto._id}
                   to={`/producto/${producto._id}`}
-                  className="vendedor-perfil__item"
+                  className={`vendedor-perfil__item${fueraDeHorario ? " vendedor-perfil__item-bloqueado" : ""}`}
+                  title={
+                    fueraDeHorario
+                      ? "Solo consulta: el vendedor está fuera de su horario de atención"
+                      : undefined
+                  }
                 >
                   {ficha}
                 </Link>

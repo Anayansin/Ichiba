@@ -6,10 +6,6 @@ import {
 import { RequestConComprador } from "../middleware/comprador.js";
 import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
 
-/**
- * Guarda (o elimina) las preferencias de notificación del comprador:
- * correo + una o más categorías de interés.
- */
 export async function guardarSuscripcion(
   req: RequestConComprador,
   res: Response,
@@ -49,7 +45,6 @@ export async function guardarSuscripcion(
         .json({ message: "Selecciona categorías válidas" });
     }
 
-    // Sin correo ni categorías: el comprador no quiere notificaciones
     if (!correoLimpio && listaCategorias.length === 0) {
       await Suscripcion.deleteOne({ compradorId });
       return res.json({

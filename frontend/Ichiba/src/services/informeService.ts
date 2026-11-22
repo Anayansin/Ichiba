@@ -1,11 +1,5 @@
 import api from "./api";
 
-/**
- * RQF13 / RQF14: informes mensuales.
- * El vendedor consulta y descarga sus informes de ventas en PDF; el
- * administrador consulta y descarga los informes globales de la plataforma.
- */
-
 export type ProductoVendido = {
   productoId: string;
   nombre: string;

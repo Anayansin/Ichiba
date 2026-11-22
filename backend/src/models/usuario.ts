@@ -4,7 +4,6 @@ export const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const usuarioSchema = new Schema(
   {
-    /** Id numérico de la cuenta en PostgreSQL (la copia sincronizada). */
     usuarioId: { type: Number, index: true },
     nombreCompleto: { type: String, required: true },
     direccion: { type: String, required: true },
@@ -20,16 +19,13 @@ const usuarioSchema = new Schema(
     ventasExitosas: { type: Number, default: 0 },
     reportes: { type: Number, default: 0 },
     faltasLeves: { type: Number, default: 0 },
-    // RQNF10.1 / RQNF10.3: reputación por puntos de infracción (8 = cancelación).
     puntosReputacion: { type: Number, default: 0 },
-    // RQNF10.3 / RQF12: "activa" | "cancelada" (cancelada = solo entregas pendientes).
     estadoCuenta: {
       type: String,
       enum: ["activa", "cancelada"],
       default: "activa",
     },
     canceladaEn: { type: Date },
-    // RQNF10.6: fecha de la purga total de datos tras resolverse las entregas.
     datosEliminadosEn: { type: Date },
     correoVerificado: { type: Boolean, default: false },
     codigoCorreo: { type: String },
@@ -43,7 +39,7 @@ const usuarioSchema = new Schema(
     curp: { type: String },
     ineCodigoReverso: { type: String },
     recibirNotificacionesPublicitarias: { type: Boolean, default: false },
-    metodoPago: { type: String, enum: ["paypal", "mercadopago"], required: true },
+    metodoPago: { type: String, enum: ["paypal"], default: "paypal" },
     datosMetodoPago: { type: String, required: true },
     horarios: [
       {
@@ -56,14 +52,8 @@ const usuarioSchema = new Schema(
     horarioConfirmadoEn: { type: Date },
     diasSinConfirmarHorario: { type: Number, default: 0 },
     suspendido: { type: Boolean, default: false },
-    /**
-     * RQNF37 / RQNF38: motivo de la suspensión administrativa. El valor
-     * `saldo_pendiente` permite ingresar solo a terminar entregas en curso.
-     */
     motivoSuspension: { type: String },
-    /** RQNF37 / RQNF38: adeudo pendiente de liquidar (reembolsos por culpa del vendedor). */
     saldoPendiente: { type: Number, default: 0 },
-    // RQNF33 / RQNF34 / RQNF35: espejo de la sanción vigente por faltas.
     sancionHasta: { type: Date, default: null },
     sancionPermanente: { type: Boolean, default: false },
     bloqueosAplicados: { type: Number, default: 0 },

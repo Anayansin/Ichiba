@@ -77,9 +77,7 @@ export async function enviarCorreoAdvertencia(
   correo: string,
   mensaje: string,
   opciones?: {
-    /** Asunto alternativo (por defecto, el de confirmación de horario). */
     asunto?: string;
-    /** Pie alternativo (por defecto, invita a confirmar el horario). */
     pie?: string;
   },
 ) {
@@ -169,11 +167,6 @@ export async function enviarCorreoNovedadesCategoria(
   return true;
 }
 
-/**
- * Avisa al dueño de una publicación publicitaria que alguien dejó un
- * comentario (RQF3). Si el vendedor no aceptó notificaciones publicitarias
- * en su registro, este correo no se envía: quien lo decide es el controlador.
- */
 export async function enviarCorreoComentarioPublicitario(
   correo: string,
   nombrePromocional: string,
@@ -262,12 +255,6 @@ export async function enviarCorreoTurnoDePago(
   return true;
 }
 
-/**
- * RQNF20: entrega al comprador la palabra clave numérica de 4 dígitos de su
- * sesión de pago (la necesita para registrar el comprobante en RQF22).
- * RQNF24.1: además se advierte que la atención será únicamente dentro del
- * bloque de horario de atención del vendedor.
- */
 export async function enviarCorreoPalabraClaveCompra(
   correo: string,
   nombreProducto: string,
@@ -319,7 +306,6 @@ export async function enviarCorreoPalabraClaveCompra(
   return true;
 }
 
-/** RQF30/RQF31: avisa al vendedor que llegó un comprobante por revisar. */
 export async function enviarCorreoComprobanteRecibidoVendedor(
   correo: string,
   nombreProducto: string,
@@ -361,11 +347,6 @@ export async function enviarCorreoComprobanteRecibidoVendedor(
   return true;
 }
 
-/**
- * RQNF24.4: al confirmar el comprobante se entrega al comprador su código
- * confidencial de confirmación de entrega (se lo dará al vendedor el día de
- * la entrega, RQF26/RQF33).
- */
 export async function enviarCorreoCodigoEntregaComprador(
   correo: string,
   nombreProducto: string,
@@ -406,11 +387,6 @@ export async function enviarCorreoCodigoEntregaComprador(
   return true;
 }
 
-/**
- * RQF23: al rechazar el comprobante, el comprador puede reportar al vendedor;
- * RQNF23: el turno pasa automáticamente al siguiente en la fila y se le
- * devuelve su dinero.
- */
 export async function enviarCorreoComprobanteRechazadoComprador(
   correo: string,
   nombreProducto: string,
@@ -449,7 +425,6 @@ export async function enviarCorreoComprobanteRechazadoComprador(
   return true;
 }
 
-/** RQNF26 / RQNF27: la entrega quedó confirmada y los fondos, liberados. */
 export async function enviarCorreoEntregaCompletada(
   correo: string,
   nombreProducto: string,
@@ -490,10 +465,6 @@ export async function enviarCorreoEntregaCompletada(
   return true;
 }
 
-/**
- * RQNF24 / RQNF28 / RQNF31 / RQNF10.2: aviso de cancelación automática del
- * escrow. Se informa la hora y el día de la resolución y el reembolso.
- */
 export async function enviarCorreoVentaCancelada(
   correo: string,
   nombreProducto: string,
@@ -541,11 +512,6 @@ export async function enviarCorreoVentaCancelada(
   return true;
 }
 
-/**
- * RQF11 / RQNF10.5: notifica al vendedor que su cuenta fue cancelada de forma
- * permanente al acumular 8 puntos de reputación, indicando el motivo y los
- * reportes que la originaron.
- */
 export async function enviarCorreoCuentaCancelada(
   correo: string,
   nombreCompleto: string,
@@ -610,11 +576,6 @@ export async function enviarCorreoCuentaCancelada(
   return true;
 }
 
-/**
- * RQNF33 / RQNF34 / RQNF35: avisa al usuario sancionado que un reporte
- * confirmado (o la reincidencia de faltas) le aplicó un bloqueo temporal,
- * una suspensión indefinida o el envío a revisión administrativa.
- */
 export async function enviarCorreoSancionAplicada(
   correo: string,
   nombre: string,
@@ -681,10 +642,6 @@ export async function enviarCorreoSancionAplicada(
   return true;
 }
 
-/**
- * RQNF33: avisa al usuario que su bloqueo temporal concluyó (de forma
- * automática al expirar) o que la administración revirtió la sanción.
- */
 export async function enviarCorreoSancionLevantada(
   correo: string,
   nombre: string,
@@ -720,10 +677,6 @@ export async function enviarCorreoSancionLevantada(
   return true;
 }
 
-/**
- * RQNF10.7: avisa al cliente que fue retirado de una fila virtual porque el
- * vendedor canceló su cuenta: el producto ya no está disponible.
- */
 export async function enviarCorreoProductoNoDisponible(
   correo: string,
   nombreProducto: string,
@@ -759,11 +712,6 @@ export async function enviarCorreoProductoNoDisponible(
   return true;
 }
 
-/**
- * RQNF37: avisa al vendedor que la plataforma cubrió un reembolso por su
- * culpa directa y que su cuenta queda suspendida con un saldo pendiente por
- * liquidar.
- */
 export async function enviarCorreoAdeudoRegistrado(
   correo: string,
   nombre: string,
@@ -812,10 +760,6 @@ export async function enviarCorreoAdeudoRegistrado(
   return true;
 }
 
-/**
- * RQNF38: confirma al vendedor que la administración registró la liquidación
- * de su adeudo. Si el saldo llegó a cero, su cuenta queda reactivada.
- */
 export async function enviarCorreoAdeudoLiquidado(
   correo: string,
   nombre: string,
@@ -864,11 +808,6 @@ export async function enviarCorreoAdeudoLiquidado(
   return true;
 }
 
-/**
- * RQF40 / RQNF32: avisa al vendedor que un comprador abrió una disputa de
- * reembolso sobre una de sus ventas y que el pago quedó retenido hasta que
- * responda y la administración la resuelva.
- */
 export async function enviarCorreoDisputaAbiertaVendedor(
   correo: string,
   nombreProducto: string,
@@ -907,7 +846,6 @@ export async function enviarCorreoDisputaAbiertaVendedor(
   return true;
 }
 
-/** RQF40: avisa al comprador que el vendedor respondió su disputa. */
 export async function enviarCorreoDisputaRespondidaComprador(
   correo: string,
   nombreProducto: string,
@@ -947,12 +885,6 @@ export async function enviarCorreoDisputaRespondidaComprador(
   return true;
 }
 
-/**
- * RQNF1.9: avisa a los administradores que alguien pidió revisar un alta
- * que el sistema denegó (datos en la lista negra o ya usados por otra
- * cuenta). El destinatario es CORREO_ADMINISTRADORES o, si no está
- * configurado, la cuenta de correo de la plataforma.
- */
 export async function enviarCorreoSolicitudRevisionRegistro(solicitud: {
   id: string;
   nombreCompleto: string;
@@ -1031,10 +963,6 @@ export async function enviarCorreoSolicitudRevisionRegistro(solicitud: {
   return true;
 }
 
-/**
- * RQNF1.9: el administrador responde la solicitud de revisión y la persona
- * recibe la respuesta en el correo con el que se registró.
- */
 export async function enviarCorreoRespuestaSolicitudRegistro(solicitud: {
   correo: string;
   nombreCompleto: string;
@@ -1087,10 +1015,6 @@ export async function enviarCorreoRespuestaSolicitudRegistro(solicitud: {
   return true;
 }
 
-/**
- * RQF40: informa a las partes el dictamen del administrador sobre una
- * disputa de reembolso (a favor del comprador con reembolso, o rechazada).
- */
 export async function enviarCorreoDisputaResuelta(
   correo: string,
   nombreProducto: string,

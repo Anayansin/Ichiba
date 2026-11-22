@@ -17,7 +17,6 @@ export function validarDimensionesImagen(archivo: File): Promise<boolean> {
   });
 }
 
-/** 8 MB, el mismo límite que aplica el backend en uploadIne.ts */
 export const PESO_MAXIMO_BYTES = 8 * 1024 * 1024;
 
 export function validarPesoImagen(archivo: File): boolean {
@@ -27,4 +26,29 @@ export function validarPesoImagen(archivo: File): boolean {
 export function validarFormatoImagen(archivo: File): boolean {
   const tiposPermitidos = ["image/png", "image/jpeg", "image/jpg"];
   return tiposPermitidos.includes(archivo.type);
+}
+
+export function validarDimensionesEnRango(
+  archivo: File,
+  minimo = { ancho: 420, alto: 540 },
+  maximo = { ancho: 2560, alto: 2560 },
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(archivo);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(
+        img.width >= minimo.ancho &&
+          img.height >= minimo.alto &&
+          img.width <= maximo.ancho &&
+          img.height <= maximo.alto,
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(false);
+    };
+    img.src = url;
+  });
 }

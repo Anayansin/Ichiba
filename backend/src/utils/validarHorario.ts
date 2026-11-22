@@ -37,12 +37,6 @@ function minutosDesdeMedianoche(hora: string): number {
   return h * 60 + m;
 }
 
-/**
- * RQF5: el horario se define en hora de la zona centro (GMT-6). México ya no
- * aplica horario de verano (desde 2022), así que el desfijo es fijo y estas
- * funciones convierten cualquier instante al "reloj GMT-6" sin depender de
- * la zona del servidor (en local es GMT-6, en el hosting es UTC).
- */
 const OFFSET_ZONA_CENTRO_MINUTOS = 6 * 60;
 
 export function relojZonaCentro(fecha: Date): Date {
@@ -71,11 +65,6 @@ function etiquetaDeDia(diasAdelante: number, nombreDelDia: string): string {
   return `el próximo ${nombreDelDia}`;
 }
 
-/**
- * Valida la ventana diaria de coordinación de entrega de un producto.
- * Aplica las mismas reglas que el horario de trabajo: formato HH:MM y
- * límites de 05:00 a 23:59, con la hora de fin después de la de inicio.
- */
 export function validarHorarioEntrega(
   horaInicio: unknown,
   horaFin: unknown,
@@ -163,7 +152,6 @@ export function estaDentroDeSuHorario(
 ): boolean {
   if (!Array.isArray(horarios)) return false;
 
-  // El vendedor define su horario en GMT-6: comparar contra ese reloj.
   const reloj = relojZonaCentro(fechaActual);
   const nombreDelDia = NOMBRES_DE_DIA[reloj.getDay()];
   const minutosAhora = reloj.getHours() * 60 + reloj.getMinutes();
@@ -180,7 +168,6 @@ export function estaDentroDeSuHorario(
   return minutosAhora >= inicio && minutosAhora < fin;
 }
 
-/** Convierte un "reloj GMT-6" (resultado de relojZonaCentro) a instante real. */
 export function deRelojZonaCentro(reloj: Date): Date {
   return new Date(
     reloj.getTime() +
@@ -189,7 +176,6 @@ export function deRelojZonaCentro(reloj: Date): Date {
   );
 }
 
-/** RQNF24: texto "dd/mm/aaaa a las hh:mm" en hora del centro (GMT-6). */
 export function formatearFechaHoraZonaCentro(fecha: Date): string {
   const reloj = relojZonaCentro(fecha);
   const dia = String(reloj.getDate()).padStart(2, "0");
@@ -200,17 +186,10 @@ export function formatearFechaHoraZonaCentro(fecha: Date): string {
   return `${dia}/${mes}/${anio} a las ${hora}:${minuto}`;
 }
 
-/**
- * RQNF24 / RQNF31: los plazos del escrow se cuentan en bloques de atención
- * del vendedor. Para que un bloque cuente como oportunidad de atención debe
- * quedarle al menos este tiempo disponible desde el momento de referencia;
- * si el bloque vigente ya está por terminar, se usa el siguiente.
- */
 const MINUTOS_MINIMOS_DE_ATENCION = 30;
 
 export type BloqueProgramado = { inicio: Date; fin: Date };
 
-/** Próximos bloques de atención (máximo `maxDias` días hacia adelante). */
 export function bloquesProgramados(
   horarios: BloqueHorario[],
   desde: Date,
@@ -248,11 +227,6 @@ export function bloquesProgramados(
   return bloques;
 }
 
-/**
- * RQNF24: momento límite (fin del siguiente bloque de atención del vendedor)
- * para que confirme el comprobante antes de que se cancele y reembolse.
- * Devuelve null si el vendedor no tiene bloques agendados.
- */
 export function finDelSiguienteBloqueDeAtencion(
   horarios: BloqueHorario[],
   desde: Date,
@@ -266,11 +240,6 @@ export function finDelSiguienteBloqueDeAtencion(
   return proximo?.fin ?? null;
 }
 
-/**
- * RQNF31: fin de los próximos `cantidad` bloques de atención (por defecto 3).
- * Si pasa ese momento sin ningún mensaje, la transacción se cancela y se
- * reembolsa. Devuelve null si no hay bloques suficientes agendados.
- */
 export function finDeBloquesDeAtencion(
   horarios: BloqueHorario[],
   desde: Date,
@@ -319,11 +288,6 @@ export function obtenerTextoDeProximoBloque(
   return null;
 }
 
-/**
- * RQF18 / RQNF15: texto de la *siguiente apertura* del vendedor: el primer
- * bloque que todavía no ha comenzado (si el bloque vigente está activo, es el
- * de después). Es el momento al que se puede posponer un turno de pago.
- */
 export function obtenerTextoDeLaSiguienteApertura(
   horarios: BloqueHorario[],
   fechaActual: Date,
@@ -352,10 +316,6 @@ export function obtenerTextoDeLaSiguienteApertura(
   return `${etiquetaDeDia(diasAdelante, nombreDelDia)} de ${horaDe(relojInicio)} a ${horaDe(relojFin)}`;
 }
 
-/**
- * RQNF15: un vendedor sin horarios definidos se considera disponible siempre;
- * con horarios, solo atiende dentro de su bloque vigente.
- */
 export function estaAtendiendo(
   horarios: BloqueHorario[] | null | undefined,
   fechaActual: Date,
@@ -365,26 +325,13 @@ export function estaAtendiendo(
 }
 
 export type EvaluacionAtencion = {
-  /** true si el vendedor atiende en este momento (sin horarios = siempre). */
   atendiendo: boolean;
-  /** minutos que le quedan al bloque vigente (null si no hay bloque activo). */
   minutosRestantesBloque: number | null;
-  /**
-   * RQF18: el comprador puede guardar su lugar hasta la próxima apertura
-   * cuando el vendedor no atiende o su bloque actual termina antes del
-   * tiempo límite de pago (RQNF16).
-   */
   puedeEsperarApertura: boolean;
-  /** RQNF16: advertencia previa al pago en el turno del comprador. */
   avisoAtencion: string | null;
-  /** RQF18: texto de la próxima apertura del vendedor. */
   siguienteApertura: string | null;
 };
 
-/**
- * RQNF15 / RQNF16 / RQF18: evalúa la atención del vendedor para la fila
- * virtual y prepara la advertencia y las opciones del comprador en su turno.
- */
 export function evaluarAtencionDelVendedor(
   horarios: BloqueHorario[] | null | undefined,
   fechaActual: Date,

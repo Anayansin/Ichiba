@@ -69,8 +69,6 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
         .json({ message: "Debes subir al menos una imagen" });
     }
 
-    // Si alguna validación falla, las imágenes que Multer ya guardó en disco
-    // se borran para no dejar archivos huérfanos.
     const borrarSubidas = () => {
       archivos.forEach((archivoSubido) => {
         fs.unlink(archivoSubido.path, () => {});
@@ -234,8 +232,6 @@ export async function actualizarPromocional(
 
     const archivosNuevos = (req.files as Express.Multer.File[]) || [];
 
-    // Si alguna validación falla, las imágenes nuevas que Multer ya guardó
-    // en disco se borran para no dejar archivos huérfanos.
     const borrarNuevas = () => {
       archivosNuevos.forEach((archivoSubido) => {
         fs.unlink(archivoSubido.path, () => {});
@@ -304,8 +300,6 @@ export async function actualizarPromocional(
       });
     }
 
-    // Solo hasta aquí, que todas las validaciones pasaron, se borran del
-    // disco las imágenes que el vendedor quitó del promocional.
     imagenesEliminadas.forEach((rutaRelativa) => {
       const rutaCompleta = path.join(process.cwd(), rutaRelativa);
       fs.unlink(rutaCompleta, () => {});

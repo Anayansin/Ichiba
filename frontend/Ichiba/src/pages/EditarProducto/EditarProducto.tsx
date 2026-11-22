@@ -16,8 +16,6 @@ import {
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
 import { textoCategoria } from "../../configuracion/categorias";
-// RQNF10.1: detección inmediata, con la misma lista y normalización que el
-// backend (que sigue siendo la autoridad al enviar).
 import {
   contienePalabrasProhibidas,
   mensajePalabrasNoPermitidas,
@@ -34,7 +32,6 @@ const categorias = [
 ];
 const MAX_IMAGENES = 6;
 
-/** Las categorías se guardan con la grafía del catálogo ("Artesanias"). */
 function categoriaCanonica(valor: string): string {
   return (
     categorias.find((cat) => cat.toLowerCase() === valor.toLowerCase()) ?? valor
@@ -64,7 +61,6 @@ function EditarProducto() {
   const [previewsNuevas, setPreviewsNuevas] = useState<string[]>([]);
 
   const [error, setError] = useState("");
-  // RQNF8: campo de texto que el backend señaló con palabras no permitidas.
   const [campoError, setCampoError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -127,8 +123,6 @@ function EditarProducto() {
     e.target.value = "";
   }
 
-  // RQNF10.1: en cuanto el texto de un campo contiene una palabra no
-  // permitida aparece la alerta roja bajo ese campo; al corregirla desaparece.
   function revisarEnVivo(campo: string, texto: string) {
     if (contienePalabrasProhibidas(texto)) {
       setCampoError(campo);
@@ -144,7 +138,6 @@ function EditarProducto() {
     setError("");
     setCampoError(null);
 
-    // RQNF10: no se guarda contenido con palabras no permitidas.
     const camposTexto: Array<[string, string]> = [
       ["nombre", nombre],
       ["descripcion", descripcion],
@@ -165,7 +158,6 @@ function EditarProducto() {
       return;
     }
 
-    // RQNF8.1: siempre debe existir una categoría de las seis predefinidas.
     if (!categoria) {
       setError("Selecciona una categoría para tu producto");
       document.getElementById("campo-categoria")?.focus();
@@ -195,8 +187,6 @@ function EditarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
-      // Un solo campo de "Condiciones de uso" en el formulario; el backend
-      // también guarda `condicionUso` para sus etiquetas.
       formData.append("condicionUso", condicion);
       formData.append("metodoEntrega", metodoEntrega);
       formData.append("horarioEntregaInicio", horarioInicio);
@@ -211,7 +201,6 @@ function EditarProducto() {
       const campo = campoDeError(err);
       setError(mensajeDeError(err) || "Error al actualizar el producto");
       setCampoError(campo);
-      // RQNF8.2: el usuario corrige el contenido señalado y vuelve a enviar.
       if (campo) {
         document.getElementById(`campo-${campo}`)?.focus();
       }

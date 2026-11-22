@@ -5,16 +5,6 @@ import type { GraphQLSchema } from "graphql";
 import jwt from "jsonwebtoken";
 import { buscarUsuarioPorId } from "../services/usuarioService.js";
 
-/**
- * Fase 4 — suscripciones GraphQL del BackOffice.
- *
- * Monta un servidor WebSocket (protocolo `graphql-transport-ws`) sobre el
- * mismo servidor HTTP y en la misma ruta que GraphQL (`/graphql`), para que
- * el cliente use `ws(s)://…/graphql`. Solo se admiten administradores: el
- * token viaja en `connectionParams.Authorization` y se valida contra la base
- * de datos igual que `esAdmin` en las rutas REST.
- */
-
 type ParametrosConexion = Record<string, unknown> | undefined;
 
 function tokenDeParametros(parametros: ParametrosConexion): string | null {
@@ -26,10 +16,6 @@ function tokenDeParametros(parametros: ParametrosConexion): string | null {
   return token || null;
 }
 
-/**
- * Devuelve el id del administrador autenticado o `null` si el token falta,
- * es inválido, está vencido o la cuenta no es de tipo admin.
- */
 async function autenticarAdministrador(
   parametros: ParametrosConexion,
 ): Promise<number | null> {
@@ -66,8 +52,6 @@ export function iniciarServidorDeSuscripciones(
   const limpieza = useServer(
     {
       schema: esquema,
-      // Solo administradores: sin token o con cuenta que no sea admin la
-      // conexión se rechaza con el cierre 4403 (Forbidden).
       onConnect: async (contexto) => {
         const usuarioId = await autenticarAdministrador(
           contexto.connectionParams as ParametrosConexion,

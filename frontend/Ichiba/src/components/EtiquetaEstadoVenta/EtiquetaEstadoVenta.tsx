@@ -10,7 +10,6 @@ interface EtiquetaEstadoVentaProps {
   rol: "comprador" | "vendedor";
 }
 
-/** Etiqueta de color con el estado del escrow (RQNF4). */
 function EtiquetaEstadoVenta({ estado, rol }: EtiquetaEstadoVentaProps) {
   return (
     <span className={`estado-venta ${claseEstadoVenta(estado)}`}>

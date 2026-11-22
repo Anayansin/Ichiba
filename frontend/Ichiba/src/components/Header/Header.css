@@ -10,11 +10,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  /*
-   * La app es de tema claro: si el texto heredado quedara blanco (como en el
-   * tema oscuro del sistema) desaparecería sobre los fondos claros de las
-   * tarjetas y paneles del vendedor.
-   */
   color-scheme: light;
   color: #1a1a1a;
 
@@ -108,33 +103,6 @@ body {
   min-width: 220px;
 }
 
-/* Submenú de Promocionales (se despliega a la derecha al pasar el cursor) */
-.header__submenu {
-  position: relative;
-}
-
-.header__submenu-despliega {
-  position: absolute;
-  top: -0.75rem;
-  left: 100%;
-  background-color: #ffffff;
-  padding: 1rem 1.5rem;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  min-width: 220px;
-}
-
-.header__submenu-titulo {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #888888;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
 
 .header__usuario {
   position: relative;
@@ -191,7 +159,6 @@ body {
   padding: 0.4rem 0;
 }
 
-/* Buscador global: aparece en todas las páginas y manda a /inicio?q=... */
 .header__buscador {
   display: flex;
   align-items: center;
@@ -230,7 +197,6 @@ body {
   background: #b8031f;
 }
 
-/* Lupa del menú: mismo estilo que "Inicio", "Chats", etc. */
 .header__lupa {
   display: flex;
   align-items: center;
@@ -254,7 +220,6 @@ body {
   stroke-linecap: round;
 }
 
-/* Modo búsqueda: se esconde todo el menú (queda solo el logo y el avatar) */
 .header--buscando .header__nav {
   display: none;
 }
@@ -290,11 +255,6 @@ body {
   color: #333;
 }
 
-/*
- * En pantallas angostas la barra pasa a dos filas: logo y cuenta arriba, y
- * todos los enlaces abajo. Antes el menú se salía del ancho y ocultaba
- * "Categorías", "Nosotros", "Ayuda" y la lupa.
- */
 @media (max-width: 900px) {
   .header {
     flex-wrap: wrap;
@@ -326,12 +286,6 @@ body {
     padding: 1rem 1.2rem;
   }
 
-  .header__submenu-despliega {
-    left: 0;
-    top: 100%;
-    min-width: min(240px, calc(100vw - 2rem));
-  }
-
   .header--buscando .header__buscador--expandido {
     order: 3;
     width: 100%;
@@ -345,7 +299,6 @@ body {
   }
 }
 
-/* En móviles angostos todos los enlaces y la lupa caben en una sola fila. */
 @media (max-width: 480px) {
   .header {
     padding: 0.85rem 0.9rem;

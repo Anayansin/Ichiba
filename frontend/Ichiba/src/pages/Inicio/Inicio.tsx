@@ -51,7 +51,6 @@ function Inicio() {
           PRODUCTOS_POR_PAGINA,
         );
 
-        // Si mientras tanto cambió el filtro, esta respuesta ya no sirve.
         if (generacion !== generacionRef.current) return;
 
         if (!Array.isArray(data.productos)) {
@@ -129,12 +128,6 @@ function Inicio() {
     void cargarPagina(paginaRef.current + 1, false, generacionRef.current);
   }, [cargarPagina]);
 
-  /**
-   * Intersection Observer: cuando el centinela del final del listado entra
-   * en el viewport (con 300 px de anticipación), pedimos la siguiente página.
-   * El observer se vuelve a crear después de cada carga para que pueda
-   * dispararse otra vez si el centinela sigue visible.
-   */
   useEffect(() => {
     const centinela = centinelaRef.current;
     if (!centinela || !hayMas || cargando || cargandoMas || errorMas) return;
@@ -202,6 +195,7 @@ function Inicio() {
                 precio={producto.precio}
                 imagenes={producto.imagenes}
                 atendiendo={producto.vendedorAtendiendo ?? true}
+                proximoBloque={producto.proximoBloqueVendedor ?? null}
               />
             ))}
           </div>

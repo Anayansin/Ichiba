@@ -64,7 +64,6 @@
   flex-shrink: 0;
 }
 
-/* RQNF20: palabra clave del pago */
 .mis-pedidos__codigo {
   margin: 0;
   font-size: 0.85rem;
@@ -76,7 +75,6 @@
   color: #d90429;
 }
 
-/* RQNF24.4: código de confirmación de entrega del comprador */
 .mis-pedidos__entrega {
   margin-top: 0.3rem;
   background: #e8f0fe;
@@ -106,7 +104,6 @@
   color: #1a56b0;
 }
 
-/* Plazos y motivos del escrow */
 .mis-pedidos__plazo {
   margin: 0;
   font-size: 0.8rem;
@@ -120,7 +117,6 @@
   color: #b3001b;
 }
 
-/* RQF40: aviso tras abrir una disputa */
 .mis-pedidos__aviso {
   background: #e6f4ea;
   border: 1px solid #1e7e34;
@@ -130,7 +126,6 @@
   font-size: 0.9rem;
 }
 
-/* RQF40: disputa de reembolso del comprador */
 .mis-pedidos__disputa {
   margin-top: 0.5rem;
   background: #fff4f4;
@@ -194,7 +189,6 @@
   cursor: default;
 }
 
-/* RQF40: formulario para abrir una disputa (ocupa todo el ancho) */
 .mis-pedidos__formulario-disputa {
   flex-basis: 100%;
   display: flex;

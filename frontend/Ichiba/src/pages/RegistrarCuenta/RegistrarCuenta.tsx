@@ -42,7 +42,6 @@ const requisitosPassword = [
   },
 ];
 
-/** Campos del formulario, en el orden en que se revisan. */
 type Campo =
   | "nombreCompleto"
   | "direccion"
@@ -77,7 +76,6 @@ function minutosDesdeMedianoche(hora: string): number {
   return h * 60 + m;
 }
 
-/** Mismas reglas del backend: bloques coherentes y al menos 1 hora por semana. */
 function errorDeHorario(horarios: BloqueHorario[]): string {
   let minutosTotales = 0;
 
@@ -124,11 +122,6 @@ function RegistarCuenta() {
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
   const [mostrarVerificacion, setMostrarVerificacion] = useState(false);
-  /**
-   * RQNF1.9: el alta fue denegada (los datos están en la lista negra o ya
-   * pertenecen a otra cuenta). Se muestra el aviso con la opción de pedir la
-   * revisión a los administradores.
-   */
   const [bloqueo, setBloqueo] = useState<{
     mensaje: string;
     motivo: string;
@@ -136,10 +129,8 @@ function RegistarCuenta() {
   const [mensajeRevision, setMensajeRevision] = useState("");
   const [enviandoRevision, setEnviandoRevision] = useState(false);
   const [revisionEnviada, setRevisionEnviada] = useState(false);
-  /** RQF4: la cuenta ya existe y el navegador va en camino a PayPal. */
   const [abriendoPaypal, setAbriendoPaypal] = useState(false);
   const [recibirPublicitarias, setRecibirPublicitarias] = useState(false);
-  const [metodoPago, setMetodoPago] = useState<"paypal" | "mercadopago">("paypal");
   const [datosMetodoPago, setDatosMetodoPago] = useState("");
   const DIAS_INICIALES: BloqueHorario[] = [
     "lunes",
@@ -157,12 +148,9 @@ function RegistarCuenta() {
   }));
   const [horarios, setHorarios] = useState<BloqueHorario[]>(DIAS_INICIALES);
 
-  /** Indica si el usuario ya tocó un campo, para mostrar sus errores en rojo. */
   const [tocados, setTocados] = useState<Partial<Record<Campo, boolean>>>({});
-  /** Se activa al enviar: a partir de ahí se muestran todos los errores. */
   const [enviado, setEnviado] = useState(false);
 
-  /** Referencias a los elementos de cada campo para poder llevar el foco. */
   const refsDeCampo = useRef<Partial<Record<Campo, HTMLElement | null>>>({});
 
   function marcarTocado(campo: Campo) {
@@ -215,7 +203,6 @@ function RegistarCuenta() {
 
   const passwordValida = requisitosPassword.every((req) => req.test(password));
 
-  /** Errores en español de cada campo, solo los que están fallando. */
   const errores: Partial<Record<Campo, string>> = {};
   if (!nombreCompleto.trim()) {
     errores.nombreCompleto = "Escribe tu nombre completo, tal como aparece en tu INE";
@@ -260,7 +247,6 @@ function RegistarCuenta() {
       "Debes aceptar recibir notificaciones críticas sobre tu cuenta, la fila virtual y tus pagos";
   }
 
-  /** Mensaje a mostrar: solo si el campo ya fue tocado o se intentó enviar. */
   function mensajeDeCampo(campo: Campo): string {
     if (!enviado && !tocados[campo]) return "";
     return errores[campo] ?? "";
@@ -312,17 +298,13 @@ function RegistarCuenta() {
         recibirNotificacionesPublicitarias: recibirPublicitarias,
         ineFrente,
         ineReverso,
-        metodoPago,
         datosMetodoPago,
         horarios,
       });
 
       login(data.usuario, data.token);
 
-      // RQF4: si se registró con PayPal, el navegador sale de inmediato a la
-      // pasarela oficial (OAuth 2.0) para vincular la cuenta. Al volver del
-      // callback, el panel muestra el resultado y la verificación del correo.
-      if (metodoPago === "paypal") {
+      {
         try {
           const { url } = await iniciarVinculacionPayPal();
           setAbriendoPaypal(true);
@@ -340,9 +322,6 @@ function RegistarCuenta() {
     } catch (err) {
       const mensaje = mensajeDeError(err) || "Error al registrar la cuenta";
 
-      // RQNF1.9: el backend denegó el alta porque los datos ya están en la
-      // lista negra o pertenecen a otra cuenta. Se avisa con el mensaje del
-      // backend y se ofrece pedir la revisión a los administradores.
       if (codigoDeError(err) === "DATOS_NO_REGISTRABLES") {
         setBloqueo({ mensaje, motivo: motivoDeError(err) ?? "lista-negra" });
         setError("");
@@ -355,7 +334,6 @@ function RegistarCuenta() {
     }
   }
 
-  /** RQNF1.9: pide a los administradores que revisen el caso. */
   async function enviarSolicitudDeRevision() {
     if (!bloqueo) return;
 
@@ -635,21 +613,6 @@ function RegistarCuenta() {
             ))}
           </ul>
         </div>
-        <div className="form-group">
-          <label htmlFor="campo-metodo-pago">
-            Método de pago <span className="registro-obligatorio">*</span>
-          </label>
-          <select
-            id="campo-metodo-pago"
-            className="registro-input"
-            value={metodoPago}
-            onChange={(e) => setMetodoPago(e.target.value as "paypal" | "mercadopago")}
-          >
-            <option value="paypal">PayPal</option>
-            <option value="mercadopago">Mercado Pago</option>
-          </select>
-        </div>
-
         <div className="registro-comisiones">
           <p className="registro-comisiones__titulo">
             Comisiones que debes conocer
@@ -664,12 +627,6 @@ function RegistarCuenta() {
               transacción, más IVA. En pagos internacionales la comisión puede
               ser mayor.
             </li>
-            <li>
-              <strong>Mercado Pago:</strong> aproximadamente 3.49% + $4.00 MXN
-              por transacción aprobada con disponibilidad inmediata, más IVA.
-              Si aceptas plazos de 14 o 30 días la comisión baja; OXXO y meses
-              sin intereses pueden tener un costo adicional.
-            </li>
           </ul>
           <p className="registro-comisiones__nota">
             Estas comisiones se descuentan del monto que recibes cuando se
@@ -679,7 +636,7 @@ function RegistarCuenta() {
           </p>
         </div>
 
-        {metodoPago === "paypal" && (
+        {(
           <div className="form-group">
             <label htmlFor="campo-datos-pago">
               Correo de PayPal (aquí recibirás tus pagos){" "}
@@ -704,30 +661,6 @@ function RegistarCuenta() {
           </div>
         )}
 
-        {metodoPago === "mercadopago" && (
-          <div className="form-group">
-            <label htmlFor="campo-datos-pago">
-              Correo de Mercado Pago (aquí recibirás tus pagos){" "}
-              <span className="registro-obligatorio">*</span>
-            </label>
-            <input
-              id="campo-datos-pago"
-              type="text"
-              inputMode="email"
-              className={claseDeCampo("datosMetodoPago", "registro-input")}
-              placeholder="tu-correo@mercadopago.com"
-              value={datosMetodoPago}
-              onChange={(e) => setDatosMetodoPago(e.target.value)}
-              onBlur={() => marcarTocado("datosMetodoPago")}
-              ref={guardarRef("datosMetodoPago") as (el: HTMLInputElement | null) => void}
-            />
-            {mensajeDeCampo("datosMetodoPago") && (
-              <span className="registro-campo-error">
-                {mensajeDeCampo("datosMetodoPago")}
-              </span>
-            )}
-          </div>
-        )}
         <div className="form-group">
           <label>
             Horario de disponibilidad (mínimo 1 hora a la semana){" "}

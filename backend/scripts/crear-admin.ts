@@ -1,18 +1,3 @@
-/**
- * Crea o promueve una cuenta de administrador de ICHIBA.
- *
- * No existe ninguna ruta pública para crear administradores (por seguridad),
- * así que este script es la única forma de obtener el primer acceso al panel
- * `/admin`.
- *
- * Uso (desde la carpeta `backend`):
- *   npm run admin -- correo@ejemplo.com              # crea la cuenta
- *   npm run admin -- correo@ejemplo.com MiClave123!  # crea con esa contraseña
- *   npm run admin -- correo@ejemplo.com --promover   # promueve una cuenta ya existente
- *
- * Si la cuenta ya existe solo se cambia el tipo a `admin` (y se actualiza el
- * espejo de MongoDB, que es el que leen GraphQL y algunos trabajos).
- */
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
@@ -95,8 +80,6 @@ async function reflejarEnMongo(datos: {
 async function main() {
   const { correo, password, promover } = argumentos();
 
-  // El espejo de MongoDB se actualiza en la misma tanda: conectamos antes de
-  // tocar nada para no dejar la cuenta sin sincronizar.
   const uri = process.env.MONGO_URI;
   if (!uri) {
     console.error("La variable MONGO_URI no está definida en backend/.env");

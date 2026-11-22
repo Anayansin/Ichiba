@@ -1,38 +1,39 @@
+.CartaPromocional__Link {
+  display: block;
+  min-width: 0;
+  text-decoration: none;
+}
+
 .CartaPromocional {
   box-sizing: border-box;
-  width: 260px;
-  min-height: 320px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
   overflow: hidden;
   background: rgba(217, 217, 217, 0.58);
   border: 1px solid white;
+  border-radius: 17px;
   box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(6px);
-  border-radius: 17px;
   text-align: center;
-  cursor: pointer;
-  transition: all 0.5s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  font-weight: bolder;
   color: black;
-  flex-direction: column;
-  padding: 14px;
-  margin: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform 0.3s,
+    border-color 0.3s;
 }
 
 .CartaPromocional:hover {
   border: 1px solid black;
-  transform: scale(1.05);
+  transform: translateY(-4px);
 }
 
 .CartaPromocional:active {
-  transform: scale(0.95) rotateZ(1.7deg);
-}
-
-.CartaPromocional__Link {
-  text-decoration: none;
+  transform: scale(0.98);
 }
 
 .CartaPromocional__Etiqueta {
@@ -46,8 +47,10 @@
 }
 
 .CartaPromocional__Imagen {
+  display: block;
   width: 100%;
-  height: 200px;
+  aspect-ratio: 4 / 5;
+  height: auto;
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 0.8rem;
@@ -55,7 +58,9 @@
 }
 
 .CartaPromocional__Nombre {
-  font-size: 1.1rem;
+  margin: 0 0 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: clamp(0.92rem, 0.85rem + 0.3vw, 1.08rem);
   font-weight: 600;
   color: #1a1a1a;
   margin-bottom: 0.4rem;

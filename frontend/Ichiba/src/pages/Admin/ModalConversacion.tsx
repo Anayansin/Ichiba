@@ -84,17 +84,13 @@ function ModalConversacion({
           <div className="modal-conversacion__lista" ref={listaMensajes}>
             {mensajes.map((mensaje) => (
               <div key={mensaje._id} className="modal-conversacion__mensaje">
-                <span
-                  className={`modal-conversacion__remitente modal-conversacion__remitente--${mensaje.remitente}`}
-                >
-                  {mensaje.remitente === "vendedor" ? "Vendedor" : "Comprador"}
-                </span>
                 <BurbujaDeTexto
                   contenido={mensaje.contenido}
-                  imagen={mensaje.imagen}
+                  emisor={mensaje.remitente === "vendedor" ? "Vendedor" : "Comprador"}
                   esRemitente={mensaje.remitente === "vendedor"}
-                  horario={new Date(mensaje.createdAt).toLocaleString("es-MX")}
-                  estadoLectura="leido"
+                  horario={new Date(mensaje.createdAt).toLocaleString("es-MX", {
+                    timeZone: "America/Mexico_City",
+                  })}
                 />
               </div>
             ))}

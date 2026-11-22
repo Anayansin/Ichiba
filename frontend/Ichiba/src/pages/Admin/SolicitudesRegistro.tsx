@@ -13,7 +13,6 @@ import "./SolicitudesRegistro.css";
 
 const SOLICITUDES_POR_PAGINA = 20;
 
-/** RQNF1.9: las solicitudes llegan por GraphQL y la tabla se refresca sola. */
 const CONSULTA_SOLICITUDES = `
   subscription SolicitudesRegistroEnVivo {
     solicitudesRegistro { tipo mensaje pendientes generadoEn }

@@ -29,15 +29,11 @@ router.post(
   registrarUsuario,
 );
 router.post("/login", iniciarSesion);
-// RQNF1.9: quien tuvo el alta denegada puede pedir a los administradores
-// que revisen su caso.
 router.post("/registro/solicitar-revision", solicitarRevisionDeRegistro);
 router.post("/recuperar/solicitar", solicitarRecuperacion);
 router.post("/recuperar/verificar", verificarCodigoRecuperacion);
 router.post("/recuperar/restablecer", restablecerPassword);
 router.get("/perfil", verificarToken, obtenerPerfil);
-// RQF12: las preferencias de notificación no forman parte de completar una
-// entrega, así que una cuenta cancelada no puede modificarlas.
 router.put(
   "/preferencias",
   verificarToken,

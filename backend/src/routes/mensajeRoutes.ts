@@ -9,7 +9,6 @@ import {
 } from "../controllers/mensajeController.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { verificarToken } from "../middleware/auth.js";
-import { subirImagenUnica } from "../middleware/upload.js";
 import {
   requiereCompradorSinSancion,
   requiereUsuarioSinSancionDeEntregas,
@@ -17,7 +16,6 @@ import {
 
 const router = Router();
 
-// Comprador (anónimo, identificado por su compradorId)
 router.get(
   "/comprador/mis-ventas",
   requiereCompradorId,
@@ -32,18 +30,15 @@ router.post(
   "/comprador/:ventaId",
   requiereCompradorId,
   requiereCompradorSinSancion,
-  subirImagenUnica("imagen"),
   enviarMensajeComoComprador,
 );
 
-// Vendedor (con sesión JWT)
 router.get("/vendedor/mis-ventas", verificarToken, fetchMisVentasComoVendedor);
 router.get("/vendedor/:ventaId", verificarToken, fetchMensajesComoVendedor);
 router.post(
   "/vendedor/:ventaId",
   verificarToken,
   requiereUsuarioSinSancionDeEntregas,
-  subirImagenUnica("imagen"),
   enviarMensajeComoVendedor,
 );
 

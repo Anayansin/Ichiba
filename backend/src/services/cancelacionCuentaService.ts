@@ -22,38 +22,8 @@ import {
   enviarCorreoProductoNoDisponible,
 } from "./emailService.js";
 
-/**
- * RQNF10.1 / RQNF10.3 / RQNF10.5 / RQNF10.6 / RQNF10.7 / RQF11 / RQF12:
- * cancelación definitiva de la cuenta de un vendedor al acumular 8 puntos de
- * reputación por infracción.
- *
- * Secuencia aprobada por el cliente (la única que permite cumplir a la vez
- * RQNF10.6 y RQF12):
- *
- *   1. Al llegar a 8 puntos (el administrador confirma un reporte):
- *      - la cuenta pasa a `cancelada`;
- *      - se envía el correo de cancelación permanente con el motivo y los
- *        reportes que la originaron (RQF11 / RQNF10.5);
- *      - se agrega de inmediato a la lista negra el RFC y los datos de la
- *        identificación oficial (RQNF10.6), para que no pueda re-registrarse;
- *      - se desactivan sus publicaciones (productos y promocionales) y se
- *        cancelan las filas virtuales en las que el cliente aún no pagó,
- *        avisándole que el producto ya no está disponible (RQNF10.7);
- *      - el vendedor solo conserva acceso a las entregas con pago confirmado
- *        (RQF12); se mantienen su correo y contraseña mientras existan para
- *        que pueda ingresar a completarlas.
- *
- *   2. Cuando ya no quedan entregas pendientes, se purga de forma permanente
- *      toda su información: nombre, domicilio, teléfono, correo, contraseña,
- *      publicaciones, historial de chats y token de acceso de PayPal
- *      (RQNF10.6). Lo revisa el trabajo `revisionEntregas` y también se
- *      dispara al completarse o cancelarse la última entrega.
- */
-
-/** RQNF10.3: puntos acumulados que cancelan la cuenta de forma permanente. */
 export const PUNTOS_CANCELACION = 8;
 
-/** Estados de venta que cuentan como entrega pendiente (pago ya confirmado). */
 export const ESTADOS_ENTREGA_PENDIENTE = [
   "pendiente_comprobante",
   "pendiente_confirmacion",
@@ -75,7 +45,6 @@ function esVendedorCancelado(usuario: {
   return usuario?.estadoCuenta === "cancelada";
 }
 
-/** ¿El vendedor tiene transacciones con pago confirmado sin resolver? */
 export async function hayEntregasPendientes(
   vendedorId: number,
 ): Promise<boolean> {
@@ -104,10 +73,6 @@ async function notificarProductoNoDisponible(
   }
 }
 
-/**
- * RQNF10.7: cancela las filas virtuales del vendedor en las que el cliente
- * aún no pagó (activa / esperando confirmación) y notifica a cada cliente.
- */
 export async function cancelarFilasSinPagoDelVendedor(
   vendedorId: number,
 ): Promise<number> {
@@ -146,10 +111,6 @@ export async function cancelarFilasSinPagoDelVendedor(
   return canceladas;
 }
 
-/**
- * RQF11 / RQNF10.5: reportes confirmados que originaron la cancelación,
- * con los puntos que aportó cada uno.
- */
 async function reportesQueOriginaronLaCancelacion(vendedorId: number) {
   const reportes = await clientePrisma.reporte.findMany({
     where: { vendedorId },
@@ -167,20 +128,11 @@ async function reportesQueOriginaronLaCancelacion(vendedorId: number) {
 }
 
 export type ResultadoPuntos = {
-  /** Puntos que aportó el reporte confirmado (RQNF10.1). */
   puntos: number;
-  /** Puntos acumulados del vendedor tras sumar el reporte. */
   puntosReputacion: number;
-  /** Presente cuando la cuenta alcanzó (o ya tenía) los 8 puntos. */
   cancelacion: ResultadoCancelacion | null;
 };
 
-/**
- * RQNF10.1 / RQNF10.3: suma los puntos del reporte confirmado por el
- * administrador a la reputación del vendedor y, cuando llega a 8 puntos,
- * cancela su cuenta de forma permanente. La usan los dos endpoints de
- * confirmación de reportes (`resolverReporte` y `confirmarReporte`).
- */
 export async function acumularPuntosDeReporte(
   vendedorId: number,
   categoria: string,
@@ -205,8 +157,6 @@ export async function acumularPuntosDeReporte(
     cancelacion = await cancelarCuentaPorPuntos(vendedorId);
   }
 
-  // Fase 4: el BackOffice (gestión de usuarios y dashboard) se entera al
-  // instante de los puntos nuevos o de la cancelación permanente.
   await publicarCambioDeReputacion(
     vendedorId,
     puntosReputacion,
@@ -218,11 +168,6 @@ export async function acumularPuntosDeReporte(
   return { puntos, puntosReputacion, cancelacion };
 }
 
-/**
- * Fase 4: publica el cambio de reputación de un vendedor en la suscripción
- * `usuariosAdmin`. Usa el espejo de MongoDB (la fuente del panel) y cae a los
- * datos de PostgreSQL si el espejo no existe.
- */
 async function publicarCambioDeReputacion(
   vendedorId: number,
   puntosReputacion: number,
@@ -268,10 +213,6 @@ async function publicarCambioDeReputacion(
   }
 }
 
-/**
- * RQNF10.3 / RQNF10.5 / RQNF10.6 / RQNF10.7: cancela la cuenta del vendedor
- * (idempotente) al alcanzar los 8 puntos de reputación.
- */
 export async function cancelarCuentaPorPuntos(
   vendedorId: number,
 ): Promise<ResultadoCancelacion> {
@@ -302,7 +243,6 @@ export async function cancelarCuentaPorPuntos(
 
   const ahora = new Date();
 
-  // 1. La cuenta queda cancelada (RQF12: acceso restringido a entregas).
   await clientePrisma.usuario.update({
     where: { id: vendedorId },
     data: {
@@ -311,7 +251,6 @@ export async function cancelarCuentaPorPuntos(
     },
   });
 
-  // 2. Correo de cancelación permanente (RQF11 / RQNF10.5).
   let correoEnviado = false;
   try {
     const reportes = await reportesQueOriginaronLaCancelacion(vendedorId);
@@ -328,8 +267,6 @@ export async function cancelarCuentaPorPuntos(
     );
   }
 
-  // 3. Lista negra inmediata: RFC y datos de la identificación oficial
-  //    (RQNF10.6). No se conserva nombre ni correo.
   try {
     await agregarAListaNegra({
       rfc: vendedor.rfc,
@@ -352,13 +289,11 @@ export async function cancelarCuentaPorPuntos(
     }
   }
 
-  // Fase 4: la lista negra del BackOffice se actualiza al instante.
   await publicarListaNegraActualizada(
     "agregada",
     "La cuenta cancelada se agregó a la lista negra",
   );
 
-  // 4. Publicaciones fuera del catálogo: ya no recibe clientes (RQF12).
   await Producto.updateMany(
     { vendedorId: String(vendedorId) },
     { activo: false },
@@ -368,7 +303,6 @@ export async function cancelarCuentaPorPuntos(
     { activo: false },
   );
 
-  // 5. Filas sin pago canceladas y clientes notificados (RQNF10.7).
   let filasCanceladas = 0;
   try {
     filasCanceladas = await cancelarFilasSinPagoDelVendedor(vendedorId);
@@ -379,7 +313,6 @@ export async function cancelarCuentaPorPuntos(
     );
   }
 
-  // 6. Si ya no hay entregas pendientes, se purga de inmediato (RQNF10.6).
   const purgada = await purgarCuentaSiCorresponde(vendedorId);
 
   return {
@@ -391,7 +324,6 @@ export async function cancelarCuentaPorPuntos(
   };
 }
 
-/** Borra los archivos de la INE del disco (mejor esfuerzo). */
 function borrarArchivosIne(...rutas: (string | null | undefined)[]) {
   for (const ruta of rutas) {
     if (!ruta) continue;
@@ -399,19 +331,10 @@ function borrarArchivosIne(...rutas: (string | null | undefined)[]) {
       const absoluta = path.resolve(process.cwd(), ruta.replace(/^\/+/, ""));
       fs.unlink(absoluta, () => {});
     } catch {
-      // El archivo pudo no existir: la purga de datos no depende de él.
     }
   }
 }
 
-/**
- * RQNF10.6: elimina de forma permanente e irrecuperable toda la información
- * personal y de la plataforma del vendedor cancelado (nombre, domicilio,
- * teléfono, correo, contraseña, publicaciones, historial de chats y token de
- * acceso de PayPal). La fila de PostgreSQL se conserva anonimizada porque las
- * ventas y los reportes la referencian; el RFC y los datos de la INE ya viven
- * solo en la lista negra.
- */
 export async function purgarCuentaCancelada(
   vendedorId: number,
 ): Promise<boolean> {
@@ -425,11 +348,9 @@ export async function purgarCuentaCancelada(
 
   const vendedorEnTexto = String(vendedorId);
 
-  // Publicaciones: productos y promocionales.
   await Producto.deleteMany({ vendedorId: vendedorEnTexto });
   await Promocional.deleteMany({ vendedorId: vendedorEnTexto });
 
-  // Historial de chats: mensajes de todas sus ventas.
   try {
     const ventasEnMongo = await Venta.find({ vendedorId: vendedorEnTexto })
       .select("_id")
@@ -445,16 +366,13 @@ export async function purgarCuentaCancelada(
     );
   }
 
-  // Token de acceso de PayPal (y estados de vinculación pendientes).
   await VinculoPayPal.deleteOne({ usuarioId: vendedorId }).catch(() => {});
   await EstadoVinculacionPayPal.deleteMany({ usuarioId: vendedorId }).catch(
     () => {},
   );
 
-  // Archivos de la identificación oficial.
   borrarArchivosIne(vendedor.ineFrente, vendedor.ineReverso);
 
-  // Anonimización de la fila en PostgreSQL (se conserva por integridad).
   await clientePrisma.usuario.update({
     where: { id: vendedorId },
     data: {
@@ -479,8 +397,6 @@ export async function purgarCuentaCancelada(
     `[cancelacion] Cuenta ${vendedorId} purgada: datos personales eliminados y RFC/INE conservados en la lista negra`,
   );
 
-  // Fase 4: el BackOffice refresca la gestión de usuarios (la cuenta purgada
-  // desaparece del espejo) y el dashboard.
   await publicarEventoUsuario(
     "purgada",
     `Se purgó por completo la cuenta cancelada #${vendedorId}`,
@@ -491,10 +407,6 @@ export async function purgarCuentaCancelada(
   return true;
 }
 
-/**
- * Purga la cuenta solo si está cancelada, aún no se purgó y ya no tiene
- * entregas con pago confirmado sin resolver (RQNF10.6 + RQF12).
- */
 export async function purgarCuentaSiCorresponde(
   vendedorId: number,
 ): Promise<boolean> {
@@ -511,10 +423,6 @@ export async function purgarCuentaSiCorresponde(
   return purgarCuentaCancelada(vendedorId);
 }
 
-/**
- * Revisa todas las cuentas canceladas y purga las que ya resolvieron sus
- * entregas pendientes. La llama el trabajo periódico `revisionEntregas`.
- */
 export async function purgarCuentasCanceladasResueltas(): Promise<number[]> {
   const usuarios = await clientePrisma.usuario.findMany({
     where: { estadoCuenta: "cancelada" },

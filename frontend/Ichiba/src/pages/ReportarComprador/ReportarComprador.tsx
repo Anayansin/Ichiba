@@ -1,29 +1,34 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   fetchMisVentasVendedor,
   type VentaConProducto,
 } from "../../services/mensajeService";
-import { crearReporteComprador } from "../../services/reporteService";
 import {
-  CATEGORIAS_REPORTE,
-  ELEMENTOS_REPORTE,
-} from "../../configuracion/categoriasReporte";
+  crearReporteComprador,
+  type RespuestaReporte,
+} from "../../services/reporteService";
+import { CATEGORIAS_REPORTE } from "../../configuracion/categoriasReporte";
+import { mensajeDeError } from "../../utils/errores";
 import "../ReportarVendedor/ReportarVendedor.css";
+
+const DETALLE_MINIMO = 30;
+const DETALLE_MAXIMO = 500;
 
 function ReportarComprador() {
   const { usuario } = useAuth();
   const [parametros] = useSearchParams();
   const [ventas, setVentas] = useState<VentaConProducto[]>([]);
   const [ventaId, setVentaId] = useState(parametros.get("venta") ?? "");
-  const [elemento, setElemento] = useState(ELEMENTOS_REPORTE[0].id);
   const [categoria, setCategoria] = useState(CATEGORIAS_REPORTE[0].id);
   const [detalle, setDetalle] = useState("");
-  const [enviado, setEnviado] = useState(false);
+  const [resultado, setResultado] = useState<RespuestaReporte | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
+
+  const longitud = detalle.trim().length;
+  const detalleValido = longitud >= DETALLE_MINIMO && longitud <= DETALLE_MAXIMO;
 
   useEffect(() => {
     fetchMisVentasVendedor()
@@ -35,26 +40,26 @@ function ReportarComprador() {
     e.preventDefault();
     setError("");
 
-    const venta = ventas.find((v) => v._id === ventaId);
-    if (!venta) {
+    if (!ventas.some((v) => v._id === ventaId)) {
       setError("Selecciona la compra relacionada con tu reporte");
+      return;
+    }
+    if (!detalleValido) {
+      setError(`El detalle debe tener entre ${DETALLE_MINIMO} y ${DETALLE_MAXIMO} caracteres`);
       return;
     }
 
     setEnviando(true);
     try {
-      await crearReporteComprador({
-        ventaId,
-        elemento,
-        motivo: categoria,
-        detalle: detalle.trim(),
-      });
-      setEnviado(true);
-    } catch (err) {
-      setError(
-        (axios.isAxiosError(err) && err.response?.data?.message) ||
-          "Error al enviar el reporte",
+      setResultado(
+        await crearReporteComprador({
+          ventaId,
+          categoria,
+          detalle: detalle.trim(),
+        }),
       );
+    } catch (err) {
+      setError(mensajeDeError(err) || "Error al enviar el reporte");
     } finally {
       setEnviando(false);
     }
@@ -62,14 +67,18 @@ function ReportarComprador() {
 
   if (!usuario) return <Navigate to="/" replace />;
 
-  if (enviado) {
+  if (resultado) {
     return (
       <div className="reportar">
         <h1>Reporte enviado</h1>
-        <p>Nuestro equipo revisará tu reporte a la brevedad.</p>
+        <p>{resultado.message}</p>
         <p className="reportar__nota">
-          Los reportes por reincidencia generan faltas leves o graves y pueden
-          bloquear temporal o permanentemente a la otra persona.
+          Estado:{" "}
+          <strong>
+            {resultado.estado === "pendiente"
+              ? "En revisión por un administrador"
+              : "Registrado y aplicado"}
+          </strong>
         </p>
       </div>
     );
@@ -77,11 +86,10 @@ function ReportarComprador() {
 
   return (
     <div className="reportar">
-      <h1>Reportar a un comprador</h1>
+      <h1>Reportar a un cliente</h1>
       <p className="reportar__nota">
-        El reporte se aplica al comprador de la compra seleccionada. Las
-        categorías marcadas como falta grave pueden provocar bloqueos por
-        reincidencia.
+        El reporte se aplica al cliente de la compra seleccionada. Los reportes
+        de «Otro motivo» los revisa un administrador.
       </p>
 
       <form className="reportar__form" onSubmit={enviarReporte}>
@@ -104,20 +112,6 @@ function ReportarComprador() {
         </label>
 
         <label>
-          ¿Qué quieres reportar?
-          <select
-            value={elemento}
-            onChange={(e) => setElemento(e.target.value)}
-          >
-            {ELEMENTOS_REPORTE.map((op) => (
-              <option key={op.id} value={op.id}>
-                {op.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label>
           Categoría
           <select
             value={categoria}
@@ -125,24 +119,31 @@ function ReportarComprador() {
           >
             {CATEGORIAS_REPORTE.map((cat) => (
               <option key={cat.id} value={cat.id}>
-                {cat.nombre} ({cat.tipoFalta})
+                {cat.nombre}
               </option>
             ))}
           </select>
         </label>
 
         <label>
-          Detalle (opcional)
+          Detalle
           <textarea
             value={detalle}
             onChange={(e) => setDetalle(e.target.value)}
             rows={4}
-            maxLength={1000}
-            placeholder="Cuéntanos qué sucedió"
+            maxLength={DETALLE_MAXIMO}
+            placeholder="Describe lo que sucedió (mínimo 30 caracteres)"
           />
+          <span className="reportar__nota">
+            {longitud}/{DETALLE_MAXIMO}
+          </span>
         </label>
 
-        <button type="submit" className="reportar__boton" disabled={enviando}>
+        <button
+          type="submit"
+          className="reportar__boton"
+          disabled={enviando || !detalleValido}
+        >
           {enviando ? "Enviando..." : "Enviar reporte"}
         </button>
       </form>

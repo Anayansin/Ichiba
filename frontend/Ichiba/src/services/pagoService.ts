@@ -2,61 +2,15 @@ import api from "./api";
 import type { ReputacionVendedor } from "./usuarioServices";
 
 export type OrdenDePagoPayPal = {
-  metodo: "paypal";
   orderId: string;
   linkAprobacion: string;
   avisoAtencion?: string;
 };
 
-export type OrdenDePagoMercadoPago = {
-  metodo: "mercadopago";
-  /** Llave pública con la que el navegador monta el Payment Brick. */
-  llavePublica: string;
-  /** Precio actual del producto fijado por el servidor. */
-  monto: number;
-  correoComprador: string | null;
-  avisoAtencion?: string;
-};
-
 export async function crearOrdenPago(
   productoId: string,
-): Promise<OrdenDePagoPayPal | OrdenDePagoMercadoPago> {
+): Promise<OrdenDePagoPayPal> {
   const response = await api.post("/pagos/crear-orden", { productoId });
-  return response.data;
-}
-
-export type FormularioPagoMercadoPago = {
-  productoId: string;
-  token?: string;
-  payment_method_id: string;
-  issuer_id?: string | number;
-  installments?: number;
-  payer?: {
-    email?: string;
-    identification?: { type?: string; number?: string };
-  };
-};
-
-export type ResultadoPagoMercadoPago = {
-  estado: "aprobado" | "pendiente";
-  pagoId: number | null;
-  ventaId?: number | null;
-  codigoPago?: string | null;
-  estadoVenta?: string;
-  urlVoucher?: string | null;
-  mensaje?: string;
-  message?: string;
-};
-
-/**
- * Checkout API: envía el formulario embebido (Payment Brick) y crea el cobro
- * contra la API de MercadoPago. Si la tarjeta queda aprobada la venta ya
- * existe; OXXO/SPEI quedan pendientes con su comprobante.
- */
-export async function procesarPagoMercadoPago(
-  datos: FormularioPagoMercadoPago,
-): Promise<ResultadoPagoMercadoPago> {
-  const response = await api.post("/pagos/mercadopago/procesar", datos);
   return response.data;
 }
 
@@ -65,24 +19,11 @@ export async function capturarOrdenPago(orderId: string) {
   return response.data;
 }
 
-/** Confirmación de vuelta del checkout de MercadoPago. */
-export async function confirmarPagoMercadoPago(paymentId: string) {
-  const response = await api.post("/pagos/confirmar-mercadopago", {
-    paymentId,
-  });
-  return response.data;
-}
-
-/**
- * RQF4: pide al backend la URL de la pasarela oficial de PayPal para que el
- * vendedor autorice su cuenta con OAuth 2.0. El navegador sale hacia ahí.
- */
 export async function iniciarVinculacionPayPal() {
   const response = await api.post("/pagos/paypal/vincular");
   return response.data as { url: string };
 }
 
-/** Estado de la vinculación (nunca devuelve el token, solo el Merchant ID). */
 export async function estadoVinculacionPayPal() {
   const response = await api.get("/pagos/paypal/vinculacion");
   return response.data as {
@@ -90,18 +31,9 @@ export async function estadoVinculacionPayPal() {
     correoPayPal: string | null;
     merchantId: string | null;
     vinculadoEn: string | null;
-    metodoPago: string;
   };
 }
 
-/**
- * Estados del escrow (RQNF4):
- *  - pendiente_comprobante:  pagó; falta registrar su comprobante (RQF22).
- *  - pendiente_confirmacion: comprobante enviado; el vendedor lo revisa (RQF31).
- *  - en_entrega:             confirmado; chat abierto para coordinar (RQNF29).
- *  - completada:             entregado y dinero liberado (RQNF26/27).
- *  - reembolsada / cancelada: la compra terminó y el dinero volvió.
- */
 export type EstadoVenta =
   | "pendiente_comprobante"
   | "pendiente_confirmacion"
@@ -115,12 +47,9 @@ export type CompraDelComprador = {
   ventaMongoId: string | null;
   estado: EstadoVenta;
   monto: number;
-  /** Fecha de la autorización del pago. */
   creada: string | null;
   producto: { nombre: string; imagenes: string[] } | null;
-  /** RQNF20: palabra clave de 4 dígitos de la sesión de pago. */
   codigoPago: string | null;
-  /** RQNF24.4: código que el comprador entrega en persona. */
   codigoEntrega: string | null;
   comprobanteEnviadoEn: string | null;
   confirmacionLimite: string | null;
@@ -131,7 +60,6 @@ export type CompraDelComprador = {
   calificacionComprador: number | null;
 };
 
-/** RNF-PAG-19 / RNF-PAG-20: comisión y neto que recibe el vendedor. */
 export type ComisionDeVenta = {
   porcentaje: number;
   base: number;
@@ -166,13 +94,11 @@ export type VentaDelVendedor = {
 };
 
 export type ResumenVentasDelVendedor = {
-  /** RQNF10.1 / RQNF10.3 / RQF12: estado de la cuenta y puntos acumulados. */
   cuenta: {
     estadoCuenta: string;
     puntosReputacion: number;
     puntosCancelacion: number;
   };
-  /** RQNF10.1: reputación del vendedor (promedio y total de calificaciones). */
   reputacion: ReputacionVendedor;
   resumen: {
     porRevisar: number;
@@ -188,11 +114,6 @@ export type ResumenVentasDelVendedor = {
   ventas: VentaDelVendedor[];
 };
 
-/**
- * RQF22 / RQNF20: el comprador registra su comprobante de pago (palabra clave
- * + referencia + fotografía). La imagen pasa antes por la moderación del
- * backend (RQNF18).
- */
 export async function registrarComprobantePago(
   ventaId: number,
   datos: { palabraClave: string; referencia: string; imagen: File },
@@ -210,7 +131,6 @@ export async function registrarComprobantePago(
   };
 }
 
-/** RQF31: el vendedor confirma el comprobante recibido (abre el chat). */
 export async function confirmarComprobanteDeVenta(ventaId: number) {
   const response = await api.post(
     `/pagos/${ventaId}/confirmar-comprobante`,
@@ -222,10 +142,6 @@ export async function confirmarComprobanteDeVenta(ventaId: number) {
   };
 }
 
-/**
- * RQF31 / RQNF23: el vendedor rechaza el comprobante: se reembolsa al
- * comprador y el turno pasa al siguiente de la fila.
- */
 export async function rechazarComprobanteDeVenta(
   ventaId: number,
   motivo: string,
@@ -236,7 +152,6 @@ export async function rechazarComprobanteDeVenta(
   return response.data as { message: string; estado: EstadoVenta };
 }
 
-/** RQF33 / RQNF27: el vendedor registra el código de entrega y se libera el dinero. */
 export async function registrarEntregaDeVenta(
   ventaId: number,
   codigoEntrega: string,
@@ -247,7 +162,6 @@ export async function registrarEntregaDeVenta(
   return response.data as { message: string; estado: EstadoVenta };
 }
 
-/** RQF30/RQF32/RQF33: ventas del vendedor para su panel de seguimiento. */
 export async function fetchVentasDelVendedor(estado?: EstadoVenta) {
   const response = await api.get("/pagos/vendedor/ventas", {
     params: estado ? { estado } : undefined,
@@ -255,13 +169,11 @@ export async function fetchVentasDelVendedor(estado?: EstadoVenta) {
   return response.data as ResumenVentasDelVendedor;
 }
 
-/** Seguimiento del escrow para el comprador (palabra clave, entrega, motivos). */
 export async function fetchMisCompras() {
   const response = await api.get("/pagos/mis-compras");
   return response.data as { compras: CompraDelComprador[] };
 }
 
-/** Detalle de una compra; cada parte ve solo lo que le corresponde. */
 export async function fetchDetalleDeVenta(ventaId: number) {
   const response = await api.get(`/pagos/${ventaId}/detalle`);
   return response.data as {
@@ -269,7 +181,6 @@ export async function fetchDetalleDeVenta(ventaId: number) {
     estado: EstadoVenta;
     rol: "comprador" | "vendedor";
     monto: number;
-    /** Solo lo recibe el vendedor. */
     comision?: ComisionDeVenta;
     producto: { id: string; nombre: string; imagenes: string[] } | null;
     codigoPago: string | null;
@@ -280,11 +191,6 @@ export async function fetchDetalleDeVenta(ventaId: number) {
   };
 }
 
-/**
- * La imagen del comprobante solo la ven las partes de la venta, así que no
- * se puede usar en un <img src> (el navegador no manda las cabeceras de
- * identificación). Se descarga como blob y se devuelve una URL temporal.
- */
 export async function fetchImagenComprobante(
   ventaId: number,
 ): Promise<string> {
@@ -294,7 +200,6 @@ export async function fetchImagenComprobante(
   return URL.createObjectURL(response.data as Blob);
 }
 
-/** RQF27: calificación de 1 a 5 estrellas después de confirmada la entrega. */
 export async function calificarVenta(
   ventaMongoId: string,
   datos: { quienCalifica: "comprador" | "vendedor"; puntuacion: number },
@@ -302,10 +207,6 @@ export async function calificarVenta(
   const response = await api.post(`/pagos/${ventaMongoId}/calificar`, datos);
   return response.data;
 }
-
-// ---------------------------------------------------------------------------
-// RQF40 / RQNF32: disputas de reembolso.
-// ---------------------------------------------------------------------------
 
 export type DisputaDeVenta = {
   id: string;
@@ -318,27 +219,19 @@ export type DisputaDeVenta = {
   monto: number;
   motivo: string;
   descripcion: string | null;
-  /** Rutas autorizadas de las evidencias (se descargan como blob). */
   evidenciasComprador: string[];
   respuestaVendedor: string | null;
   evidenciasVendedor: string[];
   respondidaEn: string | null;
-  /** "abierta" | "reembolsada" | "rechazada". */
   estado: string;
   resueltaEn: string | null;
   resueltaPor: string | null;
   notaAdmin: string | null;
   reembolsoId: string | null;
-  /** Estado del escrow de la venta (en_entrega, completada, …). */
   ventaEstado: string | null;
   fecha: string;
 };
 
-/**
- * RQF40: el comprador abre la disputa de una compra en entrega o completada
- * (motivo, descripción y hasta 5 evidencias). Mientras esté abierta, el pago
- * queda retenido (RQNF32).
- */
 export async function abrirDisputaDeCompra(
   ventaId: number,
   datos: { motivo: string; descripcion: string; imagenes: File[] },
@@ -354,19 +247,16 @@ export async function abrirDisputaDeCompra(
   return response.data as { message: string; disputa: DisputaDeVenta };
 }
 
-/** RQF40: disputas del comprador (para «Mis pedidos»). */
 export async function fetchMisDisputas() {
   const response = await api.get("/pagos/disputas/mis-disputas");
   return response.data as { disputas: DisputaDeVenta[] };
 }
 
-/** RQF40: disputas del vendedor (para su panel). */
 export async function fetchDisputasDelVendedor() {
   const response = await api.get("/pagos/vendedor/disputas");
   return response.data as { disputas: DisputaDeVenta[] };
 }
 
-/** RQF40: el vendedor responde la disputa con su versión y sus evidencias. */
 export async function responderDisputaDeVenta(
   disputaId: string,
   datos: { respuesta: string; imagenes: File[] },
@@ -384,11 +274,6 @@ export async function responderDisputaDeVenta(
   return response.data as { message: string; disputa: DisputaDeVenta };
 }
 
-/**
- * Las evidencias de una disputa solo las ven el comprador, el vendedor y la
- * administración, así que no se pueden usar en un <img src> directo: se
- * descargan como blob y se devuelve una URL temporal.
- */
 export async function fetchEvidenciaDisputa(
   disputaId: string,
   lado: "comprador" | "vendedor",

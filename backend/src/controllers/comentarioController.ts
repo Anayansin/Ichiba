@@ -20,7 +20,6 @@ function idValido(valor: unknown): valor is string {
   return typeof valor === "string" && mongoose.isValidObjectId(valor);
 }
 
-/** Carga el promocional y responde con el error que corresponda (o null). */
 async function promocionalOCu(
   req: Request,
   res: Response,
@@ -57,11 +56,6 @@ export async function obtenerComentarios(req: Request, res: Response) {
   }
 }
 
-/**
- * Crea un comentario en una publicación publicitaria y, si el vendedor
- * aceptó recibir notificaciones de comentarios (RQF3), le manda un correo
- * por Gmail con el mismo servicio que usa el resto del proyecto.
- */
 export async function crearComentario(
   req: RequestConComprador,
   res: Response,
@@ -98,7 +92,6 @@ export async function crearComentario(
       compradorId: req.compradorId ?? "",
     });
 
-    // El correo nunca debe impedir que el comentario se guarde.
     avisarAlVendedor(cargado, texto, nombreAutor).catch((error) => {
       console.error("No se pudo enviar el correo de comentario:", error);
     });

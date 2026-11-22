@@ -35,12 +35,6 @@ function responderBloqueo(res: Response, estado: EstadoBloqueo) {
   });
 }
 
-/**
- * RQNF37 / RQNF38: suspensión administrativa registrada en el BackOffice y
- * guardada en la cuenta (PostgreSQL). La suspensión por saldo pendiente
- * permite únicamente terminar entregas en curso, así que algunas rutas (chat
- * de coordinación) la toleran con `permitirSuspensionPorSaldo`.
- */
 function responderSuspension(
   res: Response,
   suspension: { motivoSuspension?: string | null; saldoPendiente?: number | null },
@@ -80,15 +74,12 @@ async function validarSancion(
   opciones?: { permitirSuspensionPorSaldo?: boolean },
 ) {
   try {
-    // 1) Sanciones por faltas (RQNF33 / RQNF34 / RQNF35).
     const sancion = await sancionDe(sujetoTipo, sujetoId);
     const estado = estadoBloqueo(sancion);
     if (estado.bloqueada) {
       return responderBloqueo(res, estado);
     }
 
-    // 2) Suspensión administrativa del BackOffice (RQNF37 / RQNF38). La
-    // suspensión vive en la cuenta (PostgreSQL, fuente de verdad).
     if (sujetoTipo === "usuario") {
       const id = Number(sujetoId);
       if (Number.isInteger(id)) {
@@ -117,7 +108,6 @@ async function validarSancion(
   }
 }
 
-/** Bloquea a compradores sancionados (entrar a filas, mensajes, etc.). */
 export function requiereCompradorSinSancion(
   req: RequestConComprador,
   res: Response,
@@ -126,7 +116,6 @@ export function requiereCompradorSinSancion(
   return validarSancion(res, "comprador", req.compradorId, next);
 }
 
-/** Bloquea a vendedores sancionados (publicar/editar productos, etc.). */
 export function requiereUsuarioSinSancion(
   req: RequestConUsuario,
   res: Response,
@@ -135,12 +124,6 @@ export function requiereUsuarioSinSancion(
   return validarSancion(res, "usuario", req.usuarioId, next);
 }
 
-/**
- * RQNF38: variante para las rutas de coordinación de una entrega en curso:
- * tolera la suspensión por saldo pendiente (el vendedor necesita el chat para
- * terminar sus entregas), pero no las demás suspensiones ni los bloqueos por
- * faltas.
- */
 export function requiereUsuarioSinSancionDeEntregas(
   req: RequestConUsuario,
   res: Response,
@@ -151,7 +134,6 @@ export function requiereUsuarioSinSancionDeEntregas(
   });
 }
 
-/** Consulta la sanción vigente de un sujeto (para mostrarla en la UI). */
 export async function obtenerEstadoDeSancion(
   sujetoTipo: "usuario" | "comprador",
   sujetoId: string,

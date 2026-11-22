@@ -36,8 +36,6 @@ router.post(
   requiereVendedor,
   requiereVerificado,
   requiereUsuarioSinSancion,
-  // RQNF9.2: mismos formatos estrictos que las fotos de producto
-  // (.png, .jpeg y .jpg) para las fotografías del promocional.
   subirFotosProducto("imagenes", 6),
   crearPromocional,
 );

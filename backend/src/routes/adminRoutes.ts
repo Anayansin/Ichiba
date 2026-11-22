@@ -48,7 +48,6 @@ router.patch(
   reactivarUsuario,
 );
 
-// RQNF1.9: manda los datos de una cuenta a la lista negra sin suspenderla.
 router.post(
   "/usuarios/:id/lista-negra",
   verificarToken,
@@ -95,8 +94,6 @@ router.delete(
   quitarEntradaListaNegra,
 );
 
-// RQNF1.9: solicitudes de revisión de altas denegadas (quien cree que es un
-// error pide a los administradores que revisen su caso).
 router.get(
   "/solicitudes-registro",
   verificarToken,
@@ -111,8 +108,6 @@ router.post(
   resolverSolicitudRegistro,
 );
 
-// RQF40 / RQNF32: disputas de reembolso, ventas con retención preventiva y
-// su dictamen administrativo.
 router.get("/disputas", verificarToken, esAdmin, obtenerDisputas);
 
 router.post(
@@ -129,8 +124,6 @@ router.post(
   resolverVentaRetenida,
 );
 
-// RQNF37 / RQNF38: adeudos de los vendedores (reembolsos por su culpa) y el
-// registro de su liquidación total (pago por transferencia).
 router.get("/adeudos", verificarToken, esAdmin, obtenerAdeudos);
 
 router.post(
@@ -140,8 +133,6 @@ router.post(
   liquidarAdeudo,
 );
 
-// RQF14 / RQNF13.2 / RQNF14.1: informes globales mensuales, descarga en PDF y
-// generación manual de un período (recuperación o pruebas controladas).
 router.get("/informes", verificarToken, esAdmin, listarInformesGlobales);
 
 router.post("/informes/generar", verificarToken, esAdmin, generarInformesAdmin);

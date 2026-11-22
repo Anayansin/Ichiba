@@ -46,38 +46,15 @@ import {
   publicarSolicitudRevisionRegistrada,
 } from "../graphql/suscripciones.js";
 
-/**
- * Operaciones del BackOffice del administrador.
- *
- * Vive en un servicio (y no en el controlador) porque las consumen tres
- * entradas distintas: los endpoints REST `/api/admin/*`, el servidor MCP
- * (`src/mcp`) y las suscripciones GraphQL de la Fase 4. Así las reglas de
- * negocio, los eventos publicados y los formatos de respuesta son idénticos
- * en todas.
- *
- * Los errores esperados (validaciones y «no encontrado») se lanzan como
- * `ErrorBackoffice` con el código HTTP que le corresponde; los controladores
- * REST lo traducen a `res.status`, y las herramientas MCP a un mensaje de
- * error legible.
- */
-
 export { ErrorBackoffice };
 
 export const USUARIOS_POR_PAGINA = 10;
 export const ENTRADAS_POR_PAGINA = 20;
 export const LIMITE_HISTORIAL = 100;
 
-// ---------------------------------------------------------------------------
-// Dashboard (RQF36)
-// ---------------------------------------------------------------------------
-
 export async function obtenerResumenAdmin(): Promise<ResumenAdminSerializado> {
   return calcularResumenAdmin();
 }
-
-// ---------------------------------------------------------------------------
-// Usuarios (RQF36)
-// ---------------------------------------------------------------------------
 
 export type ListadoUsuarios = {
   usuarios: UsuarioResumido[];
@@ -90,7 +67,6 @@ export type ListadoUsuarios = {
 export async function listarUsuariosAdmin(opciones: {
   pagina?: number;
   porPagina?: number;
-  /** Texto libre que filtra por nombre o correo (lo usa el MCP). */
   busqueda?: string;
 }): Promise<ListadoUsuarios> {
   const pagina = Math.max(Number(opciones.pagina) || 1, 1);
@@ -100,8 +76,6 @@ export async function listarUsuariosAdmin(opciones: {
   );
   const busqueda = (opciones.busqueda ?? "").trim();
 
-  // Las cuentas viven en PostgreSQL: se filtran por nombre o correo y se
-  // paginan sobre el propio id.
   const todas = await clientePrisma.usuario.findMany({
     orderBy: { id: "desc" },
   });
@@ -143,8 +117,6 @@ export async function cambiarSuspensionUsuarioAdmin(
     throw new ErrorBackoffice(400, "Indica el usuario que quieres modificar");
   }
 
-  // RQNF10.3 / RQF12: la cancelación por 8 puntos es permanente; no se
-  // suspende ni se reactiva manualmente.
   const existente = await clientePrisma.usuario.findUnique({
     where: { id: idUsuario },
     select: { estadoCuenta: true, saldoPendiente: true },
@@ -156,8 +128,6 @@ export async function cambiarSuspensionUsuarioAdmin(
     );
   }
 
-  // RQNF38: la reactivación queda bloqueada mientras exista un adeudo
-  // pendiente; primero el administrador debe registrar la liquidación total.
   if (!suspendido) {
     const saldo = Number(existente?.saldoPendiente ?? 0);
     if (saldo > 0) {
@@ -183,8 +153,6 @@ export async function cambiarSuspensionUsuarioAdmin(
     throw new ErrorBackoffice(404, "Usuario no encontrado");
   }
 
-  // RQNF33 / RQNF35: al reactivar se levanta la sanción vigente (incluida la
-  // revisión administrativa) para que la cuenta vuelva a operar.
   if (!suspendido) {
     try {
       await levantarSancionPorAdmin(
@@ -200,7 +168,6 @@ export async function cambiarSuspensionUsuarioAdmin(
     }
   }
 
-  // Fase 4: el BackOffice recibe el cambio al instante por suscripción.
   await publicarEventoUsuario(
     suspendido ? "suspendido" : "reactivado",
     suspendido
@@ -212,10 +179,6 @@ export async function cambiarSuspensionUsuarioAdmin(
 
   return resumirUsuario(usuario);
 }
-
-// ---------------------------------------------------------------------------
-// Reportes (RQF37)
-// ---------------------------------------------------------------------------
 
 export type ReportePendienteSerializado = {
   id: number;
@@ -285,8 +248,6 @@ export async function listarReportesPendientesAdmin(): Promise<
       sujetoTipo: reporte.sujetoTipo,
       reportadoPorTipo: reporte.reportadoPorTipo,
       vendedorNombre: vendedor.nombre,
-      // RQNF10.1 / RQNF10.3: cuántos puntos suma el reporte al
-      // confirmarse y cuántos lleva acumulados el vendedor (8 = cancelación).
       puntos: puntosDeCategoria(reporte.categoria, reporte.tipoFalta),
       puntosReputacion: vendedor.puntosReputacion,
       puntosCancelacion: PUNTOS_CANCELACION,
@@ -296,10 +257,6 @@ export async function listarReportesPendientesAdmin(): Promise<
   });
 }
 
-/**
- * Suma una falta leve confirmada al vendedor; cada 3 faltas se convierte en
- * una falta grave registrada (incremento de `totalReportes`).
- */
 export async function aplicarFaltaConfirmada(
   idVendedor: number,
   faltasActuales: number,
@@ -361,8 +318,6 @@ export async function resolverReporteAdmin(
       data: { estado: "rechazado" },
     });
 
-    // RQNF33: el reporte rechazado revierte la falta y el bloqueo automático
-    // que había generado al crearse.
     try {
       await quitarFalta(String(reporte.id));
     } catch (error) {
@@ -372,9 +327,6 @@ export async function resolverReporteAdmin(
       );
     }
 
-    // RQNF32: si el reporte era lo único que retenía el pago de la venta
-    // (sin disputas abiertas ni otros reportes vivos), se retira la
-    // retención preventiva.
     const ventaIdPg = Number(reporte.ventaId);
     if (Number.isInteger(ventaIdPg)) {
       try {
@@ -387,7 +339,6 @@ export async function resolverReporteAdmin(
       }
     }
 
-    // Fase 4: el BackOffice actualiza la bandeja de reportes al instante.
     await publicarReportesPendientes(
       "rechazado",
       "Se rechazó un reporte de la bandeja",
@@ -422,7 +373,6 @@ export async function resolverReporteAdmin(
   });
 
   if (!vendedor) {
-    // Fase 4: aunque el sujeto no sea vendedor, la bandeja cambió.
     await publicarReportesPendientes(
       "resuelto",
       "Se confirmó un reporte de la bandeja",
@@ -440,18 +390,12 @@ export async function resolverReporteAdmin(
     vendedor.faltasLeves,
   );
 
-  // RQNF10.1 / RQNF10.3: los puntos del reporte se suman a la reputación al
-  // confirmarse y, al llegar a 8, la cuenta se cancela de forma permanente
-  // con correo al vendedor, lista negra, publicaciones fuera y purga
-  // posterior (RQNF10.5 / RQNF10.6 / RQNF10.7).
   const resultadoPuntos = await acumularPuntosDeReporte(
     idVendedorAcusado,
     reporte.categoria,
     reporte.tipoFalta,
   );
 
-  // Fase 4: la bandeja de reportes y el dashboard se refrescan al instante
-  // (los puntos del vendedor los publica `acumularPuntosDeReporte`).
   await publicarReportesPendientes(
     "resuelto",
     "Se confirmó un reporte de la bandeja",
@@ -471,15 +415,6 @@ export async function resolverReporteAdmin(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Disputas y ventas retenidas (RQF40 / RQNF32)
-// ---------------------------------------------------------------------------
-
-/**
- * RQF40: bandeja de disputas del BackOffice más las ventas con retención
- * preventiva pendientes de resolver. La lógica vive en `disputaService` y se
- * delega aquí para que la compartan REST, MCP y GraphQL.
- */
 export async function listarDisputasAdmin(opciones: {
   pagina?: number;
   porPagina?: number;
@@ -488,7 +423,6 @@ export async function listarDisputasAdmin(opciones: {
   return listarDisputasDelServicio(opciones);
 }
 
-/** RQF40: dictamen del administrador sobre una disputa (reembolsar/rechazar). */
 export async function resolverDisputaAdmin(
   id: unknown,
   dictamen: unknown,
@@ -497,7 +431,6 @@ export async function resolverDisputaAdmin(
   return resolverDisputaDelServicio(id, dictamen, opciones);
 }
 
-/** RQF40 / RQNF32: resuelve una venta retenida (reembolsar o liberar). */
 export async function resolverVentaRetenidaAdmin(
   idVenta: unknown,
   opciones: {
@@ -510,11 +443,6 @@ export async function resolverVentaRetenidaAdmin(
   return resolverVentaRetenidaDelServicio(idVenta, opciones);
 }
 
-// ---------------------------------------------------------------------------
-// Adeudos del vendedor (RQNF37 / RQNF38)
-// ---------------------------------------------------------------------------
-
-/** RQNF37: listado paginado de adeudos con el total pendiente de liquidar. */
 export async function listarAdeudosAdmin(opciones: {
   pagina?: number;
   porPagina?: number;
@@ -524,17 +452,12 @@ export async function listarAdeudosAdmin(opciones: {
   return listarAdeudosDelServicio(opciones);
 }
 
-/** RQNF38: registra la liquidación de un adeudo (pago por transferencia). */
 export async function liquidarAdeudoAdmin(
   id: unknown,
   opciones: { nota?: string; adminId?: number | null } = {},
 ) {
   return liquidarAdeudoDelServicio(id, opciones);
 }
-
-// ---------------------------------------------------------------------------
-// Historial de transacciones (RQF38)
-// ---------------------------------------------------------------------------
 
 export type EntradaHistorial = {
   id: string;
@@ -571,8 +494,6 @@ function fechaDeDocumento(createdAt?: Date | string) {
 export async function historialTransaccionesAdmin(): Promise<
   EntradaHistorial[]
 > {
-  // Las filas, las ventas y los reportes viven en PostgreSQL (fuente de
-  // verdad); el catálogo sigue en MongoDB para resolver el nombre del producto.
   const [colas, ventas, reportes] = await Promise.all([
     clientePrisma.cola.findMany({
       orderBy: { createdAt: "desc" },
@@ -641,10 +562,6 @@ export async function historialTransaccionesAdmin(): Promise<
   return historial;
 }
 
-// ---------------------------------------------------------------------------
-// Auditoría del chat (RQF39)
-// ---------------------------------------------------------------------------
-
 export async function mensajesDeVentaAdmin(ventaId: string) {
   if (!ventaId || !mongoose.isValidObjectId(ventaId)) {
     throw new ErrorBackoffice(400, "Indica la venta de la conversación");
@@ -657,10 +574,6 @@ export async function mensajesDeVentaAdmin(ventaId: string) {
 
   return Mensaje.find({ ventaId }).sort({ createdAt: 1 });
 }
-
-// ---------------------------------------------------------------------------
-// Lista negra (RQNF1.9 / RQNF36)
-// ---------------------------------------------------------------------------
 
 export type ListadoListaNegra = {
   entradas: EntradaListaNegra[];
@@ -698,11 +611,6 @@ export async function listarListaNegraAdmin(opciones: {
   };
 }
 
-/**
- * RQNF1.9: agrega a la lista negra los datos de identificación de una cuenta
- * ya registrada, sin suspenderla. La cuenta sigue operando, pero sus datos
- * (RFC, CURP, código de la INE y correo) quedan bloqueados para nuevas altas.
- */
 export async function agregarUsuarioAListaNegraAdmin(
   id: string,
   motivo?: string,
@@ -786,7 +694,6 @@ export async function agregarEntradaListaNegraAdmin(datos: {
     throw error;
   }
 
-  // Fase 4: la lista negra del BackOffice se actualiza al instante.
   await publicarListaNegraActualizada(
     "agregada",
     `Registro agregado a la lista negra: ${entrada.rfc || entrada.curp || entrada.nombreCompleto}`,
@@ -807,7 +714,6 @@ export async function quitarEntradaListaNegraAdmin(id: string): Promise<void> {
     throw new ErrorBackoffice(404, "Registro de lista negra no encontrado");
   }
 
-  // Fase 4: la lista negra del BackOffice se actualiza al instante.
   await publicarListaNegraActualizada(
     "quitada",
     `Registro quitado de la lista negra: ${borrada.rfc || borrada.curp || borrada.nombreCompleto}`,
@@ -815,11 +721,6 @@ export async function quitarEntradaListaNegraAdmin(id: string): Promise<void> {
   publicarResumenAdmin();
 }
 
-// ---------------------------------------------------------------------------
-// RQNF1.9: solicitudes de revisión de altas denegadas.
-// ---------------------------------------------------------------------------
-
-/** Listado de las solicitudes que enviaron quienes tuvieron el alta denegada. */
 export async function listarSolicitudesRegistroAdmin(opciones: {
   pagina?: number;
   porPagina?: number;
@@ -828,10 +729,6 @@ export async function listarSolicitudesRegistroAdmin(opciones: {
   return listarSolicitudesDeRevision(opciones);
 }
 
-/**
- * El administrador atiende la solicitud: la marca como revisada, resuelta o
- * descartada y deja una respuesta que se le manda por correo a la persona.
- */
 export async function resolverSolicitudRegistroAdmin(
   id: string,
   datos: {
@@ -850,8 +747,6 @@ export async function resolverSolicitudRegistroAdmin(
     throw new ErrorBackoffice(404, "La solicitud no existe");
   }
 
-  // El correo se manda sin esperar: la respuesta al administrador no debe
-  // depender de que el proveedor de correo esté disponible.
   void enviarCorreoRespuestaSolicitudRegistro(solicitud).catch((error) => {
     console.error(
       "[backoffice] No se pudo enviar la respuesta de la solicitud:",

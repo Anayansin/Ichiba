@@ -17,7 +17,6 @@ import { mensajeDeError } from "../../utils/errores";
 import { URL_BACKEND } from "../../services/api";
 import "./MisPedidos.css";
 
-/** RQF40: estado legible de una disputa para el comprador. */
 function textoEstadoDisputa(estado: string): string {
   const textos: Record<string, string> = {
     abierta:
@@ -28,10 +27,6 @@ function textoEstadoDisputa(estado: string): string {
   return textos[estado] ?? estado;
 }
 
-/**
- * RQF40: las evidencias solo las ven las partes y la administración, así que
- * se descargan con la sesión y se muestran como blob.
- */
 function EvidenciasDeDisputa({
   disputaId,
   lado,
@@ -59,7 +54,6 @@ function EvidenciasDeDisputa({
           creadas.push(url);
           if (activo) setUrls([...creadas]);
         } catch {
-          // Una evidencia ilegible no rompe la tarjeta.
         }
       }
     })();
@@ -83,12 +77,6 @@ function EvidenciasDeDisputa({
   );
 }
 
-/**
- * Seguimiento del escrow (RQNF4) para ambas partes:
- *  - el comprador ve su palabra clave (RQNF20), su código de entrega
- *    (RQNF24.4), los plazos y los motivos de cancelación/reembolso;
- *  - el vendedor ve el estado de sus ventas y los plazos por cumplir.
- */
 function MisPedidos() {
   const { usuario } = useAuth();
   const esVendedor = !!usuario;
@@ -98,7 +86,6 @@ function MisPedidos() {
   const [disputas, setDisputas] = useState<DisputaDeVenta[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  // RQF40: formulario para abrir una disputa de reembolso.
   const [disputaAbiertaPara, setDisputaAbiertaPara] = useState<number | null>(
     null,
   );
@@ -295,7 +282,6 @@ function MisPedidos() {
                   </p>
                 )}
 
-                {/* RQF40: estado de la disputa de reembolso de esta compra. */}
                 {disputa && (
                   <div className="mis-pedidos__disputa">
                     <p className="mis-pedidos__disputa-estado">

@@ -1,14 +1,3 @@
-/**
- * Traduce al español los mensajes nativos de validación del navegador
- * ("Please fill out this field", "Please enter an email address", etc.).
- *
- * El navegador no permite cambiar el idioma del mensaje, pero sí asignar un
- * mensaje propio con `setCustomValidity`. Como el evento `invalid` no burbujea,
- * se escucha en fase de captura sobre el documento: así todos los formularios
- * del proyecto (registro, publicación, pagos, panel del vendedor, etc.) quedan
- * cubiertos sin tocar campo por campo.
- */
-
 type CampoValidable =
   | HTMLInputElement
   | HTMLSelectElement
@@ -90,9 +79,6 @@ function mensajeEnEspanol(campo: CampoValidable): string {
   return "Revisa este campo antes de continuar.";
 }
 
-/**
- * Activa los mensajes en español. Se llama una sola vez al arrancar la app.
- */
 export function activarMensajesDeValidacionEnEspanol(): void {
   document.addEventListener(
     "invalid",
@@ -105,7 +91,6 @@ export function activarMensajesDeValidacionEnEspanol(): void {
 
   const limpiarMensaje = (evento: Event) => {
     if (!esCampoValidable(evento.target)) return;
-    // Al corregir o cambiar el valor se vuelve a evaluar desde cero.
     evento.target.setCustomValidity("");
   };
 

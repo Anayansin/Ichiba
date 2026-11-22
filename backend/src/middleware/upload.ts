@@ -6,6 +6,13 @@ import {
   carpetaDisputas,
   carpetaUploads,
 } from "../configuracion/almacenamiento.js";
+import { persistirArchivosSubidos } from "../configuracion/archivosPersistentes.js";
+
+function continuarTrasGuardar(req: Request, res: Response, next: NextFunction) {
+  persistirArchivosSubidos(req, res)
+    .then(() => next())
+    .catch((error) => next(error));
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -41,10 +48,6 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/**
- * RQNF7.2: las fotos de los productos del catálogo aceptan únicamente los
- * formatos .png, .jpeg y .jpg (sin webp).
- */
 function filtroFotosProducto(
   req: any,
   file: Express.Multer.File,
@@ -69,10 +72,6 @@ const uploadProducto = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/**
- * Sube un solo archivo y devuelve los errores de Multer como JSON (400)
- * en vez del manejo de errores por defecto de Express.
- */
 export function subirImagenUnica(campo: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     upload.single(campo)(req, res, (error) => {
@@ -83,16 +82,11 @@ export function subirImagenUnica(campo: string) {
             : error.message || "No se pudo procesar la imagen";
         return res.status(400).json({ message: mensaje });
       }
-      next();
+      continuarTrasGuardar(req, res, next);
     });
   };
 }
 
-/**
- * Sube las fotos de un producto (RQNF7.2: solo .png, .jpeg y .jpg) y
- * devuelve los errores de Multer (formato no permitido, tamaño, cantidad)
- * como JSON con 400 en vez del manejo de errores por defecto de Express.
- */
 export function subirFotosProducto(campo: string, maximo: number) {
   return (req: Request, res: Response, next: NextFunction) => {
     uploadProducto.array(campo, maximo)(req, res, (error) => {
@@ -103,16 +97,11 @@ export function subirFotosProducto(campo: string, maximo: number) {
             : error.message || "No se pudo procesar la imagen";
         return res.status(400).json({ message: mensaje });
       }
-      next();
+      continuarTrasGuardar(req, res, next);
     });
   };
 }
 
-/**
- * RQF22: comprobantes de pago. Viven en su propia carpeta porque NO se
- * sirven como archivos estáticos: solo las partes de la venta pueden verlos
- * (el backend los sirve con autorización y después de la moderación).
- */
 const storageComprobantes = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, carpetaComprobantes);
@@ -125,11 +114,10 @@ const storageComprobantes = multer.diskStorage({
 
 const uploadComprobante = multer({
   storage: storageComprobantes,
-  fileFilter: filtroArchivos,
+  fileFilter: filtroFotosProducto,
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/** Sube la fotografía del comprobante de pago (campo único, máx. 5 MB). */
 export function subirComprobante(campo: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     uploadComprobante.single(campo)(req, res, (error) => {
@@ -140,17 +128,11 @@ export function subirComprobante(campo: string) {
             : error.message || "No se pudo procesar el comprobante";
         return res.status(400).json({ message: mensaje });
       }
-      next();
+      continuarTrasGuardar(req, res, next);
     });
   };
 }
 
-/**
- * RQF40: evidencias de una disputa de reembolso (hasta 5 imágenes: fotos del
- * producto, capturas del chat, comprobantes…). Viven en su propia carpeta
- * porque NO se sirven como archivos estáticos: solo las partes de la disputa
- * y la administración pueden verlas (el backend las sirve con autorización).
- */
 const storageDisputas = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, carpetaDisputas);
@@ -167,7 +149,6 @@ const uploadDisputas = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-/** Sube hasta 5 evidencias de una disputa (RQF40). */
 export function subirEvidenciasDisputa(campo: string) {
   return (req: Request, res: Response, next: NextFunction) => {
     uploadDisputas.array(campo, 5)(req, res, (error) => {
@@ -178,7 +159,7 @@ export function subirEvidenciasDisputa(campo: string) {
             : error.message || "No se pudieron procesar las evidencias";
         return res.status(400).json({ message: mensaje });
       }
-      next();
+      continuarTrasGuardar(req, res, next);
     });
   };
 }

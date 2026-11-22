@@ -11,6 +11,7 @@ import {
 import { textoPromocional } from "../../configuracion/categorias";
 import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError } from "../../utils/errores";
+import BotonReportar from "../../components/BotonReportar/BotonReportar";
 import "./PromocionalDetalle.css";
 
 const MAX_CARACTERES = 500;
@@ -151,6 +152,21 @@ function PromocionalDetalle() {
             </p>
           </div>
         </Link>
+
+        {!esDueno && usuario?.tipo !== "admin" && (
+          <div className="promocional-detalle__reportes">
+            <BotonReportar
+              elemento="publicacion"
+              promocionalId={promocional._id}
+              texto="Reportar promocional"
+            />
+            <BotonReportar
+              elemento="vendedor"
+              vendedorId={String(promocional.vendedorId)}
+              texto="Reportar vendedor"
+            />
+          </div>
+        )}
 
         <div className="promocional-detalle__descripcion">
           <h3>Descripción</h3>

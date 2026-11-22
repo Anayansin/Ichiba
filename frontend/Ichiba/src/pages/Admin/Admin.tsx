@@ -17,11 +17,6 @@ type SeccionAdmin = {
   descripcion: string;
 };
 
-/**
- * Todas las secciones del BackOffice viven en esta lista. El menú las pinta
- * completas (sin scroll horizontal ni elementos ocultos) y la sección activa
- * se guarda en la URL para que se pueda compartir o recargar sin perderla.
- */
 const SECCIONES: SeccionAdmin[] = [
   {
     id: "inicio",

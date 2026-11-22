@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  avisosDeFilas,
   entrarEnFila,
   misFilas,
   salirDeFila,
@@ -21,6 +22,7 @@ router.post(
   entrarEnFila,
 );
 router.get("/mias", requiereCompradorId, misFilas);
+router.get("/avisos", requiereCompradorId, avisosDeFilas);
 router.get("/producto/:productoId/estado", requiereCompradorId, estadoDeMiFila);
 router.patch("/:id/salir", requiereCompradorId, salirDeFila);
 router.patch(

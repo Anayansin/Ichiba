@@ -42,9 +42,8 @@ function PoliticasDePrivacidad() {
             sensibles y se tratan con tu consentimiento explícito.
           </li>
           <li>
-            <strong>Datos de cobro:</strong> correo de la cuenta de PayPal o
-            Mercado Pago donde recibirás tus pagos y, en el caso de PayPal, el
-            token de vinculación cifrado que autoriza el cobro. Ichiba nunca ve
+            <strong>Datos de cobro:</strong> correo de la cuenta de PayPal donde
+            recibirás tus pagos y el token de vinculación cifrado que autoriza el cobro. Ichiba nunca ve
             las contraseñas de tus cuentas de pago.
           </li>
           <li>
@@ -72,7 +71,7 @@ function PoliticasDePrivacidad() {
           </li>
           <li>
             Procesar pagos y retenciones (escrow), reembolsos y comisiones a
-            través de PayPal y Mercado Pago.
+            través de PayPal.
           </li>
           <li>
             Enviarte correos del servicio: confirmaciones de pago, códigos,
@@ -112,9 +111,9 @@ function PoliticasDePrivacidad() {
         <h2>5. Con quién compartimos tu información</h2>
         <ul>
           <li>
-            <strong>PayPal y Mercado Pago:</strong> procesan los pagos. Les
-            enviamos el monto y los datos necesarios para el cobro; ellos
-            aplican sus propias políticas de privacidad.
+            <strong>PayPal:</strong> procesa los pagos. Les
+            enviamos el monto y los datos necesarios para el cobro; PayPal
+            aplica sus propias políticas de privacidad.
           </li>
           <li>
             <strong>Servicios de verificación y moderación:</strong> lectura de
@@ -156,12 +155,6 @@ function PoliticasDePrivacidad() {
             <strong>PayPal:</strong> aproximadamente 3.95% + $4.00 MXN por
             transacción, más IVA. En pagos internacionales la comisión puede
             ser mayor.
-          </li>
-          <li>
-            <strong>Mercado Pago:</strong> aproximadamente 3.49% + $4.00 MXN
-            por transacción aprobada con disponibilidad inmediata, más IVA. Si
-            aceptas plazos de 14 o 30 días la comisión baja; OXXO y meses sin
-            intereses pueden tener un costo adicional.
           </li>
         </ul>
         <p>

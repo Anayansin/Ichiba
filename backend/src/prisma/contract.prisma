@@ -1,5 +1,3 @@
-// use prisma-8
-
 model usuario {
   id                              Int       @id @default(autoincrement())
   nombreCompleto                  String
@@ -12,12 +10,9 @@ model usuario {
   ventasExitosas                  Int       @default(0)
   totalReportes                   Int       @default(0)
   faltasLeves                     Int       @default(0)
-  // RQNF10.1 / RQNF10.3: reputación por puntos de infracción (se cancelan a los 8).
   puntosReputacion                Float     @default(0)
-  // RQNF10.3 / RQF12: "activa" | "cancelada" (cancelada = solo entregas pendientes).
   estadoCuenta                    String    @default("activa")
   canceladaEn                     DateTime?
-  // RQNF10.6: fecha en la que se purgaron los datos personales tras resolverse las entregas.
   datosEliminadosEn               DateTime?
   correoVerificado                Boolean   @default(false)
   codigoCorreo                    String?
@@ -32,14 +27,10 @@ model usuario {
   ineCodigoReverso                String?
   recibirNotificacionesPublicitarias Boolean @default(false)
   paypalEmail                     String
-  // RQF3 / RQF12: pasarela con la que cobra el vendedor ("paypal" | "mercadopago").
   metodoPago                      String    @default("paypal")
-  // RQNF33 / RQNF34: suspensión administrativa y su motivo.
   suspendido                      Boolean   @default(false)
   motivoSuspension                String?
-  // RQNF37: saldo que el vendedor tiene que liquidar (lo lleva el backoffice).
   saldoPendiente                  Float     @default(0)
-  // RQNF34 / RQNF35: alcance del bloqueo vigente.
   sancionHasta                    DateTime?
   sancionPermanente               Boolean   @default(false)
   revisionAdministrativa          Boolean   @default(false)
@@ -59,48 +50,24 @@ model venta {
   compradorId   String
   monto         Float
   paypalOrderId String
-  // RQNF4: ciclo del escrow. Estados:
-  //   pendiente_comprobante  -> pago autorizado (PayPal) o aprobado (MercadoPago),
-  //                             falta que el comprador registre su comprobante
-  //   pendiente_confirmacion -> comprobante enviado; el vendedor debe revisarlo
-  //   en_entrega             -> comprobante confirmado; chat abierto para coordinar
-  //   completada             -> código de entrega registrado y fondos liberados
-  //   reembolsada            -> se devolvió el dinero al comprador
-  //   cancelada              -> cancelada sin cobro (autorización anulada)
   estado        String   @default("pendiente_comprobante")
-  // RQNF20: palabra clave numérica de 4 dígitos, única por sesión de pago.
   codigoPago    String?
-  // RQNF4 (escrow): id de la autorización de PayPal (captura diferida).
   autorizacionPaypalId String?
-  // RQF22: comprobante de pago del comprador.
   comprobantePalabraClave String?
   comprobanteReferencia   String?
   comprobanteImagen       String?
   comprobanteEnviadoEn    DateTime?
-  // RQNF24 / RQNF31: instante en que el vendedor confirmó el comprobante;
-  // desde ahí se abre el chat y corre la inactividad de 3 bloques.
   comprobanteConfirmadoEn DateTime?
-  // RQNF24.4: código de confirmación de entrega de 4 dígitos (lo da el
-  // comprador al vendedor el día de la entrega).
   codigoEntrega  String?
-  // RQNF24: fecha límite para que el vendedor confirme el comprobante
-  // (fin de su siguiente bloque de atención).
   confirmacionLimite DateTime?
-  // RQNF28 / RQNF31: límite de entrega y último mensaje del chat.
   entregaLimite  DateTime?
   ultimoMensajeEn DateTime?
   entregadoEn    DateTime?
-  // RQNF27: id de la captura de PayPal hecha al liberar los fondos;
-  // se necesita para poder reembolsar disputas posteriores a la entrega.
   capturaPaypalId String?
-  // RQNF10.2 / RQNF23 / RQNF28: reembolsos.
   reembolsadoEn  DateTime?
   reembolsoId    String?
   canceladoMotivo String?
-  // RQNF32: retención preventiva de fondos por reportes o disputas.
   retenido       Boolean  @default(false)
-  // RQF13 / RQF14: datos del producto congelados al confirmarse la venta,
-  // para que los informes sobrevivan a la eliminación del producto.
   productoCategoria String?
   productoNombre    String?
   createdAt     DateTime @default(now())
@@ -115,9 +82,6 @@ model cola {
   correo        String?
   posicion      Int
   estado        String    @default("activa")
-  // RQNF14.2: causa de cierre de la fila, para la tasa de abandono:
-  //   salio_voluntariamente | turno_vencido | venta_completada |
-  //   venta_cancelada | producto_eliminado | cuenta_cancelada
   motivoCierre  String?
   pagoExpiraEn  DateTime?
   createdAt     DateTime  @default(now())

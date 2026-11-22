@@ -13,23 +13,6 @@ import {
 } from "../graphql/suscripciones.js";
 import { resumirUsuario } from "./resumenAdminService.js";
 
-/**
- * RQNF37 / RQNF38: adeudos de los vendedores con la plataforma.
- *
- * RQNF37: cuando la plataforma cubre económicamente un reembolso por culpa
- * directa del vendedor (no confirmó el comprobante, no entregó en el plazo de
- * 15 días, inactividad en el chat de coordinación o una disputa resuelta en
- * su contra) se registra un adeudo por el monto reembolsado, la cuenta queda
- * suspendida con `motivoSuspension = "saldo_pendiente"` y el saldo se acumula
- * en el espejo de MongoDB del BackOffice. El vendedor suspendido solo puede
- * terminar entregas en curso.
- *
- * RQNF38: la reactivación queda condicionada a que la administración
- * registre la liquidación total del adeudo (el pago se hace por fuera de la
- * aplicación, por transferencia). Al liquidarse el último adeudo se levanta
- * la suspensión por saldo y se avisa al vendedor por correo.
- */
-
 export type AdeudoSerializado = {
   id: string;
   usuarioId: number;
@@ -69,7 +52,6 @@ function serializarAdeudo(
   };
 }
 
-/** Nombre y correo del vendedor (PostgreSQL, fuente de verdad). */
 export async function contactoDelVendedor(
   usuarioId: number,
 ): Promise<{ correo: string; nombre: string } | null> {
@@ -84,7 +66,6 @@ export async function contactoDelVendedor(
   };
 }
 
-/** Nombre visible de un administrador (para registrar quién liquidó). */
 async function nombreDelAdmin(adminId: number | null): Promise<string> {
   if (adminId === null) return "Administración de Ichiba";
   const cuenta = await clientePrisma.usuario.findUnique({
@@ -96,12 +77,6 @@ async function nombreDelAdmin(adminId: number | null): Promise<string> {
     : `Administrador #${adminId}`;
 }
 
-/**
- * RQNF37: registra un adeudo por un reembolso cubierto por la plataforma,
- * suspende al vendedor con saldo pendiente y avisa por correo. El llamador
- * (cancelaciones automáticas del escrow o el dictamen de una disputa) ya
- * verificó que el reembolso es por culpa directa del vendedor.
- */
 export async function registrarAdeudo(datos: {
   usuarioId: number;
   venta: {
@@ -130,8 +105,6 @@ export async function registrarAdeudo(datos: {
     causa: datos.causa,
   });
 
-  // La cuenta refleja el saldo acumulado y la suspensión: el vendedor solo
-  // podrá terminar entregas en curso hasta liquidar (RQNF38).
   const cuenta = await clientePrisma.usuario.findUnique({
     where: { id: datos.usuarioId },
     select: { saldoPendiente: true },
@@ -183,11 +156,9 @@ export type ListadoAdeudos = {
   porPagina: number;
   total: number;
   totalPaginas: number;
-  /** Suma de todos los adeudos pendientes de liquidar. */
   pendienteTotal: number;
 };
 
-/** RQNF37: listado paginado de adeudos para el BackOffice. */
 export async function listarAdeudosAdmin(opciones: {
   pagina?: number;
   porPagina?: number;
@@ -241,12 +212,6 @@ export async function listarAdeudosAdmin(opciones: {
   };
 }
 
-/**
- * RQNF38: registra la liquidación total de un adeudo (pago por transferencia
- * fuera de la aplicación). Descuenta el monto del saldo pendiente del
- * vendedor y, cuando el saldo llega a cero, levanta la suspensión por saldo
- * para que la cuenta pueda volver a operar.
- */
 export async function liquidarAdeudoAdmin(
   id: unknown,
   opciones: { nota?: string; adminId?: number | null } = {},

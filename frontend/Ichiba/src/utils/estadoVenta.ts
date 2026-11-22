@@ -1,8 +1,5 @@
 import type { EstadoVenta } from "../services/pagoService";
 
-/**
- * Textos del ciclo del escrow (RQNF4) para el comprador y el vendedor.
- */
 export function etiquetaEstadoVenta(
   estado: EstadoVenta | string | null | undefined,
   rol: "comprador" | "vendedor",
@@ -29,7 +26,6 @@ export function etiquetaEstadoVenta(
   }
 }
 
-/** Clase de color para las etiquetas de estado. */
 export function claseEstadoVenta(
   estado: EstadoVenta | string | null | undefined,
 ): string {
@@ -46,7 +42,6 @@ export function claseEstadoVenta(
   }
 }
 
-/** Fecha corta y hora en formato local para plazos y resoluciones. */
 export function fechaLimiteTexto(fecha: string | null | undefined): string {
   if (!fecha) return "";
   const fechaObjeto = new Date(fecha);

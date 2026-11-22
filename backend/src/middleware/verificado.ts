@@ -22,8 +22,6 @@ export async function requiereVerificado(
       });
     }
 
-    // RQNF5.3: el "mes en curso" se calcula en zona centro (GMT-6), igual
-    // que el horario del vendedor, sin importar la zona del servidor.
     const fechaConfirmacion = usuario.horarioConfirmadoEn;
     const hoy = relojZonaCentro(new Date());
     const confirmacion = fechaConfirmacion

@@ -1,15 +1,10 @@
 import { Response, Request } from "express";
-import fs from "fs";
 import { Mensaje } from "../models/Mensaje.js";
 import { Venta } from "../models/Venta.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 import { registrarActividadDeChat } from "../services/escrowService.js";
-import { moderarComprobante } from "../services/visionService.js";
-import {
-  campoConPalabrasProhibidas,
-  mensajePalabrasProhibidas,
-} from "../utils/filtroPalabras.js";
+import { campoConPalabrasProhibidas } from "../utils/filtroPalabras.js";
 
 const MENSAJE_CHAT_AJENO =
   "No puedes acceder a este chat porque esta venta no pertenece a tu cuenta";
@@ -28,16 +23,13 @@ async function validarAccesoVendedor(ventaId: string, vendedorId: string) {
   return venta;
 }
 
-/**
- * RQNF24.2 / RQNF26 / RQNF29: el chat de coordinación solo está habilitado
- * cuando el vendedor ya confirmó el comprobante (`en_entrega`). Antes está
- * bloqueado esperando la revisión; después de completada o cancelada queda
- * deshabilitado. Devuelve el mensaje para el usuario, o null si puede
- * escribir.
- */
 function motivoChatBloqueado(venta: {
   estado?: string | null;
+  propuestaEntrega?: { estado?: string | null } | null;
 }): string | null {
+  if (venta.estado === "en_entrega" && venta.propuestaEntrega?.estado === "pendiente") {
+    return "El chat está en pausa hasta que el comprador acepte o rechace la propuesta de entrega.";
+  }
   switch (venta.estado) {
     case "en_entrega":
       return null;
@@ -55,17 +47,6 @@ function motivoChatBloqueado(venta: {
   }
 }
 
-/** Elimina la imagen subida cuando el mensaje no se va a guardar. */
-function descartarImagen(req: Request) {
-  if (req.file) fs.unlink(req.file.path, () => {});
-}
-
-/**
- * Valida el texto y la imagen adjunta del mensaje entrante.
- * El filtro global de palabras corre antes de que Multer arme el cuerpo
- * multipart, así que aquí se vuelve a revisar el contenido. RNF-CHA-03: la
- * imagen también pasa por SafeSearch antes de guardarse.
- */
 async function datosDelMensaje(req: Request): Promise<{
   contenido: string;
   imagen: string;
@@ -73,26 +54,19 @@ async function datosDelMensaje(req: Request): Promise<{
 }> {
   const contenido =
     typeof req.body?.contenido === "string" ? req.body.contenido.trim() : "";
-  const imagen = req.file ? `/uploads/${req.file.filename}` : "";
 
-  const rechazar = (mensaje: string) => {
-    descartarImagen(req);
-    return { contenido: "", imagen: "", error: mensaje };
-  };
+  if (!contenido) return { contenido: "", imagen: "", error: "Escribe un mensaje" };
 
-  if (!contenido && !imagen)
-    return rechazar("Escribe un mensaje o adjunta una imagen");
-
-  const campoProhibido = campoConPalabrasProhibidas({ contenido });
-  if (campoProhibido)
-    return rechazar(mensajePalabrasProhibidas(campoProhibido));
-
-  if (req.file) {
-    const bloqueo = await moderarComprobante(req.file.path, "chat");
-    if (bloqueo) return rechazar(bloqueo);
+  if (campoConPalabrasProhibidas({ contenido })) {
+    return {
+      contenido: "",
+      imagen: "",
+      error:
+        "Tu mensaje no fue enviado porque contiene contenido no permitido. Corrígelo e inténtalo de nuevo.",
+    };
   }
 
-  return { contenido, imagen };
+  return { contenido, imagen: "" };
 }
 
 export async function fetchMensajesComoComprador(
@@ -125,15 +99,13 @@ export async function enviarMensajeComoComprador(
 
     const venta = await validarAccesoComprador(ventaId, compradorId);
     if (!venta) {
-      descartarImagen(req);
+
       return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
     }
 
-    // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el
-    // comprobante.
     const bloqueo = motivoChatBloqueado(venta);
     if (bloqueo) {
-      descartarImagen(req);
+
       return res.status(403).json({ message: bloqueo });
     }
 
@@ -149,7 +121,6 @@ export async function enviarMensajeComoComprador(
     });
     await mensaje.save();
 
-    // RQNF31: la inactividad del chat se cuenta desde el último mensaje.
     await registrarActividadDeChat({
       productoId: String(venta.productoId),
       compradorId: venta.compradorId,
@@ -192,15 +163,13 @@ export async function enviarMensajeComoVendedor(
 
     const venta = await validarAccesoVendedor(ventaId, vendedorId);
     if (!venta) {
-      descartarImagen(req);
+
       return res.status(403).json({ message: MENSAJE_CHAT_AJENO });
     }
 
-    // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe tras confirmar el
-    // comprobante.
     const bloqueo = motivoChatBloqueado(venta);
     if (bloqueo) {
-      descartarImagen(req);
+
       return res.status(403).json({ message: bloqueo });
     }
 
@@ -216,7 +185,6 @@ export async function enviarMensajeComoVendedor(
     });
     await mensaje.save();
 
-    // RQNF31: la inactividad del chat se cuenta desde el último mensaje.
     await registrarActividadDeChat({
       productoId: String(venta.productoId),
       compradorId: venta.compradorId,
@@ -235,9 +203,6 @@ export async function fetchMisVentasComoComprador(
 ) {
   try {
     const compradorId = req.compradorId as string;
-    // Seguridad: se eligen solo los campos que el chat necesita. El
-    // comprador conserva sus códigos (palabra clave y entrega), pero nada
-    // más del escrow.
     const ventas = await Venta.find({ compradorId })
       .select(
         "productoId monto createdAt estado codigoPago codigoEntrega canceladoMotivo entregaLimite ventaIdPg calificacionComprador",
@@ -250,8 +215,6 @@ export async function fetchMisVentasComoComprador(
         const datos = venta.toObject();
         return {
           ...datos,
-          // RQNF24.4: el código de entrega solo se muestra en la etapa de
-          // entrega; antes aún no existe para el comprador.
           codigoEntrega:
             venta.estado === "en_entrega"
               ? (venta.codigoEntrega ?? null)
@@ -271,9 +234,6 @@ export async function fetchMisVentasComoVendedor(
 ) {
   try {
     const vendedorId = req.usuarioId as string;
-    // Seguridad: el vendedor nunca recibe los códigos secretos del comprador
-    // (palabra clave del pago ni código de confirmación de entrega). Él los
-    // captura a mano cuando el comprador se los da en persona.
     const ventas = await Venta.find({ vendedorId })
       .select(
         "productoId monto createdAt estado canceladoMotivo entregaLimite ventaIdPg calificacionVendedor",

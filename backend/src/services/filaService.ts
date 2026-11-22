@@ -27,10 +27,6 @@ export async function obtenerTiempoLimitePago(
   return limitarTiempoPago(producto?.tiempoLimitePago ?? TIEMPO_PAGO_DEFECTO);
 }
 
-/**
- * Marca en la fila el momento en el que vence el tiempo de pago.
- * El tiempo empieza a contar una vez que el comprador alcanza la posición 1.
- */
 export async function iniciarTemporizadorPago(fila: Fila): Promise<void> {
   const tiempoLimite = await obtenerTiempoLimitePago(
     String(fila.productoId),
@@ -38,11 +34,6 @@ export async function iniciarTemporizadorPago(fila: Fila): Promise<void> {
   fila.pagoExpiraEn = new Date(Date.now() + tiempoLimite * 60 * 1000);
 }
 
-/**
- * Finaliza las filas activas de un comprador cuyo producto ya fue borrado.
- * Sin esto, esas filas fantasma consumen el límite de 3 filas activas y,
- * al hacer populate en misFilas, el frontend recibe productoId null y se rompe.
- */
 export async function limpiarFilasHuerfanas(
   compradorId: string,
 ): Promise<void> {
@@ -113,10 +104,6 @@ export async function reacomodarFila(
   }
 }
 
-/**
- * Si el turno de la posición 1 ya venció, finaliza la fila y
- * reacomoda a las personas de atrás. Devuelve true si venció.
- */
 export async function expirarTurnoSiVencido(fila: Fila): Promise<boolean> {
   if (!fila.pagoExpiraEn || fila.pagoExpiraEn.getTime() > Date.now()) {
     return false;
@@ -135,10 +122,6 @@ export async function expirarTurnoSiVencido(fila: Fila): Promise<boolean> {
   return true;
 }
 
-/**
- * Finaliza todas las filas que estuvieron en posición 1 y no pagaron
- * dentro del tiempo límite, para que el siguiente pueda pagar.
- */
 export async function expirarFilasVencidas(): Promise<number> {
   const enPrimeraPosicion = await clientePrisma.cola.findMany({
     where: { estado: "activa", posicion: 1 },
@@ -159,14 +142,6 @@ export async function expirarFilasVencidas(): Promise<number> {
   return liberadas;
 }
 
-/**
- * RQNF23 / RQNF23.2 / RQNF24.2: la compra de un comprador se canceló o se
- * rechazó su comprobante: su fila se cierra ("pagada"/"reposo" ->
- * "finalizada") y las personas que esperaban la confirmación ("en espera")
- * vuelven a la fila con su turno reacomodado. El producto se pone de nuevo
- * a la venta y, si alguien queda en posición 1, arranca su temporizador y se
- * le avisa por correo.
- */
 export async function reanudarFilaTrasCancelacion(
   productoId: string,
   compradorId: string,
@@ -217,7 +192,6 @@ export async function reanudarFilaTrasCancelacion(
     }
   }
 
-  // El producto vuelve al catálogo: la compra que lo retiraba ya no existe.
   if (producto) {
     await Producto.updateOne({ _id: productoId }, { activo: true });
   }
@@ -225,10 +199,6 @@ export async function reanudarFilaTrasCancelacion(
   return { reanudados: enEspera.length };
 }
 
-/**
- * RQNF15: horarios de atención del vendedor dueño de un producto. Devuelve []
- * cuando el vendedor no tiene horarios definidos (disponible siempre).
- */
 export async function horariosDelVendedorDeProducto(
   productoId: string,
 ): Promise<BloqueHorario[]> {
@@ -242,10 +212,6 @@ export async function horariosDelVendedorDeProducto(
     : [];
 }
 
-/**
- * RQF18 / RQNF18: guarda el lugar del comprador en la fila y pausa su reloj
- * de pago hasta la próxima apertura del vendedor.
- */
 export async function pausarHastaLaApertura(filaId: number): Promise<void> {
   await clientePrisma.cola.update({
     where: { id: filaId },
@@ -253,12 +219,6 @@ export async function pausarHastaLaApertura(filaId: number): Promise<void> {
   });
 }
 
-/**
- * RQF18: al abrir un bloque de atención del vendedor, las filas que esperaban
- * su próxima apertura se reanudan conservando su lugar (RQNF18); si la
- * primera posición vuelve a estar activa, arranca su temporizador de pago y
- * se le avisa por correo.
- */
 export async function reactivarFilasEnEsperaDeApertura(): Promise<number> {
   const enEspera = await clientePrisma.cola.findMany({
     where: { estado: "esperando_apertura" },

@@ -13,14 +13,6 @@ import {
 import { mensajeDeError } from "../../utils/errores";
 import "./Adeudos.css";
 
-/**
- * Fase 7b (RQNF37 / RQNF38): adeudos que los vendedores tienen con la
- * plataforma por reembolsos cubiertos por su culpa. La cuenta del vendedor
- * queda suspendida con saldo pendiente y solo se reactiva cuando la
- * administración registra la liquidación total (el pago se hace por fuera,
- * por transferencia).
- */
-
 const CONSULTA_USUARIOS = `
   subscription AdeudosEnVivo {
     usuariosAdmin {
@@ -79,8 +71,6 @@ function Adeudos() {
   useEffect(() => {
     cargar(false, pagina, estado);
 
-    // RQNF37/RQNF38: los adeudos se publican por el canal de usuarios del
-    // BackOffice; con cada evento se relee el listado.
     return suscribirse<EventoUsuario>(
       CONSULTA_USUARIOS,
       "usuariosAdmin",

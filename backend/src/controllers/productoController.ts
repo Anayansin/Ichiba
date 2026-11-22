@@ -23,6 +23,7 @@ import { categoriaProductoValida } from "../configuracion/categorias.js";
 import {
   estaAtendiendo,
   validarHorarioEntrega,
+  obtenerTextoDeLaSiguienteApertura,
   type BloqueHorario,
 } from "../utils/validarHorario.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
@@ -32,14 +33,9 @@ const ESTADOS_FILA_EN_CURSO: ("activa" | "esperando_confirmacion")[] = [
   "esperando_confirmacion",
 ];
 
-/** Tamaño de página por defecto y máximo para el catálogo público. */
 const PRODUCTOS_POR_PAGINA_DEFECTO = 12;
 const PRODUCTOS_POR_PAGINA_MAXIMO = 50;
 
-/**
- * RQNF7.4: 30 minutos mínimo, 3 horas máximo y una hora por defecto cuando
- * el vendedor no envía el campo.
- */
 function tiempoLimitePagoDe(valor: unknown): number {
   if (valor === undefined || valor === null || valor === "") {
     return TIEMPO_PAGO_DEFECTO;
@@ -131,8 +127,6 @@ export async function actualizarProducto(
 
     const archivosNuevos = (req.files as Express.Multer.File[]) || [];
 
-    // Si alguna validación falla, las imágenes nuevas que Multer ya guardó
-    // en disco se borran para no dejar archivos huérfanos.
     const borrarNuevas = () => {
       archivosNuevos.forEach((archivoSubido) => {
         fs.unlink(archivoSubido.path, () => {});
@@ -207,8 +201,6 @@ export async function actualizarProducto(
       });
     }
 
-    // RQNF7.3: Cloud Vision analiza las fotos nuevas y bloquea artículos
-    // excluidos; corre al final, tras todas las validaciones de campo.
     const errorModeracion = await moderarFotosProducto(
       archivosNuevos.map((archivo) => archivo.path),
     );
@@ -217,8 +209,6 @@ export async function actualizarProducto(
       return res.status(400).json({ message: errorModeracion });
     }
 
-    // Solo hasta aquí, que todas las validaciones pasaron, se borran del disco
-    // las imágenes que el vendedor quitó del producto.
     imagenesEliminadas.forEach((rutaRelativa) => {
       const rutaCompleta = path.join(process.cwd(), rutaRelativa);
       fs.unlink(rutaCompleta, () => {});
@@ -257,26 +247,7 @@ export async function getProductoPorId(req: Request, res: Response) {
       return res.status(404).json({ message: "Producto no encontrado" });
     }
 
-    // Método de pago del vendedor: la misma resolución que usa crearOrden
-    // (PayPal de respaldo) para que el botón de la fila diga "Pagar con
-    // PayPal" o "Pagar con Mercado Pago" según corresponda.
-    let metodoPagoVendedor: "paypal" | "mercadopago" = "paypal";
-    try {
-      const vendedor = await buscarUsuarioPorId(producto.vendedorId);
-      if (vendedor?.correo) {
-        const cuenta = await clientePrisma.usuario.findFirst({
-          where: { correo: { equals: vendedor.correo, mode: "insensitive" } },
-          select: { metodoPago: true },
-        });
-        if (cuenta?.metodoPago === "mercadopago") {
-          metodoPagoVendedor = "mercadopago";
-        }
-      }
-    } catch {
-      // Si no se puede leer, se queda PayPal, igual que al crear la orden.
-    }
-
-    res.json({ ...producto.toObject(), metodoPagoVendedor });
+    res.json(producto.toObject());
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener el producto" });
@@ -309,8 +280,6 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
         .json({ message: "Debes subir al menos una imagen" });
     }
 
-    // Si alguna validación falla, las imágenes que Multer ya guardó en disco
-    // se borran para no dejar archivos huérfanos.
     const borrarSubidas = () => {
       archivos.forEach((archivoSubido) => {
         fs.unlink(archivoSubido.path, () => {});
@@ -355,9 +324,6 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
       return res.status(400).json({ message: "Selecciona una categoría válida" });
     }
 
-    // RQNF7.3: Cloud Vision analiza cada fotografía y bloquea artículos
-    // excluidos del catálogo; corre al final, tras todas las validaciones
-    // de campo, y si no puede analizar no se publica.
     const errorModeracion = await moderarFotosProducto(
       archivos.map((archivo) => archivo.path),
     );
@@ -396,16 +362,11 @@ export async function crearProducto(req: RequestConUsuario, res: Response) {
   }
 }
 
-/** Lee un entero positivo de la query; si no es válido usa el valor por defecto. */
 function enteroPositivoDeConsulta(valor: unknown, valorPorDefecto: number) {
   const numero = Number(valor);
   return Number.isInteger(numero) && numero > 0 ? numero : valorPorDefecto;
 }
 
-/**
- * Paginación del catálogo. `pagina` empieza en 1 y `porPagina` se limita a
- * 50 para que una petición no pueda traer todo el catálogo de golpe.
- */
 function paginacionDeConsulta(req: Request) {
   const pagina = enteroPositivoDeConsulta(req.query.pagina, 1);
   const porPagina = Math.min(
@@ -419,11 +380,6 @@ function paginacionDeConsulta(req: Request) {
   return { pagina, porPagina };
 }
 
-/**
- * Agrega `vendedorAtendiendo` a los productos de una página según el horario
- * vigente de cada vendedor (en hora del centro, GMT-6). Un vendedor sin
- * horarios definidos se considera disponible siempre (RQNF15).
- */
 async function conAtencionDelVendedor<T extends { vendedorId: unknown }>(
   productos: T[],
 ) {
@@ -445,27 +401,30 @@ async function conAtencionDelVendedor<T extends { vendedorId: unknown }>(
     : [];
 
   const ahora = new Date();
-  const atencionPorVendedor = new Map<number, boolean>();
+  const atencionPorVendedor = new Map<
+    number,
+    { atendiendo: boolean; proximoBloque: string | null }
+  >();
   for (const vendedor of vendedores) {
-    atencionPorVendedor.set(
-      Number(vendedor.id),
-      estaAtendiendo(vendedor.horarios, ahora),
-    );
+    const atendiendo = estaAtendiendo(vendedor.horarios, ahora);
+    atencionPorVendedor.set(Number(vendedor.id), {
+      atendiendo,
+      proximoBloque: atendiendo
+        ? null
+        : obtenerTextoDeLaSiguienteApertura(vendedor.horarios, ahora),
+    });
   }
 
-  return productos.map((producto) => ({
-    ...producto,
-    vendedorAtendiendo:
-      atencionPorVendedor.get(Number(producto.vendedorId)) ?? true,
-  }));
+  return productos.map((producto) => {
+    const atencion = atencionPorVendedor.get(Number(producto.vendedorId));
+    return {
+      ...producto,
+      vendedorAtendiendo: atencion?.atendiendo ?? true,
+      proximoBloqueVendedor: atencion?.proximoBloque ?? null,
+    };
+  });
 }
 
-/**
- * Catálogo público. Sin `pagina` ni `porPagina` conserva la respuesta
- * histórica (arreglo completo) para no romper a los consumidores existentes.
- * Con cualquiera de los dos parámetros devuelve una página y los metadatos
- * que necesita el scroll infinito del frontend.
- */
 export async function getProductos(req: Request, res: Response) {
   try {
     const filtro = filtroDeCatalogo(req);
@@ -503,10 +462,6 @@ export async function getProductos(req: Request, res: Response) {
   }
 }
 
-/**
- * Variantes de cada vocal/consonante con aporte, para que "cafe" encuentre
- * "café" y "cafe" encuentre "café" sin depender de índices de texto.
- */
 const VARIANTES_DE_LETRA: Record<string, string> = {
   a: "[aáàäâ]",
   e: "[eéèëê]",
@@ -516,7 +471,6 @@ const VARIANTES_DE_LETRA: Record<string, string> = {
   n: "[nñ]",
 };
 
-/** Arma una expresión regular insensible a mayúsculas y acentos, escapando lo que el usuario escriba. */
 function patronDeBusqueda(termino: string): RegExp {
   const cuerpo = Array.from(termino.toLowerCase())
     .map((caracter) => {
@@ -538,11 +492,6 @@ function numeroDeConsulta(valor: unknown): number | null {
   return Number.isFinite(numero) ? numero : null;
 }
 
-/**
- * Filtro del catálogo público. Acepta los query params:
- * `q` (texto libre), `categoria` (una de CATEGORIAS_PRODUCTO),
- * `vendedorId`, `precioMin` y `precioMax`.
- */
 function filtroDeCatalogo(req: Request) {
   const filtro: Record<string, unknown> = { activo: true };
 
@@ -638,8 +587,6 @@ export async function eliminarProducto(req: RequestConUsuario, res: Response) {
       fs.unlink(rutaCompleta, () => {});
     });
 
-    // Las filas dejan de existir junto con el producto: sin esto quedan
-    // como "activas" y siguen contando para el límite de 3 del comprador
     await clientePrisma.cola.updateMany({
       where: {
         productoId: String(producto._id),

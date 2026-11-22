@@ -1,0 +1,123 @@
+.boton-reportar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #d90429;
+  border-radius: 6px;
+  background: #fff;
+  color: #d90429;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boton-reportar:hover {
+  background: #fff1f1;
+}
+
+.reportar-modal__fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.reportar-modal {
+  width: min(460px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1.3rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.reportar-modal h3 {
+  margin: 0 0 1rem;
+}
+
+.reportar-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.reportar-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.reportar-modal select,
+.reportar-modal textarea {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 400;
+}
+
+.reportar-modal textarea {
+  resize: vertical;
+}
+
+.reportar-modal__contador {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #2e7d32;
+}
+
+.reportar-modal__contador--falta {
+  color: #b00020;
+}
+
+.reportar-modal__error {
+  margin: 0;
+  color: #b00020;
+  font-size: 0.85rem;
+}
+
+.reportar-modal__exito {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.reportar-modal__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.reportar-modal__cancelar,
+.reportar-modal__enviar {
+  padding: 0.55rem 1.1rem;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reportar-modal__cancelar {
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #333;
+}
+
+.reportar-modal__enviar {
+  border: none;
+  background: #d90429;
+  color: #fff;
+}
+
+.reportar-modal__enviar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

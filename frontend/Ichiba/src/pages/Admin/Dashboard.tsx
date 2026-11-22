@@ -7,10 +7,8 @@ import { suscribirse } from "../../services/suscripcionesService";
 import { mensajeDeError } from "../../utils/errores";
 import "./Dashboard.css";
 
-/** Los datos se vuelven a leer cada 20 segundos: siempre están en vivo. */
 const INTERVALO_MS = 20000;
 
-/** Fase 4: el resumen completo llega al instante por GraphQL Subscription. */
 const CONSULTA_RESUMEN = `
   subscription ResumenEnVivo {
     resumenAdmin {
@@ -118,9 +116,6 @@ function Dashboard() {
     return () => clearInterval(intervalo);
   }, [cargar]);
 
-  // Fase 4: con cada cambio del backoffice (reportes, usuarios, ventas,
-  // lista negra…) el servidor emite el resumen fresco y la pantalla se
-  // actualiza sin recargar. La relectura cada 20 s queda como respaldo.
   useEffect(() => {
     return suscribirse<ResumenAdmin>(
       CONSULTA_RESUMEN,

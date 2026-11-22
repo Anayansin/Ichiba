@@ -66,16 +66,13 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
     id: "quien-puede-pagar",
     pregunta: "¿Quién puede pagar y con qué método?",
     respuesta:
-      "Solo puede pagar quien está en la posición 1, usando el botón «Pagar con PayPal» o «Pagar con Mercado Pago» que aparece en la ficha del producto (según el método que eligió el vendedor al registrarse). El pago se procesa de forma segura y va directo a la cuenta del vendedor. No se puede pagar antes de tu turno ni fuera de la plataforma.",
+      "Solo puede pagar quien está en la posición 1, usando el botón «Pagar con PayPal» que aparece en la ficha del producto. El pago se procesa de forma segura y va directo a la cuenta del vendedor. No se puede pagar antes de tu turno ni fuera de la plataforma.",
     claves: [
       "como pago",
       "metodo de pago",
       "paypal",
-      "mercado pago",
-      "mercadopago",
       "tarjeta de credito",
       "pagar con paypal",
-      "pagar con mercado pago",
       "quien puede pagar",
       "boton de pago",
       "formas de pago",
@@ -358,9 +355,6 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
   },
 ];
 
-/**
- * Normaliza el texto: minúsculas, sin acentos ni signos de puntuación.
- */
 export function normalizar(texto: string): string {
   return texto
     .toLowerCase()
@@ -371,10 +365,6 @@ export function normalizar(texto: string): string {
     .trim();
 }
 
-/**
- * Busca la entrada del conocimiento que mejor coincide con la consulta.
- * Las frases exactas pesan más que las palabras sueltas.
- */
 export function buscarRespuesta(consulta: string): EntradaConocimiento | null {
   const texto = normalizar(consulta);
   if (!texto) return null;

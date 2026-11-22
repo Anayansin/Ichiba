@@ -8,12 +8,6 @@ import {
 } from "../../services/informeService";
 import "./InformesGlobales.css";
 
-/**
- * RQF14 / RQNF13.2: informes globales mensuales de la plataforma.
- * El administrador consulta los indicadores por categoría (ventas, filas
- * iniciadas, filas abandonadas y tasa de abandono), identifica la categoría
- * más vendida (con desempate RQNF14.2) y descarga cada informe en PDF.
- */
 function InformesGlobales() {
   const [informes, setInformes] = useState<InformeGlobal[]>([]);
   const [cargando, setCargando] = useState(true);

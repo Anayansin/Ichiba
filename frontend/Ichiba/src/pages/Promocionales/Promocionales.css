@@ -1,7 +1,9 @@
 .promocionales {
-  padding: 3rem;
-  max-width: 1400px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
+  padding: clamp(1rem, 3vw, 3rem) clamp(0.75rem, 3vw, 3rem);
 }
 
 .promocionales__cargando {
@@ -49,7 +51,6 @@
   max-width: 640px;
 }
 
-/* Filtros por tipo de promocional */
 .promocionales__tipos {
   display: flex;
   flex-wrap: wrap;
@@ -103,18 +104,13 @@
 }
 
 .promocionales__lista {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: clamp(0.75rem, 1.6vw, 1.5rem);
 }
 
 @media (max-width: 600px) {
-  .promocionales {
-    padding: 2rem 1rem;
-  }
-
   .promocionales__lista {
-    justify-content: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

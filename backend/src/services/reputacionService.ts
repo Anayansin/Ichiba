@@ -1,17 +1,7 @@
 import { Venta } from "../models/Venta.js";
 
-/**
- * Reputación del vendedor: promedio de las calificaciones que los compradores
- * le dieron a sus transacciones completadas.
- *
- * Las calificaciones viven en el espejo de MongoDB (`Venta.calificacionComprador`)
- * porque el contrato de PostgreSQL no las guarda; la fuente sigue siendo la
- * venta `completada` del escrow.
- */
 export type ReputacionVendedor = {
-  /** Promedio de 1 a 5 con un decimal, o null si aún no tiene calificaciones. */
   promedio: number | null;
-  /** Cuántas calificaciones de compradores recibió. */
   totalCalificaciones: number;
 };
 

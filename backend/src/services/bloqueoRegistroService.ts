@@ -6,25 +6,10 @@ import {
   normalizarCorreo,
 } from "./listaNegraService.js";
 
-/**
- * Bloqueo del alta de una cuenta.
- *
- * Una cuenta nueva se deniega cuando:
- *   1. sus datos de identificación (RFC, CURP, código de la INE o correo)
- *      ya están en la lista negra (RQNF1.9);
- *   2. sus datos de identificación o su teléfono ya pertenecen a otra cuenta;
- *   3. su correo ya tiene una cuenta registrada.
- *
- * En los tres casos el registro se deniega con un mensaje claro: los datos
- * ingresados no pueden ser registrados y, si la persona cree que es un error,
- * puede solicitar la revisión a los administradores.
- */
-
-/** Código que viaja en la respuesta para que el frontend lo identifique. */
 export const CODIGO_DATOS_NO_REGISTRABLES = "DATOS_NO_REGISTRABLES";
 
 export const MENSAJE_DATOS_NO_REGISTRABLES =
-  "Tus datos están en la lista negra de Ichiba: no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
+  "Tu registro no pudo completarse. Si consideras que se trata de un error, comunícate con los administradores.";
 
 export const MENSAJE_DATOS_EN_USO =
   "Tus datos de identificación o tu teléfono ya están asociados a otra cuenta, por eso no pueden ser registrados. Si consideras que se trata de un error, comunícate con los administradores.";
@@ -48,11 +33,9 @@ export type DatosParaRevisar = {
 export type RevisionBloqueoRegistro = {
   bloqueado: boolean;
   motivo: MotivoBloqueoRegistro | null;
-  /** Campos que coincidieron. Se usa en el registro interno, no se muestra. */
   campos: string[];
 };
 
-/** Etiquetas legibles de cada campo, para el panel de administración. */
 export const ETIQUETAS_CAMPOS: Record<string, string> = {
   rfc: "RFC",
   curp: "CURP",
@@ -61,7 +44,6 @@ export const ETIQUETAS_CAMPOS: Record<string, string> = {
   telefono: "Teléfono",
 };
 
-/** Texto que ve la persona según el motivo del bloqueo. */
 export function mensajeDeBloqueoRegistro(
   motivo: MotivoBloqueoRegistro,
 ): string {
@@ -70,11 +52,6 @@ export function mensajeDeBloqueoRegistro(
   return MENSAJE_DATOS_NO_REGISTRABLES;
 }
 
-/**
- * Busca una cuenta que ya tenga ese dato. Se prueban las variantes de
- * mayúsculas y minúsculas porque el dato guardado depende de cómo lo
- * escribió la persona.
- */
 async function existeCuentaCon(
   campo: "rfc" | "curp" | "ineCodigoReverso" | "telefono" | "correo",
   valor: string,
@@ -100,11 +77,6 @@ async function existeCuentaCon(
   return false;
 }
 
-/**
- * Revisa los datos de un alta nueva y dice si debe quedar bloqueada.
- * La lista negra tiene prioridad: si el dato está ahí, no se registra
- * aunque además coincida con otra cuenta.
- */
 export async function revisarBloqueoDeRegistro(
   datos: DatosParaRevisar,
 ): Promise<RevisionBloqueoRegistro> {
@@ -114,7 +86,6 @@ export async function revisarBloqueoDeRegistro(
   const correo = normalizarCorreo(datos.correo);
   const telefono = datos.telefono?.trim();
 
-  // 1. Lista negra (RFC, CURP, código de la INE o correo).
   const entrada = await buscarEnListaNegra({
     rfc,
     curp,
@@ -148,7 +119,6 @@ export async function revisarBloqueoDeRegistro(
     };
   }
 
-  // 2. Los datos de identificación o el teléfono ya pertenecen a otra cuenta.
   const camposEnUso: string[] = [];
   if (rfc && (await existeCuentaCon("rfc", rfc))) camposEnUso.push("rfc");
   if (curp && (await existeCuentaCon("curp", curp))) camposEnUso.push("curp");
@@ -166,17 +136,12 @@ export async function revisarBloqueoDeRegistro(
     return { bloqueado: true, motivo: "datos-en-uso", campos: camposEnUso };
   }
 
-  // 3. El correo ya tiene una cuenta registrada.
   if (correo && (await existeCuentaCon("correo", correo))) {
     return { bloqueado: true, motivo: "correo-en-uso", campos: ["correo"] };
   }
 
   return { bloqueado: false, motivo: null, campos: [] };
 }
-
-// ---------------------------------------------------------------------------
-// Solicitud de revisión que la persona envía a los administradores.
-// ---------------------------------------------------------------------------
 
 export type SolicitudRevisionRegistro = {
   id: string;
@@ -242,7 +207,6 @@ export function resumirSolicitud(doc: {
   };
 }
 
-/** Registra la solicitud de revisión que envía la persona bloqueada. */
 export async function crearSolicitudDeRevision(datos: {
   nombreCompleto: string;
   correo: string;
@@ -266,7 +230,6 @@ export async function crearSolicitudDeRevision(datos: {
   return resumirSolicitud(creada.toObject());
 }
 
-/** Listado para el BackOffice. */
 export async function listarSolicitudesDeRevision(opciones: {
   pagina?: number;
   porPagina?: number;
@@ -300,7 +263,6 @@ export async function listarSolicitudesDeRevision(opciones: {
   };
 }
 
-/** El administrador revisa la solicitud y deja su respuesta. */
 export async function resolverSolicitudDeRevision(
   id: string,
   datos: {

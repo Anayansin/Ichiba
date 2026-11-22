@@ -5,42 +5,22 @@ import { Producto } from "../models/producto.js";
 import { Promocional } from "../models/Promocional.js";
 import { relojZonaCentro } from "../utils/validarHorario.js";
 
-/**
- * Dashboard del administrador: todas las cifras se calculan en el momento de
- * cada lectura (sin caché ni snapshots) leyendo las fuentes vivas de cada
- * módulo — usuarios, catálogo y mensajes en MongoDB; ventas, reportes y filas
- * en PostgreSQL.
- *
- * Vive en un servicio (y no en el controlador) porque lo usan tanto el
- * endpoint REST `GET /api/admin/resumen` como la suscripción GraphQL
- * `resumenAdmin` del BackOffice, que emite el resumen completo y fresco cada
- * vez que cambia algo relevante.
- */
-
 export type UsuarioResumido = {
   id: string;
   nombreCompleto: string;
   correo: string;
   tipo: string;
   suspendido: boolean;
-  /** RQNF10.1 / RQNF10.3: reputación por infracciones (8 = cancelación). */
   puntosReputacion: number;
-  /** RQNF10.3 / RQF12: "activa" | "cancelada". */
   estadoCuenta: string;
   fechaRegistro: Date | null;
-  /** RQNF37 / RQNF38: motivo de la suspensión administrativa (p. ej. saldo_pendiente). */
   motivoSuspension: string | null;
-  /** RQNF37 / RQNF38: adeudo pendiente de liquidar (reembolsos por culpa del vendedor). */
   saldoPendiente: number;
-  /** RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente. */
   sancionHasta: Date | null;
-  /** RQNF34 / RQNF35: la sanción es indefinida. */
   sancionPermanente: boolean;
-  /** RQNF35: la cuenta está en revisión administrativa. */
   revisionAdministrativa: boolean;
 };
 
-/** Igual que `UsuarioResumido` pero con las fechas en ISO (para GraphQL/JSON). */
 export type UsuarioPublicado = Omit<
   UsuarioResumido,
   "fechaRegistro" | "sancionHasta"
@@ -162,7 +142,6 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
     clientePrisma.usuario.count(),
     clientePrisma.usuario.count({ where: { suspendido: false } }),
     clientePrisma.usuario.count({ where: { suspendido: true } }),
-    // RQNF10.3: cuentas canceladas de forma permanente (8 puntos).
     clientePrisma.usuario.count({ where: { estadoCuenta: "cancelada" } }),
     clientePrisma.usuario.count({ where: { tipo: "admin" } }),
     clientePrisma.usuario.count({
@@ -179,9 +158,6 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
     Promocional.countDocuments({ activo: true }),
     Mensaje.countDocuments(),
     ListaNegra.countDocuments(),
-    // El cliente por contrato no expone agregados, límites de filas ni
-    // operadores `gte`: se leen las ventas y sumas/filtros se calculan en
-    // memoria sobre esa lectura.
     clientePrisma.venta.findMany({ orderBy: { createdAt: "desc" } }),
     clientePrisma.reporte.count({ where: { estado: "pendiente" } }),
     clientePrisma.reporte.count(),
@@ -190,8 +166,6 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
     }),
   ]);
 
-  // `createdAt` llega normalizado como Date; el filtro del mes (zona centro)
-  // se hace en memoria porque el cliente no soporta comparaciones de fecha.
   const ventasDelMes = ventasTodas.filter((venta) => venta.createdAt >= inicioMes);
   const ingresosTotales = ventasTodas.reduce(
     (suma, venta) => suma + venta.monto,
@@ -215,8 +189,6 @@ export async function calcularResumenAdmin(): Promise<ResumenAdminSerializado> {
 
   const ultimasVentas = ventasTodas.slice(0, 6);
 
-  // Nombres de los productos (MongoDB) y vendedores (PostgreSQL) que
-  // aparecen en las últimas ventas.
   const productosUltimas = await Producto.find({
     _id: { $in: ultimasVentas.map((venta) => venta.productoId) },
   })

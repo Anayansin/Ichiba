@@ -2,36 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   capturarOrdenPago,
-  confirmarPagoMercadoPago,
   fetchDetalleDeVenta,
   registrarComprobantePago,
 } from "../../services/pagoService";
 import AdvertenciaEncuentroModal from "../../components/AdvertenciaEncuentroModal/AdvertenciaEncuentroModal";
 import { mensajeDeError } from "../../utils/errores";
+import { validarDimensionesEnRango } from "../../utils/validarImagen";
 import "./PagoExitoso.css";
 
 const LLAVE_ADVERTENCIA_ENCUENTRO_VISTA = "advertenciaEncuentroVista";
 
-const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024; // 5 MB (límite del backend)
-const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024;
+const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/jpg", "image/png"];
 
 type Etapa = "confirmando" | "formulario" | "enviado" | "error";
 
-/**
- * Pantalla de vuelta del pago (PayPal/MercadoPago) y de registro del
- * comprobante:
- *
- *  1. Al volver de la pasarela se confirma el pago: el dinero queda retenido
- *     en escrow (RQNF4) y se muestra la palabra clave de 4 dígitos (RQNF20).
- *  2. El comprador registra su comprobante con la palabra clave, la
- *     referencia y una fotografía (RQF22, moderada en RQNF18).
- *  3. Se avisa que la atención del vendedor es solo en su bloque de horario
- *     vigente (RQNF24.1) y que la fila queda en reposo hasta la confirmación
- *     (RQNF24.4).
- *
- * También acepta `?venta=<id>` para volver a registrar el comprobante desde
- * "Mis pedidos" sin pasar otra vez por la pasarela.
- */
 function PagoExitoso() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -43,26 +28,19 @@ function PagoExitoso() {
   const [estadoVenta, setEstadoVenta] = useState<string>("");
   const [mostrarAdvertencia, setMostrarAdvertencia] = useState(false);
 
-  // Formulario del comprobante (RQF22)
   const [palabraClave, setPalabraClave] = useState("");
   const [referencia, setReferencia] = useState("");
+  const [avisoAceptado, setAvisoAceptado] = useState(false);
   const [imagen, setImagen] = useState<File | null>(null);
   const [enviandoComprobante, setEnviandoComprobante] = useState(false);
   const [errorComprobante, setErrorComprobante] = useState("");
 
-  // En desarrollo React ejecuta el efecto dos veces; la confirmación solo
-  // debe dispararse una vez por regreso de la pasarela.
   const capturaIniciada = useRef(false);
 
   useEffect(() => {
     if (capturaIniciada.current) return;
     capturaIniciada.current = true;
 
-    // PayPal vuelve con ?token=<orderId>; MercadoPago con
-    // ?fuente=mercadopago&payment_id=<id> (a veces llega como collection_id).
-    const fuente = searchParams.get("fuente");
-    const paymentIdMercadoPago =
-      searchParams.get("payment_id") || searchParams.get("collection_id");
     const orderId = searchParams.get("token");
     const ventaDirecta = Number(searchParams.get("venta"));
 
@@ -73,8 +51,6 @@ function PagoExitoso() {
     }>;
 
     if (Number.isInteger(ventaDirecta) && ventaDirecta > 0) {
-      // Sin pasar por la pasarela: retomar el comprobante de una compra ya
-      // autorizada (por ejemplo, desde "Mis pedidos").
       confirmacion = fetchDetalleDeVenta(ventaDirecta).then((detalle) => {
         if (detalle.rol !== "comprador") {
           throw new Error("Esta compra no es tuya");
@@ -85,13 +61,6 @@ function PagoExitoso() {
           estado: detalle.estado,
         };
       });
-    } else if (fuente === "mercadopago") {
-      if (!paymentIdMercadoPago) {
-        setEtapa("error");
-        setMensaje("No se encontró la información del pago");
-        return;
-      }
-      confirmacion = confirmarPagoMercadoPago(paymentIdMercadoPago);
     } else {
       if (!orderId) {
         setEtapa("error");
@@ -118,12 +87,9 @@ function PagoExitoso() {
         if (datos?.estado === "pendiente_comprobante") {
           setEtapa("formulario");
         } else {
-          // El comprobante ya estaba registrado (u otro estado posterior).
           setEtapa("enviado");
         }
 
-        // RQNF24.4: en la etapa de entrega se muestra aquí mismo el código
-        // de confirmación del comprador, para que no tenga que buscarlo.
         if (datos?.estado === "en_entrega") {
           fetchDetalleDeVenta(id)
             .then((detalle) => {
@@ -132,7 +98,6 @@ function PagoExitoso() {
               }
             })
             .catch(() => {
-              // El código también aparece en «Mis pedidos» y en el chat.
             });
         }
       })
@@ -146,19 +111,27 @@ function PagoExitoso() {
       });
   }, [searchParams, navigate]);
 
-  function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0];
     e.target.value = "";
     if (!archivo) return;
 
     if (!TIPOS_IMAGEN_PERMITIDOS.includes(archivo.type)) {
-      setErrorComprobante("Solo puedes subir imágenes (jpg, png o webp)");
+      setErrorComprobante("Solo puedes subir imágenes .png, .jpeg o .jpg");
       setImagen(null);
       return;
     }
 
     if (archivo.size > TAMANIO_MAXIMO_IMAGEN) {
       setErrorComprobante("La imagen no puede superar los 5 MB");
+      setImagen(null);
+      return;
+    }
+
+    if (!(await validarDimensionesEnRango(archivo))) {
+      setErrorComprobante(
+        "La imagen del comprobante debe medir entre 420x540 y 2560x2560 píxeles",
+      );
       setImagen(null);
       return;
     }
@@ -177,9 +150,9 @@ function PagoExitoso() {
     }
 
     const referenciaLimpia = referencia.trim();
-    if (referenciaLimpia.length < 4 || referenciaLimpia.length > 64) {
+    if (!/^d{6,8}$/.test(referenciaLimpia)) {
       setErrorComprobante(
-        "El número de referencia debe tener entre 4 y 64 caracteres",
+        "El número de referencia debe ser numérico y tener entre 6 y 8 dígitos",
       );
       return;
     }
@@ -274,8 +247,6 @@ function PagoExitoso() {
             </div>
           )}
 
-          {/* RQNF24.4 / RQNF26: el código de entrega es del comprador; con él
-              el vendedor libera el dinero retenido. */}
           {codigoEntrega && (
             <div className="pago-exitoso__entrega">
               <p className="pago-exitoso__clave-titulo">
@@ -328,10 +299,13 @@ function PagoExitoso() {
                 Número de referencia
                 <input
                   type="text"
-                  maxLength={64}
+                  inputMode="numeric"
+                  maxLength={8}
                   value={referencia}
-                  onChange={(e) => setReferencia(e.target.value)}
-                  placeholder="Ej. 1234567890"
+                  onChange={(e) =>
+                    setReferencia(e.target.value.replace(/D/g, ""))
+                  }
+                  placeholder="Ej. 12345678"
                 />
               </label>
 
@@ -339,7 +313,7 @@ function PagoExitoso() {
                 Fotografía del comprobante
                 <input
                   type="file"
-                  accept="image/jpeg, image/png, image/webp"
+                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
                   onChange={handleSeleccionImagen}
                 />
               </label>
@@ -350,6 +324,16 @@ function PagoExitoso() {
                 </p>
               )}
 
+              <label className="pago-exitoso__casilla">
+                <input
+                  type="checkbox"
+                  checked={avisoAceptado}
+                  onChange={(e) => setAvisoAceptado(e.target.checked)}
+                />
+                Leí el aviso: el vendedor me atenderá únicamente dentro de su
+                bloque de horario de atención vigente.
+              </label>
+
               {errorComprobante && (
                 <p className="pago-exitoso__error">{errorComprobante}</p>
               )}
@@ -357,7 +341,7 @@ function PagoExitoso() {
               <button
                 type="submit"
                 className="pago-exitoso__boton"
-                disabled={enviandoComprobante}
+                disabled={enviandoComprobante || !avisoAceptado}
               >
                 {enviandoComprobante
                   ? "Enviando comprobante..."

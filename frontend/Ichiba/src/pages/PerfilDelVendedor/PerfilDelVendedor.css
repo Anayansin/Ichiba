@@ -1,6 +1,7 @@
 .vendedor-perfil {
-  padding: 3rem;
-  max-width: 900px;
+  box-sizing: border-box;
+  padding: clamp(1rem, 3vw, 3rem);
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -88,7 +89,6 @@
   margin: 0;
 }
 
-/* RQNF10.3: aviso de cuenta cancelada de forma permanente. */
 .vendedor-perfil__aviso--cancelado {
   background-color: #fdecef;
   border-left-color: #b3001b;
@@ -105,4 +105,12 @@
   text-align: center;
   padding: 3rem;
   color: #888;
+}
+
+.vendedor-perfil__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }

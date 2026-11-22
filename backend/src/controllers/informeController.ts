@@ -16,12 +16,6 @@ import {
 } from "../services/pdfInformes.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
-/**
- * RQF13 / RQNF13.3: el vendedor consulta y descarga en PDF el historial de
- * sus informes mensuales de ventas.
- * RQF14: el administrador consulta y descarga los informes globales.
- */
-
 function resumirInformeVendedor(informe: Record<string, any>) {
   return {
     periodo: informe.periodo,
@@ -157,11 +151,6 @@ export async function descargarInformeGlobal(
   }
 }
 
-/**
- * RQNF13.2 / RQNF14: permite generar (o regenerar) manualmente los informes
- * de un mes. El sistema lo hace solo cada día 1°; este endpoint sirve para
- * recuperar meses que quedaron pendientes o para pruebas controladas.
- */
 export async function generarInformesAdmin(
   req: RequestConUsuario,
   res: Response,

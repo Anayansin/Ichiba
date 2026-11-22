@@ -12,11 +12,6 @@ export function mensajeDeError(error: unknown): string {
   return "";
 }
 
-/**
- * RQNF8: campo de texto que el backend señaló con palabras no permitidas
- * (p. ej. "nombre" o "descripcion"), para enfocarlo y que el usuario pueda
- * corregirlo. Devuelve null si el backend no indicó ningún campo.
- */
 export function campoDeError(error: unknown): string | null {
   if (typeof error === "object" && error !== null && "response" in error) {
     const campo = (error as ErrorConRespuesta).response?.data?.campo;
@@ -25,11 +20,6 @@ export function campoDeError(error: unknown): string | null {
   return null;
 }
 
-/**
- * RQNF1.9: código con el que el backend avisa que el alta fue denegada
- * ("DATOS_NO_REGISTRABLES"). Permite mostrar el mensaje de bloqueo con su
- * opción de solicitar revisión a los administradores.
- */
 export function codigoDeError(error: unknown): string | null {
   if (typeof error === "object" && error !== null && "response" in error) {
     const codigo = (error as ErrorConRespuesta).response?.data?.codigo;
@@ -38,7 +28,6 @@ export function codigoDeError(error: unknown): string | null {
   return null;
 }
 
-/** Motivo del bloqueo que devuelve el backend (lista negra, datos en uso, etc.). */
 export function motivoDeError(error: unknown): string | null {
   if (typeof error === "object" && error !== null && "response" in error) {
     const motivo = (error as ErrorConRespuesta).response?.data?.motivo;

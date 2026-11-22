@@ -1,6 +1,4 @@
 import dotenv from "dotenv";
-// quiet: sin mensajes promocionales de dotenv en los logs (en producción solo
-// debe verse lo del proyecto). Si falta el .env el error lo dirá Mongo/Prisma.
 dotenv.config({ quiet: true });
 
 import express from "express";
@@ -18,18 +16,17 @@ import verificacionRoutes from "./routes/verificacionRoutes.js";
 import pagoRoutes from "./routes/pagoRoutes.js";
 import colaRoutes from "./routes/colaRoutes.js";
 import suscripcionRoutes from "./routes/suscripcionRoutes.js";
-import { iniciarJobRevisionHorarios } from "./jobs/revisionHorarios.js";
-import { iniciarJobRevisionPagos } from "./jobs/revisionPagos.js";
-import { iniciarJobNotificacionesCategoria } from "./jobs/notificacionesCategoria.js";
-import { iniciarJobRevisionEntregas } from "./jobs/revisionEntregas.js";
-import { iniciarJobInformesMensuales } from "./jobs/informesMensuales.js";
-import { iniciarJobRevisionSanciones } from "./jobs/revisionSanciones.js";
+import {
+  ejecutarTareasPendientes,
+  tareasPorRevisar,
+} from "./jobs/programador.js";
 import mensajeRoutes from "./routes/mensajeRoutes.js";
 import promocionalRoutes from "./routes/promocionalRoutes.js";
 import reporteRoutes from "./routes/reporteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificacionRoutes from "./routes/notificacionRoutes.js";
 import informeRoutes from "./routes/informeRoutes.js";
+import entregaRoutes from "./routes/entregaRoutes.js";
 import { rutasMcp } from "./mcp/rutasMcp.js";
 import { ApolloServer as ServidorApollo } from "@apollo/server";
 import { expressMiddleware as middlewareExpressApollo } from "@as-integrations/express5";
@@ -39,14 +36,10 @@ import { resolutoresGraphQL } from "./graphql/resolvers.js";
 import { extraerContextoGraphQL } from "./graphql/contexto.js";
 import { iniciarServidorDeSuscripciones } from "./graphql/servidorSuscripciones.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
+import { enviarArchivoGuardado } from "./configuracion/archivosPersistentes.js";
 
 const app = express();
 
-/**
- * En Vercel la app se importa como función y puede atender varias peticiones
- * seguidas. Cacheamos la promesa de conexión para no abrir una conexión nueva
- * en cada petición y esperamos a Mongo antes de entrar a las rutas de datos.
- */
 let conexionMongo: Promise<void> | null = null;
 
 function asegurarConexionMongo(): Promise<void> {
@@ -59,12 +52,6 @@ function asegurarConexionMongo(): Promise<void> {
   return conexionMongo;
 }
 
-/**
- * Orígenes permitidos para CORS: los que traiga `FRONTEND_URL` (pueden ser
- * varios, separados por coma). En desarrollo además se acepta cualquier puerto
- * de localhost/127.0.0.1 y la red local, por si se abre el sitio desde otro
- * equipo o desde el móvil. En producción solo entra el frontend configurado.
- */
 const orignesPermitidas = (process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
   .map((origen) => origen.trim().replace(/\/+$/, ""))
@@ -73,7 +60,7 @@ const orignesPermitidas = (process.env.FRONTEND_URL ?? "http://localhost:5173")
 const esDesarrollo = process.env.NODE_ENV !== "production";
 
 function origenPermitido(origen?: string): boolean {
-  if (!origen) return true; // curl, Postman o llamadas servidor-a-servidor
+  if (!origen) return true;
 
   const limpio = origen.trim().replace(/\/+$/, "");
   if (orignesPermitidas.includes(limpio)) return true;
@@ -93,7 +80,6 @@ function origenPermitido(origen?: string): boolean {
 
   if (!esDesarrollo) return false;
 
-  // Desarrollo desde la red local: 192.168.x.x, 10.x o 172.16-31.x
   return /^((192\.168|10)\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname);
 }
 
@@ -113,38 +99,32 @@ app.use((req, res, next) => {
   });
   next();
 });
-// Ningún campo manual del proyecto acepta palabras prohibidas
 app.use(filtroPalabrasProhibidas);
-// Las fotos de INE son documentos personales: solo se usan durante el
-// registro (OCR) y viven en disco. Nunca se sirven por HTTP.
 app.use("/uploads/ine", (_req, res) => {
   res.status(404).json({ message: "No encontrado" });
 });
-// RQF22: las imágenes de comprobantes solo se muestran a las partes de la
-// venta mediante el endpoint autenticado de pagos; nunca estáticas.
 app.use("/uploads/comprobantes", (_req, res) => {
   res.status(404).json({ message: "No encontrado" });
 });
 app.use("/uploads", express.static(carpetaUploads));
-// Vercel ignora express.static(); esta ruta manual sirve las imágenes nuevas
-// (en /tmp) y las fotos de catálogo que viajan con el despliegue.
-app.get("/uploads/:archivo", (req, res) => {
+app.get("/uploads/:archivo", async (req, res) => {
   const archivo = path.basename(req.params.archivo);
-  const ruta =
-    [path.join(carpetaUploads, archivo), path.join(carpetaUploadsPublicos, archivo)]
-      .find((candidata) => fs.existsSync(candidata)) ?? null;
-  if (!ruta) {
-    return res.status(404).json({ message: "No encontrado" });
-  }
-  res.sendFile(ruta, (error) => {
-    if (error && !res.headersSent) {
+  try {
+    const rutas = [
+      path.join(carpetaUploads, archivo),
+      path.join(carpetaUploadsPublicos, archivo),
+    ];
+    if (!rutas.some((ruta) => fs.existsSync(ruta))) {
+      await asegurarConexionMongo();
+    }
+    if (!(await enviarArchivoGuardado(res, rutas))) {
       res.status(404).json({ message: "No encontrado" });
     }
-  });
+  } catch {
+    if (!res.headersSent) res.status(404).json({ message: "No encontrado" });
+  }
 });
 
-// Healthcheck: le indica a la plataforma que el servicio ya arrancó.
-// No consulta bases de datos: solo confirma que el proceso responde.
 app.get("/api/salud", (_req, res) => {
   res.json({
     estado: "ok",
@@ -153,11 +133,33 @@ app.get("/api/salud", (_req, res) => {
   });
 });
 
-// A partir de aquí sí se necesita Mongo (productos, usuarios, chats, etc.).
 app.use((_req, _res, next) => {
   asegurarConexionMongo()
     .then(() => next())
     .catch((error) => next(error));
+});
+
+function enSegundoPlano(promesa: Promise<unknown>) {
+  const contexto = (
+    globalThis as Record<symbol, { get?: () => { waitUntil?: (p: Promise<unknown>) => void } }>
+  )[Symbol.for("@vercel/request-context")]?.get?.();
+  contexto?.waitUntil?.(promesa.catch(() => {}));
+}
+
+app.get("/api/tareas/ejecutar", async (req, res) => {
+  const secreto = process.env.CRON_SECRET;
+  if (secreto && req.headers.authorization !== `Bearer ${secreto}`) {
+    return res.status(401).json({ message: "No autorizado" });
+  }
+  const ejecutadas = await ejecutarTareasPendientes();
+  res.json({ ejecutadas });
+});
+
+app.use((_req, _res, next) => {
+  if (tareasPorRevisar()) {
+    enSegundoPlano(ejecutarTareasPendientes());
+  }
+  next();
 });
 
 app.use("/api/productos", productoRoutes);
@@ -172,13 +174,10 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/suscripciones", suscripcionRoutes);
 app.use("/api/informes", informeRoutes);
+app.use("/api/entregas", entregaRoutes);
 
-// Fase 5: servidor MCP (Streamable HTTP) para asistentes de IA del BackOffice.
-// Solo administradores con token; el modo stdio vive en `src/mcp/arranqueStdio.ts`.
 app.use("/mcp", rutasMcp);
 
-// Los errores de Multer (archivo muy pesado o tipo no permitido) deben
-// responder JSON y no el HTML del manejador por defecto de Express.
 app.use(
   (
     error: any,
@@ -202,8 +201,6 @@ app.use(
   },
 );
 
-// Fase 4: el mismo esquema ejecutable alimenta Apollo (HTTP, en `/graphql`) y
-// las suscripciones en vivo (WebSocket, en la misma ruta).
 const esquemaGraphQL = makeExecutableSchema({
   typeDefs: definicionesEsquema,
   resolvers: resolutoresGraphQL,
@@ -227,9 +224,6 @@ const enVercel =
   Boolean(process.env.VERCEL_ENV) ||
   Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
 
-// Vercel importa esta app como una función; no debe abrir un puerto ni
-// registrar cron/WebSocket propios. Las rutas HTTP sí quedan disponibles en el
-// mismo dominio del frontend.
 export default app;
 
 if (!enVercel) {
@@ -239,9 +233,6 @@ if (!enVercel) {
         console.log(`Servidor corriendo en http://localhost:${PORT}`);
       });
 
-      // Sin este manejador, un EADDRINUSE se reporta como error del WebSocket y
-      // el proceso sigue vivo sin escuchar, dejando instancias colgadas que
-      // ocupan el puerto en los siguientes arranques.
       servidorHttp.on("error", (error: NodeJS.ErrnoException) => {
         if (error.code === "EADDRINUSE") {
           console.error(
@@ -260,10 +251,9 @@ if (!enVercel) {
       process.exit(1);
     });
 
-  iniciarJobRevisionHorarios();
-  iniciarJobRevisionPagos();
-  iniciarJobNotificacionesCategoria();
-  iniciarJobRevisionEntregas();
-  iniciarJobInformesMensuales();
-  iniciarJobRevisionSanciones();
+  setInterval(() => {
+    asegurarConexionMongo()
+      .then(() => ejecutarTareasPendientes())
+      .catch((error) => console.error("[tareas] Error al revisar tareas:", error));
+  }, 60 * 1000);
 }

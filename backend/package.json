@@ -1,22 +1,16 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "API de Ichiba",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec \"node --harmony-temporal --import tsx\" src/server.ts",
     "start": "node --harmony-temporal --import tsx src/server.ts",
     "seed": "node --harmony-temporal --import tsx scripts/seed.ts",
-    "seed:mp": "node --harmony-temporal --import tsx scripts/seed-mercadopago.ts",
     "admin": "node --harmony-temporal --import tsx scripts/crear-admin.ts",
-    "prueba-registro": "node --harmony-temporal --import tsx scripts/probar-bloqueo-registro.ts",
-    "prueba-revision": "node --harmony-temporal --import tsx scripts/probar-solicitud-revision.ts",
-    "datos": "node --harmony-temporal --import tsx scripts/consola-datos.ts",
     "mcp": "node --harmony-temporal --import tsx src/mcp/arranqueStdio.ts",
-    "correo-test": "node --harmony-temporal --import tsx scripts/probar-correo.ts",
-    "contract:emit": "prisma contract emit"
+    "contract:emit": "prisma contract emit",
+    "build": "tsc --noEmit"
   },
   "engines": {
     "node": "24"
@@ -30,13 +24,11 @@
       "node_modules"
     ]
   },
-  "keywords": [],
   "dependencies": {
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
     "@graphql-tools/schema": "^10.1.5",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@prisma/client": "^7.10.0",
     "@prisma/orm-postgres": "^8.0.0-rc.13",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -47,15 +39,12 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.8.0",
     "multer": "^2.2.0",
-    "node-cron": "^4.6.0",
     "nodemailer": "^9.0.5",
     "pdfkit": "^0.20.2",
     "prisma": "^8.0.0-rc.17",
     "sharp": "^0.35.3",
     "temporal-polyfill": "^1.0.8",
-    "tesseract.js": "^7.0.0",
     "tsx": "^4.19.0",
-    "twilio": "^6.0.2",
     "ws": "^8.22.0",
     "zod": "^4.6.7"
   },
@@ -66,7 +55,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^26.1.1",
-    "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.6",
     "@types/ws": "^8.18.2",

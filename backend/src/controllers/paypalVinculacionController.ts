@@ -22,11 +22,6 @@ function idNumerico(usuarioId?: string): number | null {
   return Number.isInteger(numero) ? numero : null;
 }
 
-/**
- * RQF4 — El vendedor pide vincular su cuenta: el sistema genera un `state`
- * aleatorio y devuelve la URL de la pasarela oficial de PayPal; el navegador
- * del vendedor se redirige ahí para autorizar con su propia cuenta.
- */
 export async function iniciarVinculacionPayPal(
   req: RequestConUsuario,
   res: Response,
@@ -55,14 +50,6 @@ export async function iniciarVinculacionPayPal(
   }
 }
 
-/**
- * PayPal regresa al vendedor a esta URL con `code` y `state`. El backend
- * intercambia el código por el Token de Acceso, identifica la cuenta
- * (Merchant ID), guarda el token CIFRADO y devuelve al vendedor a su panel.
- *
- * Es una navegación del navegador (sin Authorization), por eso la única
- * pieza de seguridad aquí es el `state` de un solo uso generado arriba.
- */
 export async function callbackVinculacionPayPal(
   req: RequestConUsuario,
   res: Response,
@@ -81,7 +68,7 @@ export async function callbackVinculacionPayPal(
       return volver("state-invalido");
     }
 
-    if (!code) return volver("denegado"); // el vendedor canceló en PayPal
+    if (!code) return volver("denegado");
 
     const token = await intercambiarCodigoPorToken(code);
     const identidad = await identidadPaypal(token.access_token);
@@ -128,10 +115,6 @@ export async function callbackVinculacionPayPal(
   }
 }
 
-/**
- * Estado de la vinculación para el panel del vendedor. Nunca devuelve el
- * token: solo el Merchant ID y el correo con los que se identifica la cuenta.
- */
 export async function estadoVinculacionPayPal(
   req: RequestConUsuario,
   res: Response,
@@ -146,21 +129,11 @@ export async function estadoVinculacionPayPal(
       .select("correoPayPal merchantId vinculadoEn tokenExpiraEn")
       .lean();
 
-    // El método de pago vive en PostgreSQL: la tarjeta de PayPal solo le
-    // interesa a los vendedores que cobran con PayPal.
-    const cuenta = await clientePrisma.usuario
-      .findUnique({
-        where: { id: usuarioId },
-        select: { metodoPago: true },
-      })
-      .catch(() => null);
-
     res.json({
       vinculado: Boolean(vinculo),
       correoPayPal: vinculo?.correoPayPal ?? null,
       merchantId: vinculo?.merchantId ?? null,
       vinculadoEn: vinculo?.vinculadoEn ?? null,
-      metodoPago: cuenta?.metodoPago ?? "paypal",
     });
   } catch (error) {
     console.error("[paypal] No se pudo leer la vinculación:", error);

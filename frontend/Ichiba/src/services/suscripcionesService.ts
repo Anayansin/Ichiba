@@ -1,17 +1,8 @@
 import { createClient } from "graphql-ws";
 import { URL_BACKEND } from "./api";
 
-/**
- * Fase 4 — BackOffice en vivo con GraphQL Subscriptions.
- *
- * Abre una conexión WebSocket al mismo backend y ruta que GraphQL
- * (`/graphql`) enviando el token del administrador en `connectionParams`;
- * el servidor solo acepta administradores. Devuelve una función para cerrar
- * la suscripción y liberar la conexión (se usa al desmontar el componente).
- */
-
 function urlDeSuscripciones(): string {
-  const url = new URL(URL_BACKEND);
+  const url = new URL(URL_BACKEND || window.location.origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/graphql";
   url.search = "";
@@ -87,16 +78,13 @@ export type EventoListaNegra = {
 export type EventoDisputa = {
   tipo: string;
   mensaje: string;
-  /** RQF40: disputas que siguen abiertas tras el cambio. */
   abiertas: number;
   generadoEn: string;
 };
 
-/** RQNF1.9: solicitud de revisión de un alta denegada. */
 export type EventoSolicitudRegistro = {
   tipo: string;
   mensaje: string;
-  /** Solicitudes que siguen pendientes de revisión. */
   pendientes: number;
   generadoEn: string;
 };

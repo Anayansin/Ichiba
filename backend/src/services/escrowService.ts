@@ -8,7 +8,6 @@ import {
   comisionPaypalActiva,
   reembolsarCapturaPaypal,
 } from "./paypalService.js";
-import { reembolsarPagoMercadoPago } from "./mercadopagoService.js";
 import { calcularComision } from "./comisionService.js";
 import {
   enviarCorreoCodigoEntregaComprador,
@@ -29,40 +28,10 @@ import {
   type BloqueHorario,
 } from "../utils/validarHorario.js";
 
-/**
- * RQNF4 / RQNF20 / RQNF24 / RQNF27 / RQNF28 / RQNF31: ciclo de vida del
- * escrow (dinero retenido hasta que el comprador reciba su producto).
- *
- * Resumen del flujo:
- *
- *   1. El comprador paga: en PayPal se AUTORIZA (dinero retenido, sin cobrar)
- *      y en MercadoPago el cobro entra a la cuenta de la plataforma (escrow
- *      interno). La venta nace en `pendiente_comprobante` con una palabra
- *      clave de 4 dígitos (RQNF20) que solo conoce el comprador.
- *   2. El comprador registra su comprobante (RQF22): palabra clave + número
- *      de referencia + fotografía moderada (RQNF18). Pasa a
- *      `pendiente_confirmacion` y su fila queda en reposo (RQNF24.4).
- *   3. El vendedor confirma o rechaza (RQF31). Al confirmar se abre el chat
- *      (RQNF29), se entrega al comprador un código de entrega de 4 dígitos
- *      (RQNF24.4) y corre el plazo de entrega (RQNF28).
- *   4. El comprador da su código al vendedor el día de la entrega (RQF26);
- *      el vendedor lo registra (RQF33) y el sistema captura el dinero
- *      (RQNF27) y cierra el chat (RQNF26).
- *
- * Cancelaciones automáticas (todas reembolsan al comprador y reanudan la
- * fila): comprobante sin subir en 24 h (RQNF23), vendedor que no confirma
- * antes del fin de su siguiente bloque de atención (RQNF24), entrega fuera
- * del plazo de 15 días (RQNF28), inactividad de 3 bloques del vendedor en el
- * chat (RQNF31) y cuenta de vendedor cancelada (RQNF10.2).
- */
-
-/** RQNF23: el comprador tiene este tiempo para subir su comprobante. */
 export const HORAS_LIMITE_COMPROBANTE = 24;
 
-/** RQNF28: días que tiene el vendedor para entregar y registrar el código. */
 export const DIAS_LIMITE_ENTREGA = 15;
 
-/** RQNF31: bloques de atención del vendedor sin mensajes antes de cancelar. */
 export const BLOQUES_INACTIVIDAD_CHAT = 3;
 
 export type VentaEscrow = {
@@ -101,23 +70,21 @@ export type UsuarioEscrow = {
   horarios?: unknown;
 };
 
-/** RQNF20: clave numérica de 4 dígitos. */
 export function generarCodigo4Digitos(): string {
   return String(randomInt(1000, 10000));
 }
 
-/**
- * RQNF20: la clave debe ser única e irrepetible por cada sesión de pago
- * exitosa de una misma fila virtual (mismo producto). Se compara contra
- * todas las ventas previas del producto, aunque hayan sido canceladas.
- */
-export async function generarCodigoPagoUnico(
-  productoId: string,
-): Promise<string> {
+const ESTADOS_VENTA_ACTIVA = [
+  "pendiente_comprobante",
+  "pendiente_confirmacion",
+  "en_entrega",
+];
+
+export async function generarCodigoPagoUnico(): Promise<string> {
   for (let intento = 0; intento < 50; intento += 1) {
     const codigo = generarCodigo4Digitos();
     const repetido = await clientePrisma.venta.findFirst({
-      where: { productoId, codigoPago: codigo },
+      where: { codigoPago: codigo, estado: { in: ESTADOS_VENTA_ACTIVA } },
     });
     if (!repetido) return codigo;
   }
@@ -127,17 +94,19 @@ export async function generarCodigoPagoUnico(
   );
 }
 
-export function esVentaDeMercadoPago(venta: {
-  paypalOrderId?: string | null;
-}): boolean {
-  return String(venta.paypalOrderId ?? "").startsWith("mp:");
+export async function generarCodigoEntregaUnico(): Promise<string> {
+  for (let intento = 0; intento < 50; intento += 1) {
+    const codigo = generarCodigo4Digitos();
+    const repetido = await clientePrisma.venta.findFirst({
+      where: { codigoEntrega: codigo, estado: { in: ESTADOS_VENTA_ACTIVA } },
+    });
+    if (!repetido) return codigo;
+  }
+  throw new Error(
+    "No fue posible generar un código de entrega único para esta venta",
+  );
 }
 
-function idPagoMercadoPago(venta: VentaEscrow): string {
-  return String(venta.paypalOrderId).slice(3);
-}
-
-/** Correo del comprador (el que dejó al entrar a la fila, RQF20). */
 export async function correoDelComprador(
   productoId: string,
   compradorId: string,
@@ -157,7 +126,6 @@ export function horariosDelVendedor(
     : [];
 }
 
-/** RQNF24.1: texto del bloque de atención vigente o próximo del vendedor. */
 export function avisoDeAtencion(vendedor: UsuarioEscrow | null): string | null {
   const bloque = obtenerTextoDeProximoBloque(
     horariosDelVendedor(vendedor),
@@ -179,7 +147,6 @@ async function cargarProducto(venta: VentaEscrow) {
   return Producto.findById(venta.productoId);
 }
 
-/** Refleja el estado de PostgreSQL en el espejo de MongoDB. */
 export async function actualizarEspejoVenta(
   paypalOrderId: string,
   datos: Record<string, unknown>,
@@ -193,8 +160,6 @@ export async function actualizarEspejoVenta(
     );
   }
 
-  // Fase 4: cualquier cambio de estado de una venta (comprobante, entrega,
-  // cancelación…) refresca el dashboard del BackOffice al instante.
   publicarResumenAdmin();
 }
 
@@ -205,12 +170,6 @@ export async function cargarVenta(
   return (venta as VentaEscrow | null) ?? null;
 }
 
-/**
- * RQF22 / RQNF18: registra el comprobante de pago del comprador (la imagen
- * ya pasó por la moderación de contenido en el controlador). Deja la venta
- * en `pendiente_confirmacion`, coloca la fila en reposo (RQNF24.4) y fija el
- * plazo del vendedor en el fin de su siguiente bloque de atención (RQNF24).
- */
 export async function registrarComprobanteDeVenta(
   venta: VentaEscrow,
   datos: { palabraClave: string; referencia: string; imagen: string },
@@ -235,10 +194,10 @@ export async function registrarComprobanteDeVenta(
   }
 
   const referencia = datos.referencia.trim();
-  if (referencia.length < 4 || referencia.length > 64) {
+  if (!/^d{6,8}$/.test(referencia)) {
     return {
       error:
-        "Ingresa el número de referencia de la transferencia (entre 4 y 64 caracteres)",
+        "El número de referencia debe ser numérico y tener entre 6 y 8 dígitos",
     };
   }
 
@@ -264,8 +223,6 @@ export async function registrarComprobanteDeVenta(
     },
   });
 
-  // RQNF24.2 / RQNF24.4: la fila del comprador queda pausada en reposo
-  // mientras el vendedor revisa el comprobante.
   await clientePrisma.cola.updateMany({
     where: { productoId: venta.productoId, compradorId: venta.compradorId, estado: "pagada" },
     data: { estado: "reposo" },
@@ -303,11 +260,6 @@ export async function registrarComprobanteDeVenta(
   return { confirmacionLimite };
 }
 
-/**
- * RQF31 / RQNF27 / RQNF24.4: el vendedor confirma el comprobante. Se abre el
- * chat (RQNF29), se genera el código de entrega del comprador y se fija el
- * plazo de entrega (RQNF28).
- */
 export async function confirmarComprobanteDeVenta(
   venta: VentaEscrow,
   vendedorId: number,
@@ -322,7 +274,8 @@ export async function confirmarComprobanteDeVenta(
   }
 
   const ahora = new Date();
-  const codigoEntrega = generarCodigo4Digitos();
+  const codigoEntrega =
+    venta.codigoEntrega || (await generarCodigoEntregaUnico());
   const entregaLimite = new Date(
     ahora.getTime() + DIAS_LIMITE_ENTREGA * 24 * 60 * 60 * 1000,
   );
@@ -344,7 +297,6 @@ export async function confirmarComprobanteDeVenta(
     entregaLimite,
   });
 
-  // RQNF29: con el pago confirmado, el chat de coordinación queda habilitado.
   const correo = await correoDelComprador(
     venta.productoId,
     venta.compradorId,
@@ -369,11 +321,6 @@ export async function confirmarComprobanteDeVenta(
   return { codigoEntrega, entregaLimite };
 }
 
-/**
- * RQF31 / RQNF23: el vendedor rechaza el comprobante. RQNF23 (interpretación
- * aprobada por el cliente): el comprador pierde el turno de inmediato, se le
- * reembolsa y el siguiente en la fila toma el turno (RQNF23.2 / RQNF24.2).
- */
 export async function rechazarComprobanteDeVenta(
   venta: VentaEscrow,
   vendedorId: number,
@@ -398,6 +345,16 @@ export async function rechazarComprobanteDeVenta(
   });
   if (resultado.error) return { error: resultado.error };
 
+  await clientePrisma.cola.updateMany({
+    where: {
+      productoId: venta.productoId,
+      compradorId: venta.compradorId,
+      estado: "finalizada",
+      motivoCierre: "venta_cancelada",
+    },
+    data: { motivoCierre: "comprobante_rechazado" },
+  });
+
   const correo = await correoDelComprador(
     venta.productoId,
     venta.compradorId,
@@ -421,11 +378,6 @@ export async function rechazarComprobanteDeVenta(
   return {};
 }
 
-/**
- * RQF33 / RQNF27: el vendedor registra el código de entrega que le dio el
- * comprador. Se captura la autorización (el dinero se paga al vendedor en
- * PayPal), la venta queda completada y el chat se cierra (RQNF26).
- */
 export async function registrarEntregaDeVenta(
   venta: VentaEscrow,
   vendedorId: number,
@@ -443,9 +395,6 @@ export async function registrarEntregaDeVenta(
     };
   }
 
-  // RQNF32: con una retención preventiva vigente (reporte, disputa o
-  // irregularidad) no se puede liberar el pago al vendedor; primero la
-  // administración debe resolver la retención.
   if (venta.retenido) {
     return {
       error:
@@ -461,9 +410,8 @@ export async function registrarEntregaDeVenta(
     };
   }
 
-  // RQNF27: liberación de fondos.
   let capturaPaypalId: string | null = null;
-  if (!esVentaDeMercadoPago(venta)) {
+  {
     if (!venta.autorizacionPaypalId) {
       console.warn(
         `[escrow] Venta ${venta.id} sin autorización de PayPal registrada`,
@@ -479,7 +427,6 @@ export async function registrarEntregaDeVenta(
         const respuesta = (error as any)?.respuestaPaypal;
         const textoError = JSON.stringify(respuesta ?? {});
         if (textoError.includes("ALREADY_CAPTURED")) {
-          // La captura ya se hizo (por ejemplo, un reintento): se continúa.
           console.warn(
             `[escrow] La autorización de la venta ${venta.id} ya estaba capturada`,
           );
@@ -504,7 +451,6 @@ export async function registrarEntregaDeVenta(
     },
   });
 
-  // RQNF17: la venta concluyó: la fila del comprador se cierra.
   await clientePrisma.cola.updateMany({
     where: {
       productoId: venta.productoId,
@@ -520,6 +466,15 @@ export async function registrarEntregaDeVenta(
       estado: "pagada",
     },
     data: { estado: "finalizada", motivoCierre: "venta_completada" },
+  });
+  await clientePrisma.cola.updateMany({
+    where: {
+      productoId: venta.productoId,
+      estado: {
+        in: ["activa", "esperando_apertura", "esperando_confirmacion"],
+      },
+    },
+    data: { estado: "finalizada", motivoCierre: "vendido_a_otro" },
   });
 
   await actualizarEspejoVenta(venta.paypalOrderId, {
@@ -557,40 +512,13 @@ export async function registrarEntregaDeVenta(
 }
 
 export type OpcionesCancelacion = {
-  /** Texto que se guarda como motivo de la cancelación. */
   motivo: string;
-  /** Si el llamador manda su propio correo al comprador (p. ej. rechazo). */
   omitirCorreoComprador?: boolean;
-  /** Si el llamador manda su propio correo al vendedor (p. ej. disputa). */
   omitirCorreoVendedor?: boolean;
-  /**
-   * RQNF32 / RQF40: permite resolver una venta con retención preventiva
-   * (disputa, reporte o reembolso fallido) e incluso una ya completada; al
-   * terminar el reembolso, la retención queda levantada.
-   */
   resolverRetencion?: boolean;
-  /**
-   * RQNF37: culpa directa del vendedor en el incumplimiento; después del
-   * reembolso se registra su adeudo por el monto cubierto por la plataforma.
-   */
   culpaVendedor?: { causa: CausaAdeudo };
 };
 
-/**
- * Cancela una compra y devuelve el dinero al comprador:
- *
- *   - PayPal: si el dinero aún está retenido, se anula la autorización (el
- *     comprador nunca ve el cargo). Si ya se había capturado, se reembolsa
- *     la captura.
- *   - MercadoPago: se solicita el reembolso del pago a su API.
- *
- * Después reanuda la fila (RQNF23.2 / RQNF24.2), cierra la fila del
- * comprador y avisa a ambas partes con la hora y día de la resolución
- * (RQNF24). Si `venta.retenido` es true (RQNF32) no se toca: la resuelve un
- * administrador, salvo que se pase `resolverRetencion` (disputas y ventas
- * retenidas, RQF40). Con `culpaVendedor` se registra además el adeudo del
- * vendedor (RQNF37).
- */
 export async function cancelarEscrow(
   venta: VentaEscrow,
   opciones: OpcionesCancelacion,
@@ -618,17 +546,7 @@ export async function cancelarEscrow(
     "El dinero retenido fue liberado a tu medio de pago: nunca se realizó el cobro.";
 
   try {
-    if (esVentaDeMercadoPago(venta)) {
-      // Escrow interno de MercadoPago: el cobro se devuelve por su API.
-      const reembolso = await reembolsarPagoMercadoPago(idPagoMercadoPago(venta));
-      reembolsoId = String(reembolso?.id ?? "");
-      nuevoEstado = "reembolsada";
-      reembolsoTexto =
-        "MercadoPago procesó el reembolso a tu medio de pago original; puede tardar unos días en reflejarse.";
-    } else if (venta.capturaPaypalId) {
-      // RNF-PAG-20: si la venta se completó y PayPal ya cobró la comisión,
-      // el reembolso también la devuelve para no cobrarla en ventas
-      // reembolsadas.
+    if (venta.capturaPaypalId) {
       const comision = comisionPaypalActiva()
         ? calcularComision(Number(venta.monto)).total
         : undefined;
@@ -649,7 +567,7 @@ export async function cancelarEscrow(
         "PayPal liberó el dinero que estaba retenido (autorización anulada): el cargo nunca se completó.";
     }
   } catch (error) {
-    const texto = JSON.stringify((error as any)?.respuestaPaypal ?? (error as any)?.respuestaMercadoPago ?? "");
+    const texto = JSON.stringify((error as any)?.respuestaPaypal ?? "");
     const yaDevuelto =
       texto.includes("ALREADY_VOIDED") ||
       texto.includes("ALREADY_REFUNDED") ||
@@ -674,7 +592,7 @@ export async function cancelarEscrow(
       };
     }
 
-    nuevoEstado = esVentaDeMercadoPago(venta) ? "reembolsada" : "cancelada";
+    nuevoEstado = "cancelada";
   }
 
   await clientePrisma.venta.update({
@@ -684,7 +602,6 @@ export async function cancelarEscrow(
       canceladoMotivo: opciones.motivo,
       reembolsadoEn: ahora,
       reembolsoId,
-      // RQNF32: al resolver una venta retenida, la retención queda levantada.
       ...(opciones.resolverRetencion ? { retenido: false } : {}),
     },
   });
@@ -697,8 +614,6 @@ export async function cancelarEscrow(
     ...(opciones.resolverRetencion ? { retenido: false } : {}),
   });
 
-  // RQNF23.2 / RQNF24.2: la fila del comprador se cierra y el siguiente
-  // en espera toma el turno; el producto vuelve a estar a la venta.
   try {
     await reanudarFilaTrasCancelacion(venta.productoId, venta.compradorId);
   } catch (error) {
@@ -708,9 +623,6 @@ export async function cancelarEscrow(
     );
   }
 
-  // RQNF37: si el reembolso fue por culpa directa del vendedor, se registra
-  // su adeudo con la plataforma (queda suspendido con saldo pendiente por
-  // liquidar, RQNF38).
   let adeudoId: string | undefined;
   if (opciones.culpaVendedor) {
     try {
@@ -779,11 +691,6 @@ export async function cancelarEscrow(
   return { reembolsoId, adeudoId };
 }
 
-/**
- * RQNF31: registra actividad de chat en la venta (PostgreSQL y Mongo) para
- * que la inactividad de 3 bloques del vendedor se cuente desde el último
- * mensaje real.
- */
 export async function registrarActividadDeChat(datos: {
   productoId: string;
   compradorId: string;
@@ -815,12 +722,6 @@ export async function registrarActividadDeChat(datos: {
   }
 }
 
-/**
- * RQNF31: fecha límite de inactividad del chat para una venta en entrega.
- * Se cuenta desde el último mensaje (o desde la confirmación del comprobante
- * si aún no hay mensajes) y equivale a los próximos 3 bloques de atención
- * del vendedor. Si el vendedor no tiene bloques, se usa la fecha de entrega.
- */
 export function limiteDeInactividadDeChat(
   venta: VentaEscrow,
   vendedor: UsuarioEscrow | null,

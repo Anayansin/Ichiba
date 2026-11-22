@@ -44,7 +44,6 @@ import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
 
-/** RQF40: estado legible de una disputa para el vendedor. */
 function textoEstadoDisputaVendedor(estado: string): string {
   const textos: Record<string, string> = {
     abierta:
@@ -57,10 +56,6 @@ function textoEstadoDisputaVendedor(estado: string): string {
   return textos[estado] ?? estado;
 }
 
-/**
- * RNF-PAG-19 / RNF-PAG-20: el vendedor ve exactamente qué comisión se le
- * cobra y cuánto recibe. En ventas reembolsadas o canceladas no se cobra.
- */
 function textoComisionVenta(venta: VentaDelVendedor): string {
   const comision = venta.comision;
   if (!comision || comision.reembolsada) {
@@ -77,10 +72,6 @@ function textoComisionVenta(venta: VentaDelVendedor): string {
     : `${detalle} · Recibirás ${neto} al liberar el pago.`;
 }
 
-/**
- * RQF40: las evidencias solo las ven las partes y la administración, así que
- * se descargan con la sesión y se muestran como blob.
- */
 function EvidenciasDeDisputaVendedor({
   disputaId,
   lado,
@@ -108,7 +99,6 @@ function EvidenciasDeDisputaVendedor({
           creadas.push(url);
           if (activo) setUrls([...creadas]);
         } catch {
-          // Una evidencia ilegible no rompe la tarjeta.
         }
       }
     })();
@@ -147,13 +137,9 @@ function PanelVendedor() {
   const [guardandoPreferencias, setGuardandoPreferencias] = useState(false);
   const [avisoPreferencias, setAvisoPreferencias] = useState("");
 
-  // RQF4: la vinculación con PayPal se inicia desde el registro del vendedor;
-  // aquí solo se muestra el resultado que PayPal devolvió en el callback.
   const [avisoPaypal, setAvisoPaypal] = useState("");
   const [parametros, setParametros] = useSearchParams();
 
-  // RQF30/RQF31/RQF33: ventas del escrow (comprobantes por revisar, entregas
-  // en curso e historial).
   const [ventasData, setVentasData] = useState<ResumenVentasDelVendedor | null>(
     null,
   );
@@ -171,14 +157,12 @@ function PanelVendedor() {
   );
   const [errorVentas, setErrorVentas] = useState("");
 
-  // RQF13 / RQNF13.3: informes mensuales de ventas (consulta y descarga PDF).
   const [informes, setInformes] = useState<InformeVendedor[]>([]);
   const [descargandoInforme, setDescargandoInforme] = useState<string | null>(
     null,
   );
   const [errorInformes, setErrorInformes] = useState("");
 
-  // RQF40: disputas de reembolso abiertas por los compradores en sus compras.
   const [disputasVendedor, setDisputasVendedor] = useState<DisputaDeVenta[]>(
     [],
   );
@@ -206,7 +190,6 @@ function PanelVendedor() {
           })),
         )
         .catch(() => {
-          // La imagen se muestra como "no disponible"; no rompe el panel.
         });
     }
   }
@@ -217,22 +200,18 @@ function PanelVendedor() {
     Promise.all([
       fetchPerfil(),
       fetchMisProductos(),
-      // Un fallo en promocionales no debe impedir cargar el panel
       fetchMisPromocionales().catch((error) => {
         console.error("Error al cargar promocionales:", error);
         return [];
       }),
-      // Un fallo en ventas tampoco debe impedir cargar el panel
       fetchVentasDelVendedor().catch((error) => {
         console.error("Error al cargar las ventas:", error);
         return null;
       }),
-      // Los informes de ventas tampoco deben impedir cargar el panel
       fetchInformesDelVendedor().catch((error) => {
         console.error("Error al cargar los informes:", error);
         return [] as InformeVendedor[];
       }),
-      // Las disputas tampoco deben impedir cargar el panel
       fetchDisputasDelVendedor().catch((error) => {
         console.error("Error al cargar las disputas:", error);
         return { disputas: [] as DisputaDeVenta[] };
@@ -259,7 +238,6 @@ function PanelVendedor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario]);
 
-  // Mensaje según lo que PayPal devolvió al volver del flujo de vinculación.
   useEffect(() => {
     const resultado = parametros.get("paypal");
     if (!resultado) return;
@@ -275,14 +253,11 @@ function PanelVendedor() {
       error: "No se pudo completar la vinculación con PayPal.",
     };
     setAvisoPaypal(mensajes[resultado] ?? "Resultado de PayPal desconocido.");
-    // Quitar el parámetro de la URL para que el mensaje no se repita al recargar.
     parametros.delete("paypal");
     setParametros(parametros, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parametros]);
 
-  // Rellena las preferencias con lo que ya tiene guardado el vendedor.
-  // Las notificaciones críticas son obligatorias: siempre se envían activas.
   useEffect(() => {
     if (!perfil) return;
     setPreferencias({
@@ -315,7 +290,6 @@ function PanelVendedor() {
   const productosInactivos = misProductos.filter((p) => !p.activo);
   const promocionalesActivos = misPromocionales.filter((p) => p.activo);
   const promocionalesInactivos = misPromocionales.filter((p) => !p.activo);
-  // RQNF10.3 / RQF12: cuenta cancelada de forma permanente por 8 puntos.
   const cuentaCancelada =
     ventasData?.cuenta.estadoCuenta === "cancelada" ||
     perfil.estadoCuenta === "cancelada";
@@ -323,7 +297,6 @@ function PanelVendedor() {
     ventasData?.cuenta.puntosReputacion ?? perfil.puntosReputacion ?? 0;
   const puntosCancelacion =
     ventasData?.cuenta.puntosCancelacion ?? perfil.puntosCancelacion ?? 8;
-  // RQNF10.1: promedio de calificaciones recibidas en ventas completadas.
   const reputacion =
     ventasData?.reputacion.promedio ?? perfil.reputacion?.promedio ?? null;
   const ventasPorRevisar =
@@ -395,8 +368,6 @@ function PanelVendedor() {
     }
   }
 
-  // --- RQF31/RQF33: acciones sobre las ventas del escrow -------------------
-
   async function handleConfirmarComprobante(ventaId: number) {
     setAccionVentaEnCurso(ventaId);
     setErrorVentas("");
@@ -465,8 +436,6 @@ function PanelVendedor() {
     }
   }
 
-  // --- RQF40: disputas de reembolso abiertas por los compradores -----------
-
   async function handleResponderDisputa(disputaId: string) {
     const respuesta = (respuestasDisputa[disputaId] ?? "").trim();
     if (!respuesta) {
@@ -500,8 +469,6 @@ function PanelVendedor() {
       setEnviandoRespuesta(null);
     }
   }
-
-  // --- RQF13 / RQNF13.3: informes mensuales de ventas ----------------------
 
   async function handleDescargarInforme(periodo: string) {
     setDescargandoInforme(periodo);
@@ -688,7 +655,6 @@ function PanelVendedor() {
     );
   }
 
-  // RQF40: una disputa de reembolso del comprador y su formulario de respuesta.
   function renderDisputa(disputa: DisputaDeVenta) {
     const pendienteDeRespuesta =
       disputa.estado === "abierta" && !disputa.respuestaVendedor;
@@ -930,7 +896,6 @@ function PanelVendedor() {
             Ventas concluidas sin problemas
           </span>
         </div>
-        {/* RQNF10.1: promedio de calificaciones de las ventas completadas. */}
         <div className="panel-vendedor__stat-card">
           <span className="panel-vendedor__stat-numero">
             {reputacion === null ? "—" : reputacion.toFixed(1)}
@@ -939,7 +904,6 @@ function PanelVendedor() {
             Calificación promedio de compradores
           </span>
         </div>
-        {/* RQNF10.1 / RQNF10.3: puntos de infracción (8 = cancelación). */}
         <div className="panel-vendedor__stat-card panel-vendedor__stat-card--puntos">
           <span className="panel-vendedor__stat-numero">
             {puntosReputacion}/{puntosCancelacion}
@@ -954,8 +918,6 @@ function PanelVendedor() {
         </div>
       </div>
 
-      {/* RQF12: la cuenta cancelada ya no puede publicar ni configurar horario;
-          solo conserva acceso a sus entregas pendientes. */}
       {!cuentaCancelada && (
         <div className="panel-vendedor__publicar">
           <Link
@@ -1071,7 +1033,6 @@ function PanelVendedor() {
         )}
       </div>
 
-      {/* RQF40: disputas de reembolso abiertas por los compradores. */}
       <div className="panel-vendedor__disputas">
         <h2>Disputas de reembolso</h2>
         <p className="panel-vendedor__informes-nota">
@@ -1098,7 +1059,6 @@ function PanelVendedor() {
         )}
       </div>
 
-      {/* RQF13 / RQNF13.3: informes mensuales de ventas y descarga en PDF. */}
       <div className="panel-vendedor__informes">
         <h2>Informes de ventas</h2>
         <p className="panel-vendedor__informes-nota">
@@ -1168,7 +1128,6 @@ function PanelVendedor() {
         )}
       </div>
 
-      {/* RQF12: la cuenta cancelada tampoco puede cambiar sus preferencias. */}
       {!cuentaCancelada && (
         <div className="panel-vendedor__preferencias">
           <h2>Preferencias de notificaciones</h2>

@@ -27,27 +27,6 @@ import {
   periodoDeFecha,
 } from "../services/informesService.js";
 
-/**
- * Fase 5 — Servidor MCP (Model Context Protocol) del BackOffice de Ichiba.
- *
- * Expone las herramientas administrativas de la plataforma (mismo motor que
- * los endpoints REST `/api/admin/*`) a asistentes de IA compatibles con MCP
- * (Claude Desktop, Cursor, VS Code, etc.). Todo lo que puede hacer un
- * administrador desde el BackOffice también lo puede consultar o ejecutar un
- * asistente conectado a este servidor.
- *
- * Transportes:
- *  - stdio: `npm run mcp` (o `node --import tsx src/mcp/arranqueStdio.ts`),
- *    para clientes locales que lanzan el proceso.
- *  - HTTP (Streamable HTTP): montado en `/mcp` del backend, protegido con
- *    token JWT de administrador.
- *
- * Cada herramienta responde con el resultado serializado en JSON dentro de
- * `content[0].text`; los errores de negocio (validaciones, «no encontrado»)
- * se devuelven como resultado de error MCP (`isError: true`) con el mensaje
- * tal cual lo daría la API REST.
- */
-
 export const NOMBRE_SERVIDOR_MCP = "ichiba-backoffice";
 export const VERSION_SERVIDOR_MCP = "1.0.0";
 
@@ -59,8 +38,6 @@ type ResultadoHerramienta =
     };
 
 function resultadoJson(datos: unknown): ResultadoHerramienta {
-  // `JSON.stringify(undefined)` devuelve `undefined` (no texto): el MCP exige
-  // siempre un bloque de texto, así que se normaliza a `null`.
   return {
     content: [
       { type: "text", text: JSON.stringify(datos ?? null, null, 2) },
@@ -75,7 +52,6 @@ function resultadoError(mensaje: string): ResultadoHerramienta {
   };
 }
 
-/** Ejecuta una acción del backoffice traduciendo errores a respuestas MCP. */
 async function ejecutar(
   accion: () => Promise<unknown>,
 ): Promise<ResultadoHerramienta> {
@@ -92,11 +68,6 @@ async function ejecutar(
   }
 }
 
-/**
- * Las herramientas del BackOffice usan el id numérico de PostgreSQL (la
- * fuente de verdad de las cuentas). Se acepta cualquier texto y se normaliza
- * al id numérico cuando se puede.
- */
 function normalizarIdUsuario(id: string): string {
   const texto = String(id ?? "").trim();
   if (/^\d+$/.test(texto)) return texto;
@@ -115,9 +86,6 @@ export function crearServidorMcp(): McpServer {
     },
   );
 
-  // -------------------------------------------------------------------------
-  // Dashboard
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "resumen_backoffice",
     {
@@ -130,9 +98,6 @@ export function crearServidorMcp(): McpServer {
     async () => ejecutar(() => obtenerResumenAdmin()),
   );
 
-  // -------------------------------------------------------------------------
-  // Usuarios (RQF36)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_usuarios",
     {
@@ -213,9 +178,6 @@ export function crearServidorMcp(): McpServer {
       ),
   );
 
-  // -------------------------------------------------------------------------
-  // Reportes (RQF37)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_reportes_pendientes",
     {
@@ -249,9 +211,6 @@ export function crearServidorMcp(): McpServer {
       ejecutar(() => resolverReporteAdmin(id_reporte, resultado)),
   );
 
-  // -------------------------------------------------------------------------
-  // Lista negra (RQNF1.9 / RQNF36)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_lista_negra",
     {
@@ -339,9 +298,6 @@ export function crearServidorMcp(): McpServer {
       }),
   );
 
-  // -------------------------------------------------------------------------
-  // Historial y auditoría (RQF38 / RQF39)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "historial_transacciones",
     {
@@ -370,9 +326,6 @@ export function crearServidorMcp(): McpServer {
     async ({ id_venta }) => ejecutar(() => mensajesDeVentaAdmin(id_venta)),
   );
 
-  // -------------------------------------------------------------------------
-  // Disputas y ventas retenidas (RQF40 / RQNF32)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_disputas",
     {
@@ -470,9 +423,6 @@ export function crearServidorMcp(): McpServer {
       ),
   );
 
-  // -------------------------------------------------------------------------
-  // Adeudos del vendedor (RQNF37 / RQNF38)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_adeudos",
     {
@@ -541,9 +491,6 @@ export function crearServidorMcp(): McpServer {
       ejecutar(() => liquidarAdeudoAdmin(id_adeudo, { nota })),
   );
 
-  // -------------------------------------------------------------------------
-  // Informes globales (RQF14)
-  // -------------------------------------------------------------------------
   servidor.registerTool(
     "listar_informes_globales",
     {

@@ -16,7 +16,6 @@ import {
 import { mensajeDeError } from "../../utils/errores";
 import "./Disputas.css";
 
-/** Fase 4/7b: la bandeja se refresca al instante cuando cambia una disputa. */
 const CONSULTA_DISPUTAS = `
   subscription DisputasEnVivo {
     disputasActualizadas { tipo mensaje abiertas generadoEn }
@@ -59,10 +58,6 @@ function textoEstadoVenta(estado: string | null): string {
   return estado ? textos[estado] ?? estado : "—";
 }
 
-/**
- * RQF40: las evidencias solo las ven las partes y la administración, así que
- * se descargan con las cabeceras de sesión y se muestran como blob.
- */
 function Evidencias({
   disputaId,
   lado,
@@ -90,7 +85,6 @@ function Evidencias({
           creadas.push(url);
           if (activo) setUrls([...creadas]);
         } catch {
-          // Una evidencia ilegible no rompe la tarjeta.
         }
       }
     })();
@@ -165,8 +159,6 @@ function Disputas() {
   useEffect(() => {
     cargar(false, pagina, estado);
 
-    // Fase 4/7b: una disputa nueva, respondida o resuelta aparece al
-    // instante; el respaldo es la relectura manual.
     return suscribirse<EventoDisputa>(
       CONSULTA_DISPUTAS,
       "disputasActualizadas",

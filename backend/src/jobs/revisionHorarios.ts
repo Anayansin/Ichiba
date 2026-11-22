@@ -1,4 +1,3 @@
-import cron from "node-cron";
 import fs from "fs";
 import path from "path";
 import { Producto } from "../models/producto.js";
@@ -19,27 +18,10 @@ import clientePrisma from "../configuracion/prisma.js";
 import { relojZonaCentro } from "../utils/validarHorario.js";
 import { enviarCorreoAdvertencia } from "../services/emailService.js";
 
-export function iniciarJobRevisionHorarios() {
-  // 14:00 UTC = 08:00 en la zona centro (GMT-6), la hora de referencia del
-  // sistema. El servidor del hosting vive en UTC, por eso se programa así.
-  cron.schedule("0 14 * * *", async () => {
-    try {
-      await revisarHorariosDeVendedores();
-    } catch (error) {
-      console.error("[job] Falló la revisión de horarios:", error);
-    }
-  });
-}
-
-/** Días completos transcurridos desde una fecha (instante real). */
 function diasDesde(fecha: Date): number {
   return Math.floor((Date.now() - fecha.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-/**
- * Días naturales que faltan para el próximo 1ro de mes, según el reloj en
- * GMT-6 que se le indique (RQNF6.3: el aviso sale 15 días antes).
- */
 function diasParaProximoPrimerDia(hoy: Date): number {
   const hoyMedianoche = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const proximoPrimerDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
@@ -48,7 +30,6 @@ function diasParaProximoPrimerDia(hoy: Date): number {
   );
 }
 
-/** Borra un archivo de `uploads/` sin fallar si ya no existe. */
 function borrarArchivoDeSubidas(ruta?: string | null) {
   if (!ruta || ruta.includes("..")) return;
   const relativa = ruta.replace(/^\/+/, "");
@@ -68,22 +49,11 @@ type CuentaPostgres = {
   createdAt?: Date;
 };
 
-/**
- * RQNF6.6 — Elimina TODOS los registros relacionados con el vendedor, en
- * PostgreSQL y MongoDB, incluidos los archivos en disco: no hay posibilidad
- * de recuperación.
- *
- * Orden pensado para que un fallo parcial sea reintentable: en PostgreSQL
- * primero las filas con llave foránea (ventas y reportes) y la cuenta al
- * final; en MongoDB el documento de la cuenta es lo último en borrarse (si
- * algo falla, la revisión del próximo mes vuelve a intentarlo).
- */
 async function eliminarCuentaDeVendedor(
   usuario: CuentaPostgres,
   idVendedor: string,
   idNumerico: number,
 ) {
-  // Todo lo que identifica al vendedor se recoge ANTES de borrar nada.
   const productosDelVendedor = await Producto.find({ vendedorId: idVendedor });
   const idsProductos = productosDelVendedor.map((producto) => producto._id);
   const promocionalesDelVendedor = await Promocional.find({
@@ -98,13 +68,8 @@ async function eliminarCuentaDeVendedor(
   const idPostgres =
     Number.isInteger(idNumerico) && idNumerico > 0 ? idNumerico : null;
 
-  // PostgreSQL: primero las filas que referencian a la cuenta y, al final,
-  // la cuenta misma (ventas y reportes tienen llave foránea hacia `usuario`).
   if (idPostgres !== null) {
     await clientePrisma.venta.deleteMany({ where: { vendedorId: idPostgres } });
-    // Reportes recibidos (vendedorId) y enviados por el vendedor
-    // (reportadoPorId, que se guarda como texto en el esquema). El cliente
-    // Prisma 8 no admite OR en deleteMany, así que se hacen dos bajas.
     await clientePrisma.reporte.deleteMany({
       where: { vendedorId: idPostgres },
     });
@@ -112,18 +77,14 @@ async function eliminarCuentaDeVendedor(
       where: { reportadoPorId: String(idPostgres) },
     });
     await clientePrisma.usuario.deleteMany({ where: { id: idPostgres } });
-    // Vinculación con PayPal: el vínculo guarda el Merchant ID y el Token
-    // de Acceso cifrado; no puede sobrevivir a la cuenta (RQNF4).
     await VinculoPayPal.deleteMany({ usuarioId: idPostgres });
     await EstadoVinculacionPayPal.deleteMany({ usuarioId: idPostgres });
   }
 
-  // Filas de PostgreSQL asociadas a sus publicaciones.
   await clientePrisma.cola.deleteMany({
     where: { productoId: { in: idsProductos.map(String) } },
   });
 
-  // MongoDB: publicaciones y todo lo que cuelga de ellas.
   await Comentario.deleteMany({ promocionalId: { $in: idsPromocionales } });
   await Promocional.deleteMany({ vendedorId: idVendedor });
   await Mensaje.deleteMany({ ventaId: { $in: idsVentas } });
@@ -133,8 +94,6 @@ async function eliminarCuentaDeVendedor(
   await Suscripcion.deleteMany({ correo: usuario.correo });
   await SuscripcionCategoria.deleteMany({ correo: usuario.correo });
 
-  // Reportes en los que el vendedor fue el sujeto o el denunciante
-  // (RQNF6.6: se borran tanto los recibidos como los enviados).
   await Reporte.deleteMany({
     $or: [
       { sujetoTipo: "usuario", sujetoId: idVendedor },
@@ -142,13 +101,10 @@ async function eliminarCuentaDeVendedor(
     ],
   });
 
-  // El espejo de la cuenta en MongoDB se borra al final: si algo falla antes,
-  // la revisión del próximo mes vuelve a intentar la eliminación completa.
   await Usuario.deleteMany({
     $or: [{ usuarioId: idNumerico }, { correo: usuario.correo }],
   });
 
-  // Archivos en disco: productos, promocionales y las dos caras de la INE.
   for (const producto of productosDelVendedor) {
     for (const imagen of producto.imagenes ?? []) {
       borrarArchivoDeSubidas(imagen);
@@ -163,14 +119,7 @@ async function eliminarCuentaDeVendedor(
   borrarArchivoDeSubidas(usuario.ineReverso);
 }
 
-/**
- * Revisión diaria de horarios de los vendedores.
- *
- * `fechaBase` solo existe para pruebas: permite simular el 1ro de mes sin
- * esperar a la fecha real.
- */
 export async function revisarHorariosDeVendedores(fechaBase?: Date) {
-  // RQNF5.3/RQNF5.4: todo el calendario del mes se cuenta en GMT-6.
   const hoy = relojZonaCentro(fechaBase ?? new Date());
   const esPrimerDiaDelMes = hoy.getDate() === 1;
   const proximoPrimerDiaEn15 = diasParaProximoPrimerDia(hoy) === 15;
@@ -181,19 +130,14 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
 
   for (const usuario of usuarios) {
     const fechaConfirmacion = usuario.horarioConfirmadoEn ?? usuario.createdAt;
-    // Los días se cuentan con el instante real (no con el reloj desplazado).
     const diasDesdeConfirmacion = diasDesde(fechaConfirmacion);
 
-    // El id del vendedor en el catálogo de productos es el id numérico de
-    // PostgreSQL; se guarda como cadena en MongoDB.
     const idVendedor = String(usuario.id);
     const idNumerico = Number(usuario.id);
 
     if (esPrimerDiaDelMes && diasDesdeConfirmacion >= 28) {
       usuario.diasSinConfirmarHorario += 1;
 
-      // RQNF6.4: la segunda falta consecutiva dispara el aviso de
-      // eliminación, y RQNF6.5 manda eliminar la cuenta ese mismo 1ro de mes.
       if (usuario.diasSinConfirmarHorario >= 2) {
         await enviarCorreoAdvertencia(
           usuario.correo,
@@ -220,7 +164,6 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
         continue;
       }
 
-      // Primera falta: queda registrada en PostgreSQL (RQNF5.4).
       await clientePrisma.usuario
         .updateMany({
           where: { id: idNumerico },
@@ -234,8 +177,6 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
         );
     }
 
-    // RQNF6.3: 15 días antes de la eliminación pronosticada (el próximo 1ro
-    // de mes, cuando ya hay una falta sin confirmar) se envía el aviso.
     if (usuario.diasSinConfirmarHorario >= 1 && proximoPrimerDiaEn15) {
       await enviarCorreoAdvertencia(
         usuario.correo,
@@ -249,8 +190,6 @@ export async function revisarHorariosDeVendedores(fechaBase?: Date) {
       );
     }
 
-    // Recordatorio temprano: a los 2 días sin confirmar se avisa que, si no
-    // confirma antes del 1ro de mes, se contará una falta.
     if (diasDesdeConfirmacion === 2) {
       await enviarCorreoAdvertencia(
         usuario.correo,

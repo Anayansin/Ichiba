@@ -4,22 +4,6 @@ import { Producto } from "../models/producto.js";
 import { InformeVendedor } from "../models/InformeVendedor.js";
 import { InformeGlobal } from "../models/InformeGlobal.js";
 
-/**
- * RQF13 / RQF14: informes mensuales.
- *
- * - RQNF13.1 / RQNF13.2: cada 1° de mes se genera el informe del mes recién
- *   concluido para cada vendedor con actividad: total de ventas del período,
- *   productos vendidos, tiempo promedio por fila (todos sus productos) y tasa
- *   de concertación (ventas concluidas / filas iniciadas, KO6.1).
- * - RQNF13.3: los informes quedan en el historial y se descargan en PDF.
- * - RQF14 / RQNF14 / RQNF14.2 (KO9.1): informe global con la categoría más
- *   vendida (con desempate por el mes anterior) y la tasa de abandono de fila
- *   por categoría (salieron de la fila o no pagaron a tiempo).
- * - RQNF14.1: el día 1° del mes en que un reporte o informe cumple 13 meses se
- *   elimina de forma permanente (solo ese registro).
- */
-
-/** RQNF14.2 (KO9.1): causas que cuentan como abandono de fila. */
 export const MOTIVOS_ABANDONO = ["salio_voluntariamente", "turno_vencido"];
 
 type Fila = Record<string, any>;
@@ -28,10 +12,6 @@ function redondear(valor: number, decimales = 1): number {
   const factor = 10 ** decimales;
   return Math.round(valor * factor) / factor;
 }
-
-// ---------------------------------------------------------------------------
-// Períodos mensuales ("YYYY-MM")
-// ---------------------------------------------------------------------------
 
 export function esPeriodoValido(periodo: unknown): periodo is string {
   return typeof periodo === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(periodo);
@@ -60,11 +40,6 @@ export function periodoAnterior(periodo: string): string {
   return sumarPeriodos(periodo, -1);
 }
 
-/**
- * Normaliza las fechas que devuelve PostgreSQL. Los `DateTime` llegan como
- * `Date`, pero las columnas `temporal.updatedAtString()` llegan como texto
- * `"2026-10-05 19:27:42.809-06"`; se convierten aquí para poder compararlas.
- */
 export function fechaDeValor(valor: unknown): Date | null {
   if (valor instanceof Date) {
     return Number.isNaN(valor.getTime()) ? null : valor;
@@ -120,10 +95,6 @@ export function enPeriodo(fecha: unknown, periodo: string): boolean {
   return valor.getTime() >= inicio.getTime() && valor.getTime() < fin.getTime();
 }
 
-// ---------------------------------------------------------------------------
-// Generación de informes
-// ---------------------------------------------------------------------------
-
 type DatosProducto = {
   productoId: string;
   nombre: string;
@@ -168,10 +139,6 @@ function categoriaDeVenta(
   );
 }
 
-/**
- * RQNF13.1 / RQNF13.2: genera (o regenera) los informes de todos los
- * vendedores con actividad en `periodo` y el informe global de la plataforma.
- */
 export async function generarInformesMensuales(periodo: string): Promise<{
   periodo: string;
   vendedores: number;
@@ -186,14 +153,12 @@ export async function generarInformesMensuales(periodo: string): Promise<{
   const ventas = (await clientePrisma.venta.findMany({ where: {} })) as Fila[];
   const colas = (await clientePrisma.cola.findMany({ where: {} })) as Fila[];
 
-  // Transacciones concluidas dentro del período (RQNF13.1).
   const ventasDelMes = ventas.filter(
     (venta) =>
       venta.estado === "completada" &&
       enPeriodo(venta.entregadoEn ?? venta.createdAt, periodo),
   );
 
-  // Filas iniciadas dentro del período y filas cerradas dentro del período.
   const colasDelMes = colas.filter((cola) => enPeriodo(cola.createdAt, periodo));
   const colasCerradasDelMes = colas.filter(
     (cola) => cola.estado === "finalizada" && enPeriodo(cola.updatedAt, periodo),
@@ -205,7 +170,6 @@ export async function generarInformesMensuales(periodo: string): Promise<{
     ...colasCerradasDelMes.map((cola) => String(cola.productoId)),
   ]);
 
-  // --- Informes por vendedor -------------------------------------------------
   const actividad = new Map<
     string,
     {
@@ -268,13 +232,11 @@ export async function generarInformesMensuales(periodo: string): Promise<{
     );
     const totalVentas = datos.ventas.length;
 
-    // RQNF13.2 (KO6.1): ventas concluidas / filas iniciadas, en porcentaje.
     const tasaConcertacion =
       datos.filasIniciadas > 0
         ? redondear((totalVentas / datos.filasIniciadas) * 100)
         : 0;
 
-    // RQNF13.1: tiempo promedio por fila (todos sus productos), en minutos.
     const tiempos = datos.filasCerradas
       .map((cola) => {
         const inicio = fechaDeValor(cola.createdAt);
@@ -308,7 +270,6 @@ export async function generarInformesMensuales(periodo: string): Promise<{
     );
   }
 
-  // --- Informe global (RQF14) ------------------------------------------------
   const global = await generarInformeGlobalDelMes(periodo, {
     ventasDelMes,
     colasDelMes,
@@ -389,7 +350,6 @@ async function generarInformeGlobalDelMes(
     };
   }
 
-  // RQNF14: categoría más vendida = transacciones concluidas por categoría.
   const ventasPorCategoria = new Map<string, number>();
   for (const venta of contexto.ventasDelMes) {
     const categoria = categoriaDeVenta(venta, contexto.productos);
@@ -410,7 +370,6 @@ async function generarInformeGlobalDelMes(
     if (empatadas.length === 1) {
       categoriaMasVendida = { categoria: empatadas[0][0], ventas: maximo };
     } else {
-      // RQNF14.2: desempate con las ventas de la categoría en el mes anterior.
       const previas = await ventasPorCategoriaDePeriodo(
         periodoAnterior(periodo),
         contexto.productos,
@@ -428,14 +387,12 @@ async function generarInformeGlobalDelMes(
           ventas: maximo,
         };
       } else {
-        // RQNF14.2: si vuelve a haber empate, no se muestra.
         categoriaMasVendida = null;
         empate = true;
       }
     }
   }
 
-  // RQNF14.2 (KO9.1): tasa de abandono de fila por categoría.
   const porCategoria = CATEGORIAS_PRODUCTO.map((categoria) => {
     const filasIniciadas = contexto.colasDelMes.filter(
       (cola) => contexto.productos.get(String(cola.productoId))?.categoria === categoria,
@@ -472,11 +429,6 @@ async function generarInformeGlobalDelMes(
   return { periodo, categoriaMasVendida, empate };
 }
 
-// ---------------------------------------------------------------------------
-// Consulta de informes globales (RQF14 / RQNF13.3)
-// ---------------------------------------------------------------------------
-
-/** Formato de salida compartido entre el REST del BackOffice y el MCP. */
 export function resumirInformeGlobal(informe: Record<string, any>) {
   return {
     periodo: informe.periodo,
@@ -500,23 +452,11 @@ export function resumirInformeGlobal(informe: Record<string, any>) {
   };
 }
 
-/** RQF14: historial completo de informes globales, del más reciente al más antiguo. */
 export async function listarInformesGlobales() {
   const informes = await InformeGlobal.find().sort({ periodo: -1 }).lean();
   return informes.map(resumirInformeGlobal);
 }
 
-// ---------------------------------------------------------------------------
-// RQNF14.1: purga de reportes e informes con 13 meses de antigüedad
-// ---------------------------------------------------------------------------
-
-/**
- * El día 1° del mes en que un registro cumple 13 meses se elimina de forma
- * permanente únicamente ese registro:
- *
- * - los reportes (quejas) creados en el mes M-13;
- * - los informes mensuales (por vendedor y globales) del período M-13.
- */
 export async function purgarReportesEInformesAntiguos(ahora = new Date()): Promise<{
   periodo: string;
   reportes: number;
@@ -525,7 +465,6 @@ export async function purgarReportesEInformesAntiguos(ahora = new Date()): Promi
 }> {
   const periodoAPurgar = sumarPeriodos(periodoDeFecha(ahora), -13);
 
-  // Reportes (quejas): contador individual por fecha de creación.
   const reportes = (await clientePrisma.reporte.findMany({ where: {} })) as Fila[];
   const idsAntiguos = reportes
     .filter((reporte) => enPeriodo(reporte.createdAt, periodoAPurgar))

@@ -24,7 +24,6 @@
   margin-bottom: 1.5rem;
 }
 
-/* RQNF10.3 / RQF12: aviso permanente de cuenta cancelada por 8 puntos. */
 .panel-vendedor__cancelada {
   background-color: #3b0d13;
   color: #ffd7dc;
@@ -81,7 +80,6 @@
   color: #1a1a1a;
 }
 
-/* RNF-PAG-19: comisión y neto del vendedor. */
 .panel-vendedor__stat-card--dinero .panel-vendedor__stat-numero {
   color: #2e7d32;
   font-size: 1.55rem;
@@ -102,7 +100,6 @@
   background-color: #b8031f;
 }
 
-/* Acciones de publicación: producto y promocional lado a lado */
 .panel-vendedor__publicar {
   display: flex;
   flex-wrap: wrap;
@@ -348,7 +345,6 @@
   cursor: wait;
 }
 
-/* RQF4: aviso del resultado de la vinculación con PayPal (viene del callback) */
 .panel-vendedor__paypal-aviso {
   margin: 0 0 1rem;
   background: #e9f7ef;
@@ -359,7 +355,6 @@
   font-size: 0.85rem;
 }
 
-/* RQF30/RQF31/RQF33: ventas del escrow en el panel del vendedor */
 .panel-vendedor__ventas {
   margin-top: 2rem;
 }
@@ -516,7 +511,6 @@
   padding: 0.8rem 1rem;
 }
 
-/* RQF13 / RQNF13.3: informes mensuales de ventas del vendedor */
 .panel-vendedor__informes {
   margin-top: 2rem;
 }
@@ -576,7 +570,6 @@
   cursor: wait;
 }
 
-/* RQF40 / RQNF32: disputas de reembolso abiertas por los compradores */
 .panel-vendedor__disputas {
   margin-top: 2rem;
 }

@@ -1,15 +1,3 @@
-/**
- * Cifrado simétrico (AES-256-GCM) para los secretos que otorgan las
- * pasarelas.
- *
- * RQNF4 exige que el Token de Acceso (y el Merchant ID asociado) que PayPal
- * otorga al vendedor al vincular su cuenta se guarden cifrados: aunque alguien
- * lea la base de datos, solo obtiene texto ilegible sin la llave, que vive en
- * `backend/.env` (y en las variables del hosting, nunca en el repositorio).
- *
- * Formato almacenado: `<iv>.<tag>.<datos>`, cada bloque en base64.
- */
-
 import crypto from "crypto";
 
 const ALGORITMO = "aes-256-gcm";

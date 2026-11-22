@@ -1,79 +1,118 @@
+.CartaProducto__Link {
+  display: block;
+  min-width: 0;
+  text-decoration: none;
+}
+
 .CartaProducto {
   box-sizing: border-box;
-  width: 260px;
-  min-height: 320px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
   overflow: hidden;
   background: rgba(217, 217, 217, 0.58);
   border: 1px solid white;
+  border-radius: 17px;
   box-shadow: 12px 17px 51px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(6px);
-  border-radius: 17px;
   text-align: center;
-  cursor: pointer;
-  transition: all 0.5s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  font-weight: bolder;
   color: black;
-  flex-direction: column;
-  padding: 14px;
-  margin: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    transform 0.3s,
+    border-color 0.3s,
+    box-shadow 0.3s;
 }
 
 .CartaProducto:hover {
-  border: 1px solid black;
-  transform: scale(1.05);
+  transform: translateY(-4px);
 }
 
-/*
- * RQNF15: al pasar el cursor, el marco avisa si el vendedor está dentro de su
- * horario de atención (verde) o fuera de él (rojo). La tarjeta se muestra
- * siempre; el color solo aparece en hover. El borde grueso y el halo del mismo
- * color hacen evidente la diferencia a simple vista.
- */
 .CartaProducto.CartaProducto--atendiendo:hover {
-  border: 3px solid #16a34a;
+  border: 1px solid #16a34a;
   box-shadow:
-    0 0 0 4px rgba(22, 163, 74, 0.4),
-    12px 17px 51px rgba(22, 163, 74, 0.55);
+    0 0 0 3px rgba(22, 163, 74, 0.4),
+    12px 17px 51px rgba(22, 163, 74, 0.45);
 }
 
 .CartaProducto.CartaProducto--no-atendiendo:hover {
-  border: 3px solid #d90429;
+  border: 1px solid #d90429;
   box-shadow:
-    0 0 0 4px rgba(217, 4, 41, 0.4),
-    12px 17px 51px rgba(217, 4, 41, 0.55);
+    0 0 0 3px rgba(217, 4, 41, 0.4),
+    12px 17px 51px rgba(217, 4, 41, 0.45);
 }
 
 .CartaProducto:active {
-  transform: scale(0.95) rotateZ(1.7deg);
+  transform: scale(0.98);
 }
 
-.CartaProducto__Imagen {
-  width: 100%;
-  height: 220px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 0.8rem;
+.CartaProducto__Marco {
+  position: relative;
+  margin-bottom: 0.7rem;
+  overflow: hidden;
+  border-radius: 10px;
   background-color: #f1d9dc;
 }
 
+.CartaProducto__Imagen {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.CartaProducto__Disponibilidad {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(100%);
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+
+.CartaProducto--atendiendo .CartaProducto__Disponibilidad {
+  background: rgba(22, 163, 74, 0.92);
+}
+
+.CartaProducto--no-atendiendo .CartaProducto__Disponibilidad {
+  background: rgba(217, 4, 41, 0.92);
+}
+
+.CartaProducto:hover .CartaProducto__Disponibilidad,
+.CartaProducto__Link:focus-visible .CartaProducto__Disponibilidad {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .CartaProducto__Nombre {
-  font-size: 1.1rem;
+  margin: 0 0 0.35rem;
+  font-size: clamp(0.92rem, 0.85rem + 0.3vw, 1.08rem);
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 0.4rem;
+  overflow-wrap: anywhere;
 }
 
 .CartaProducto__Precio {
-  font-size: 1.1rem;
-  color: #d90429;
+  margin: auto 0 0.2rem;
+  font-size: clamp(0.95rem, 0.9rem + 0.3vw, 1.1rem);
   font-weight: 700;
-  margin-bottom: 0.8rem;
+  color: #d90429;
 }
 
-.CartaProducto__Link {
-  text-decoration: none;
+@media (hover: none) {
+  .CartaProducto--no-atendiendo .CartaProducto__Disponibilidad {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

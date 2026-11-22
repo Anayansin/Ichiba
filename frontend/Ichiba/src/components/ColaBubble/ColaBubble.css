@@ -77,7 +77,6 @@
   font-weight: 700;
 }
 
-/* RQF18: la fila espera la próxima apertura del vendedor */
 .cola-bubble__item-info .cola-bubble__espera {
   display: block;
   color: #1a56b0;
@@ -100,4 +99,48 @@
   color: #d90429;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.cola-bubble__posicion {
+  font-weight: 700;
+  color: #d90429;
+}
+
+.cola-aviso__fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.cola-aviso {
+  width: min(420px, 100%);
+  padding: 1.4rem;
+  border-radius: 12px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.cola-aviso__producto {
+  margin: 0 0 0.4rem;
+  font-weight: 700;
+}
+
+.cola-aviso__mensaje {
+  margin: 0 0 1rem;
+}
+
+.cola-aviso__aceptar {
+  padding: 0.6rem 1.6rem;
+  border: none;
+  border-radius: 6px;
+  background: #d90429;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }

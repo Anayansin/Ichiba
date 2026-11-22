@@ -153,7 +153,6 @@
   font-weight: 700;
 }
 
-/* RQNF1.9: el alta fue denegada (lista negra o datos ya usados). */
 .registro-bloqueo {
   background-color: #fdecea;
   border: 2px solid #f3c3c8;
@@ -277,7 +276,6 @@
   transition: color 0.2s;
 }
 
-/* Una vez que el usuario escribe, lo que falta se muestra en rojo. */
 .requisitos-box--activo li:not(.requisito-cumplido) {
   color: #d90429;
   font-weight: 600;

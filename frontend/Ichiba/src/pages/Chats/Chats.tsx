@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -12,18 +12,22 @@ import {
   type VentaConProducto,
   type Mensaje,
 } from "../../services/mensajeService";
-import { crearReporte } from "../../services/reporteService";
-import {
-  CATEGORIAS_REPORTE,
-  ELEMENTOS_REPORTE,
-} from "../../configuracion/categoriasReporte";
+import BotonReportar from "../../components/BotonReportar/BotonReportar";
+import CoordinacionEntrega from "../../components/CoordinacionEntrega/CoordinacionEntrega";
 import api, { URL_BACKEND } from "../../services/api";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
 import EtiquetaEstadoVenta from "../../components/EtiquetaEstadoVenta/EtiquetaEstadoVenta";
 import "./Chats.css";
 
-const TAMANIO_MAXIMO_IMAGEN = 5 * 1024 * 1024; // 5 MB (límite del backend)
-const TIPOS_IMAGEN_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
+const FORMATO_FECHA_CHAT = new Intl.DateTimeFormat("es-MX", {
+  timeZone: "America/Mexico_City",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
 
 type VentaConCalificacion = VentaConProducto & {
   calificacionComprador?: number | null;
@@ -75,24 +79,6 @@ function Chats() {
   const [cargandoVentas, setCargandoVentas] = useState(true);
   const [errorChat, setErrorChat] = useState("");
 
-  // Imagen adjunta pendiente de enviar
-  const [imagen, setImagen] = useState<File | null>(null);
-  const [previewImagen, setPreviewImagen] = useState<string | null>(null);
-  const inputImagenRef = useRef<HTMLInputElement>(null);
-
-  // Reporte de la conversación activa (ambos lados: comprador y vendedor)
-  const [mostrarReporte, setMostrarReporte] = useState(false);
-  const [reporteElemento, setReporteElemento] = useState(
-    ELEMENTOS_REPORTE[0].id,
-  );
-  const [reporteCategoria, setReporteCategoria] = useState(
-    CATEGORIAS_REPORTE[0].id,
-  );
-  const [reporteDetalle, setReporteDetalle] = useState("");
-  const [reporteError, setReporteError] = useState("");
-  const [reporteEnviando, setReporteEnviando] = useState(false);
-  const [reporteEnviado, setReporteEnviado] = useState(false);
-
   const [calificacionEnviando, setCalificacionEnviando] = useState(false);
   const [calificacionesEnviadas, setCalificacionesEnviadas] = useState<
     string[]
@@ -116,20 +102,8 @@ function Chats() {
       .finally(() => setCargandoVentas(false));
   }, [esVendedor, fetchVentas]);
 
-  const quitarImagen = useCallback(() => {
-    setPreviewImagen((imagenPrevia) => {
-      if (imagenPrevia) URL.revokeObjectURL(imagenPrevia);
-      return null;
-    });
-    setImagen(null);
-    if (inputImagenRef.current) inputImagenRef.current.value = "";
-  }, []);
-
   useEffect(() => {
     if (!ventaActivaId) return;
-
-    // Al cambiar de conversación se limpia el adjunto pendiente
-    quitarImagen();
 
     function cargarMensajes() {
       fetchMensajesFn(ventaActivaId as string)
@@ -137,9 +111,6 @@ function Chats() {
         .catch((error) => console.error("Error al cargar mensajes:", error));
     }
 
-    // RQNF4: el estado del escrow puede cambiar (el vendedor confirma el
-    // comprobante o registra la entrega), así que también se refresca para
-    // habilitar o deshabilitar el chat sin recargar la página.
     function actualizarVentas() {
       fetchVentas()
         .then((data) => setVentas(data))
@@ -154,13 +125,10 @@ function Chats() {
       actualizarVentas();
     }, 5000);
     return () => clearInterval(intervalo);
-  }, [ventaActivaId, fetchMensajesFn, fetchVentas, quitarImagen]);
+  }, [ventaActivaId, fetchMensajesFn, fetchVentas]);
 
   const ventaActiva = ventas.find((venta) => venta._id === ventaActivaId);
 
-  // RQNF24.2 / RQNF26 / RQNF29: el chat solo se escribe en `en_entrega`
-  // (mientras se revisa el comprobante queda bloqueado y al concluir o
-  // cancelarse la compra queda deshabilitado).
   const chatHabilitado = ventaActiva?.estado === "en_entrega";
 
   function motivoChatBloqueado(): string {
@@ -191,88 +159,28 @@ function Chats() {
     ? ventaActiva?.calificacionVendedor
     : ventaActiva?.calificacionComprador;
 
-  // RQF27: la calificación se hace después de confirmada la entrega.
   const puedeCalificar =
     !!ventaActiva &&
     ventaActiva.estado === "completada" &&
     !calificacionesEnviadas.includes(ventaActiva._id) &&
     typeof calificacionPropia !== "number";
 
-  function handleSeleccionImagen(e: React.ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
-    e.target.value = "";
-    if (!archivo) return;
-
-    if (!TIPOS_IMAGEN_PERMITIDOS.includes(archivo.type)) {
-      setErrorChat("Solo puedes adjuntar imágenes (jpg, png o webp)");
-      return;
-    }
-
-    if (archivo.size > TAMANIO_MAXIMO_IMAGEN) {
-      setErrorChat("La imagen no puede superar los 5 MB");
-      return;
-    }
-
-    quitarImagen();
-    setErrorChat("");
-    setImagen(archivo);
-    setPreviewImagen(URL.createObjectURL(archivo));
-  }
-
   async function handleEnviar(e: React.FormEvent) {
     e.preventDefault();
     const textoLimpio = texto.trim();
-    if ((!textoLimpio && !imagen) || !ventaActivaId) return;
+    if (!textoLimpio || !ventaActivaId) return;
 
     try {
-      await enviarMensajeFn(ventaActivaId, textoLimpio, imagen);
+      await enviarMensajeFn(ventaActivaId, textoLimpio);
       setTexto("");
-      quitarImagen();
       setErrorChat("");
       const data = await fetchMensajesFn(ventaActivaId);
       setMensajes(data);
     } catch (error) {
-      // Muestra errores de palabras prohibidas y de sanciones (bloqueos)
       setErrorChat(
         (axios.isAxiosError(error) && error.response?.data?.message) ||
           "Error al enviar el mensaje",
       );
-    }
-  }
-
-  function abrirReporte() {
-    setReporteError("");
-    setReporteEnviado(false);
-    setReporteDetalle("");
-    setMostrarReporte(true);
-  }
-
-  function cerrarReporte() {
-    setMostrarReporte(false);
-    setReporteError("");
-  }
-
-  async function handleReporte(e: React.FormEvent) {
-    e.preventDefault();
-    if (!ventaActivaId) return;
-
-    setReporteError("");
-    setReporteEnviando(true);
-    try {
-      await crearReporte({
-        ventaId: ventaActivaId,
-        elemento: reporteElemento,
-        categoria: reporteCategoria,
-        detalle: reporteDetalle.trim(),
-      });
-      setReporteEnviado(true);
-    } catch (err) {
-      setReporteError(
-        (axios.isAxiosError(err) && err.response?.data?.message) ||
-          "Error al enviar el reporte",
-      );
-    } finally {
-      setReporteEnviando(false);
     }
   }
 
@@ -346,13 +254,11 @@ function Chats() {
               <span className="chats__cabecera-nombre">
                 {ventaActiva?.productoId.nombre || "Conversación"}
               </span>
-              <button
-                type="button"
+              <BotonReportar
+                elementos={esVendedor ? ["cliente", "mensaje"] : ["vendedor", "mensaje"]}
+                ventaId={ventaActivaId}
                 className="chats__boton-reportar"
-                onClick={abrirReporte}
-              >
-                ⚠ Reportar
-              </button>
+              />
             </div>
 
             <div className="chats__mensajes">
@@ -360,17 +266,15 @@ function Chats() {
                 <BurbujaDeTexto
                   key={mensaje._id}
                   contenido={mensaje.contenido}
-                  imagen={mensaje.imagen}
+                  emisor={
+                    mensaje.remitente === "vendedor" ? "Vendedor" : "Comprador"
+                  }
                   esRemitente={
                     esVendedor
                       ? mensaje.remitente === "vendedor"
                       : mensaje.remitente === "comprador"
                   }
-                  horario={new Date(mensaje.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                  estadoLectura="leido"
+                  horario={FORMATO_FECHA_CHAT.format(new Date(mensaje.createdAt))}
                 />
               ))}
             </div>
@@ -378,15 +282,12 @@ function Chats() {
             {ventaActiva?.estado === "en_entrega" && (
               <div className="chats__entrega">
                 <p className="chats__nota-entrega">
-                  📦 Estás en la etapa de entrega: coordinen aquí el lugar, la
-                  fecha y la hora.{" "}
+                  📦 Estás en la etapa de entrega.{" "}
                   {esVendedor
                     ? "Cuando el comprador reciba el producto, pídele su código de confirmación de 4 dígitos y regístralo en tu panel, en «Ventas y entregas»."
                     : "Dale tu código de confirmación al vendedor únicamente cuando recibas el producto; con él se libera el dinero retenido."}
                 </p>
 
-                {/* RQNF24.4 / RQNF26: el código es del comprador; el vendedor
-                    nunca lo ve aquí, solo lo captura cuando se lo dan. */}
                 {!esVendedor && ventaActiva?.codigoEntrega && (
                   <div className="chats__codigo-entrega">
                     <span className="chats__codigo-titulo">
@@ -401,6 +302,13 @@ function Chats() {
                   </div>
                 )}
               </div>
+            )}
+
+            {ventaActiva?.estado === "en_entrega" && ventaActivaId && (
+              <CoordinacionEntrega
+                ventaId={ventaActivaId}
+                esVendedor={esVendedor}
+              />
             )}
 
             {puedeCalificar && (
@@ -446,44 +354,12 @@ function Chats() {
               <>
                 {errorChat && <p className="chats__error">{errorChat}</p>}
 
-                {previewImagen && (
-                  <div className="chats__adjunto-preview">
-                    <img src={previewImagen} alt="Imagen por enviar" />
-                    <button
-                      type="button"
-                      onClick={quitarImagen}
-                      aria-label="Quitar imagen adjunta"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-
                 <form className="chat-formulario" onSubmit={handleEnviar}>
-                  <input
-                    ref={inputImagenRef}
-                    type="file"
-                    accept="image/jpeg, image/png, image/webp"
-                    onChange={handleSeleccionImagen}
-                    hidden
-                  />
-                  <button
-                    type="button"
-                    className="chat-boton-adjuntar"
-                    onClick={() => inputImagenRef.current?.click()}
-                    aria-label="Adjuntar imagen"
-                    title="Adjuntar imagen (jpg, png o webp, máximo 5 MB)"
-                  >
-                    📎
-                  </button>
                   <input
                     type="text"
                     className="chat-input"
-                    placeholder={
-                      imagen
-                        ? "Añade un texto o envía la imagen..."
-                        : "Escribe un mensaje..."
-                    }
+                    placeholder="Escribe un mensaje..."
+                    maxLength={1000}
                     value={texto}
                     onChange={(e) => setTexto(e.target.value)}
                     aria-label="Escribe un mensaje"
@@ -491,7 +367,7 @@ function Chats() {
                   <button
                     type="submit"
                     className="chat-boton-enviar"
-                    disabled={!texto.trim() && !imagen}
+                    disabled={!texto.trim()}
                   >
                     Enviar
                   </button>
@@ -524,97 +400,6 @@ function Chats() {
         )}
       </section>
 
-      {mostrarReporte && (
-        <div className="chats__modal-fondo" onClick={cerrarReporte}>
-          <div
-            className="chats__modal"
-            onClick={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <h3>Reportar en esta conversación</h3>
-
-            {reporteEnviado ? (
-              <>
-                <p className="chats__modal-exito">
-                  Reporte enviado. Nuestro equipo lo revisará a la brevedad.
-                </p>
-                <div className="chats__modal-acciones">
-                  <button
-                    type="button"
-                    className="chats__boton-reportar"
-                    onClick={cerrarReporte}
-                  >
-                    Cerrar
-                  </button>
-                </div>
-              </>
-            ) : (
-              <form onSubmit={handleReporte}>
-                <label>
-                  ¿Qué quieres reportar?
-                  <select
-                    value={reporteElemento}
-                    onChange={(e) => setReporteElemento(e.target.value)}
-                  >
-                    {ELEMENTOS_REPORTE.map((op) => (
-                      <option key={op.id} value={op.id}>
-                        {op.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Categoría
-                  <select
-                    value={reporteCategoria}
-                    onChange={(e) => setReporteCategoria(e.target.value)}
-                  >
-                    {CATEGORIAS_REPORTE.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.nombre} ({cat.tipoFalta})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Detalle (opcional)
-                  <textarea
-                    rows={3}
-                    maxLength={1000}
-                    placeholder="Cuéntanos qué sucedió"
-                    value={reporteDetalle}
-                    onChange={(e) => setReporteDetalle(e.target.value)}
-                  />
-                </label>
-
-                {reporteError && (
-                  <p className="chats__modal-error">{reporteError}</p>
-                )}
-
-                <div className="chats__modal-acciones">
-                  <button
-                    type="button"
-                    className="chats__modal-cancelar"
-                    onClick={cerrarReporte}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="chats__boton-reportar"
-                    disabled={reporteEnviando}
-                  >
-                    {reporteEnviando ? "Enviando..." : "Enviar reporte"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,43 +4,24 @@ export type CategoriaReporte = {
   id: string;
   nombre: string;
   tipoFalta: TipoFalta;
-  /**
-   * RQNF10.1: puntos de infracción que suma la categoría a la reputación del
-   * vendedor cuando un administrador confirma el reporte:
-   *   - faltas graves: 3 puntos
-   *   - faltas leves de trato directo (faltas de respeto / lenguaje grosero): 1.5 puntos
-   *   - resto de faltas leves: 1 punto
-   */
   puntos: number;
-  /**
-   * RQNF35: las faltas graves de revisión inmediata (fraude comprobado,
-   * suplantación de identidad, amenazas y comprobantes falsos) suspenden la
-   * cuenta de forma indefinida y la mandan a revisión administrativa.
-   */
   revisionInmediata?: boolean;
 };
 
-/** Puntos por tipo de falta, para reportes sin categoría conocida. */
 export const PUNTOS_POR_TIPO_FALTA: Record<TipoFalta, number> = {
   grave: 3,
   leve: 1,
 };
 
-/** Elementos que se pueden reportar (qué es lo que el usuario flagrtea). */
 export const ELEMENTOS_REPORTABLES = [
+  "publicacion",
+  "vendedor",
   "mensaje",
-  "comentario",
-  "comprobante",
-  "estafa",
-  "producto",
-  "otro",
+  "cliente",
 ] as const;
 
-/**
- * Categorías predefinidas de reporte, al estilo de las redes sociales.
- * Cada categoría indica si genera una falta leve o una falta grave y cuántos
- * puntos de reputación (RQNF10.1) suma al confirmarse el reporte.
- */
+export const CATEGORIA_REVISION_MANUAL = "otro";
+
 export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
   {
     id: "falta_respeto",
@@ -71,7 +52,6 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Acoso, amenazas o intimidación",
     tipoFalta: "grave",
     puntos: 3,
-    // RQNF35: amenazas -> suspensión indefinida + revisión administrativa.
     revisionInmediata: true,
   },
   {
@@ -91,7 +71,6 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Comprobante de pago falso",
     tipoFalta: "grave",
     puntos: 3,
-    // RQNF35: comprobantes falsos -> suspensión indefinida + revisión.
     revisionInmediata: true,
   },
   {
@@ -99,21 +78,13 @@ export const CATEGORIAS_REPORTE: CategoriaReporte[] = [
     nombre: "Estafa o dinero no entregado",
     tipoFalta: "grave",
     puntos: 3,
-    // RQNF35: fraude comprobado -> suspensión indefinida + revisión.
     revisionInmediata: true,
-  },
-  {
-    id: "datos_falsos",
-    nombre: "Datos falsos (INE, correo o PayPal)",
-    tipoFalta: "grave",
-    puntos: 3,
   },
   {
     id: "suplantacion",
     nombre: "Suplantación de identidad",
     tipoFalta: "grave",
     puntos: 3,
-    // RQNF35: suplantación de identidad -> suspensión indefinida + revisión.
     revisionInmediata: true,
   },
   {
@@ -128,18 +99,10 @@ export function categoriaReporte(id: string): CategoriaReporte | null {
   return CATEGORIAS_REPORTE.find((categoria) => categoria.id === id) ?? null;
 }
 
-/**
- * RQNF35: ¿la categoría es una falta grave de revisión inmediata? (fraude
- * comprobado, suplantación de identidad, amenazas o comprobantes falsos).
- */
 export function categoriaRequiereRevisionInmediata(id: string): boolean {
   return categoriaReporte(id)?.revisionInmediata === true;
 }
 
-/**
- * RQNF10.1: puntos que suma un reporte según su categoría. Si la categoría
- * no existe (datos viejos), se usa el tipo de falta registrado en el reporte.
- */
 export function puntosDeCategoria(
   categoria: string,
   tipoFalta?: string | null,

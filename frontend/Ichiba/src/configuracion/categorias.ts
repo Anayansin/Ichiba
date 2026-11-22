@@ -1,4 +1,3 @@
-/** Categorías de productos (se compran dentro de la plataforma). */
 export const CATEGORIAS_PRODUCTO = [
   "Artesanias",
   "Ropa",
@@ -8,11 +7,6 @@ export const CATEGORIAS_PRODUCTO = [
   "Otros",
 ];
 
-/**
- * RQF8: las seis categorías predefinidas con el texto que ve el vendedor.
- * Los valores internos no cambian (las bases de datos, filtados y enlaces
- * `/inicio?categoria=artesanias` los usan tal cual).
- */
 export const CATEGORIAS_PRODUCTO_CON_TEXTO: { valor: string; texto: string }[] =
   [
     { valor: "Artesanias", texto: "Artesanías" },
@@ -23,7 +17,6 @@ export const CATEGORIAS_PRODUCTO_CON_TEXTO: { valor: string; texto: string }[] =
     { valor: "Otros", texto: "Otros" },
   ];
 
-/** Nombre para mostrar de una categoría de producto (si no existe, el valor). */
 export function textoCategoria(valor?: string): string {
   return (
     CATEGORIAS_PRODUCTO_CON_TEXTO.find((cat) => cat.valor === valor)?.texto ??
@@ -32,10 +25,6 @@ export function textoCategoria(valor?: string): string {
   );
 }
 
-/**
- * Tipos de promocionales: se anuncian en la plataforma pero la compra se
- * coordina fuera de ICHIBA (autos, casas, terrenos, joyas, etc.).
- */
 export const TIPOS_PROMOCIONAL = [
   { valor: "autos-y-vehiculos", texto: "Autos y vehículos" },
   { valor: "casas-y-propiedades", texto: "Casas y propiedades" },
@@ -46,7 +35,6 @@ export const TIPOS_PROMOCIONAL = [
   { valor: "otros", texto: "Otros" },
 ];
 
-/** Nombre para mostrar de un tipo de promocional (si no existe, "Otros"). */
 export function textoPromocional(valor?: string): string {
   return (
     TIPOS_PROMOCIONAL.find((tipo) => tipo.valor === valor)?.texto || "Otros"

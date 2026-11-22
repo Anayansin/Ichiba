@@ -1,14 +1,3 @@
-# Arranca ICHIBA completo sin permisos de administrador:
-#   1) MongoDB (27017) y PostgreSQL (5432)   -> herramientas\arrancar-bases.ps1
-#   2) Backend  (http://localhost:5000)
-#   3) Frontend (http://localhost:5173)
-#
-# Uso:  powershell -ExecutionPolicy Bypass -File herramientas\arrancar-ichiba.ps1
-#       (o haz doble clic en INICIAR-ICHIBA.cmd)
-#
-# Es idempotente: si algo ya esta corriendo no lo arranca otra vez, asi que se
-# puede ejecutar cuantas veces se quiera.
-
 $ErrorActionPreference = "Stop"
 
 $raiz = Split-Path -Parent $PSScriptRoot
@@ -34,10 +23,8 @@ function Esperar-Puerto([int]$puerto, [int]$segundos = 90) {
   return $false
 }
 
-# ---------- 1. Bases de datos ----------
 & (Join-Path $PSScriptRoot "arrancar-bases.ps1")
 
-# ---------- 2. Backend ----------
 if (Esta-Escuchando 5000) {
   Write-Host "Backend ya corriendo en http://localhost:5000"
 } else {
@@ -54,7 +41,6 @@ if (Esta-Escuchando 5000) {
   }
 }
 
-# ---------- 3. Frontend ----------
 if (Esta-Escuchando 5173) {
   Write-Host "Frontend ya corriendo en http://localhost:5173"
 } else {
@@ -71,7 +57,6 @@ if (Esta-Escuchando 5173) {
   }
 }
 
-# ---------- 4. Comprobaciones ----------
 if (Esta-Escuchando 5000) {
   try {
     $salud = Invoke-RestMethod -Uri "http://localhost:5000/api/salud" -TimeoutSec 10

@@ -17,10 +17,8 @@ export type Producto = {
   horarioEntregaFin?: string;
   tiempoLimitePago?: number;
   activo: boolean;
-  /** true si el vendedor está dentro de su horario de atención (catálogo paginado). */
   vendedorAtendiendo?: boolean;
-  /** Método de pago del vendedor (lo envía GET /productos/:id). */
-  metodoPagoVendedor?: "paypal" | "mercadopago";
+  proximoBloqueVendedor?: string | null;
 };
 
 export type NuevoProducto = {
@@ -38,7 +36,6 @@ export type NuevoProducto = {
 };
 
 export type FiltroProductos = {
-  /** Texto libre del buscador (nombre, descripción, categoría o vendedor). */
   q?: string;
   categoria?: string;
   vendedorId?: string;
@@ -46,7 +43,6 @@ export type FiltroProductos = {
   precioMax?: number;
 };
 
-/** Respuesta paginada del catálogo (GET /productos?pagina=...&porPagina=...). */
 export type PaginaProductos = {
   productos: Producto[];
   pagina: number;
@@ -73,11 +69,6 @@ export async function fetchProductos(
   return response.data;
 }
 
-/**
- * Pide una página del catálogo. Se usa desde el scroll infinito de Inicio:
- * la primera página se carga al entrar y las siguientes cuando el centinela
- * entra en el viewport.
- */
 export async function fetchProductosPaginados(
   filtro: FiltroProductos = {},
   pagina = 1,

@@ -4,19 +4,6 @@ import { verificarToken } from "../middleware/auth.js";
 import { esAdmin } from "../middleware/esAdmin.js";
 import { crearServidorMcp } from "./servidorMcp.js";
 
-/**
- * Fase 5 — Transporte HTTP (Streamable HTTP) del servidor MCP.
- *
- * Se monta en `/mcp` del backend. Cada petición POST crea un servidor MCP y un
- * transporte sin sesión (modo stateless): así funciona detrás de cualquier
- * proxy y no guarda estado en memoria. El acceso está restringido a
- * administradores con token JWT, igual que el resto del BackOffice.
- *
- * Ejemplo de conexión (JSON-RPC 2.0):
- *   POST /mcp  (header Authorization: Bearer <token de admin>)
- *   {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
- */
-
 export const rutasMcp = Router();
 
 rutasMcp.post(
@@ -54,10 +41,6 @@ rutasMcp.post(
   },
 );
 
-/**
- * El transporte stateless no ofrece streams SSE de servidor a cliente: las
- * peticiones GET y DELETE del protocolo no se usan.
- */
 function metodoNoPermitido(res: Response) {
   res.status(405).json({
     jsonrpc: "2.0",

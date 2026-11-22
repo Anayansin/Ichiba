@@ -9,25 +9,11 @@ import {
   type UsuarioResumido,
 } from "../services/resumenAdminService.js";
 
-/**
- * Fase 4 — BackOffice en vivo con GraphQL Subscriptions.
- *
- * Pub/sub en proceso (sin dependencias extra): cada cambio relevante del
- * backoffice emite un evento en un canal y las suscripciones GraphQL activas
- * lo reciben al instante. El payload de `resumenAdmin` se recalcula fresco en
- * el resolver de la suscripción; los demás canales llevan el evento ya armado.
- *
- * Ninguna función de publicación puede tumbar la operación principal: si algo
- * falla al calcular o emitir, solo se registra en consola.
- */
-
 export const CANAL_RESUMEN_ADMIN = "resumenAdmin";
 export const CANAL_REPORTES_PENDIENTES = "reportesPendientes";
 export const CANAL_USUARIOS_ADMIN = "usuariosAdmin";
 export const CANAL_LISTA_NEGRA = "listaNegraActualizada";
-// RQNF1.9: solicitudes de revisión de un alta denegada.
 export const CANAL_SOLICITUDES_REGISTRO = "solicitudesRegistro";
-// RQF40 / RQNF32: disputas de reembolso y retenciones preventivas.
 export const CANAL_DISPUTAS = "disputasActualizadas";
 
 export type TipoEventoReporte = "creado" | "resuelto" | "rechazado";
@@ -38,10 +24,8 @@ export type TipoEventoUsuario =
   | "puntos"
   | "cancelada"
   | "purgada"
-  // RQNF33 / RQNF34 / RQNF35: faltas, bloqueos y revisiones administrativas.
   | "sancion"
   | "desbloqueado"
-  // RQNF37 / RQNF38: adeudos del vendedor y sus liquidaciones.
   | "adeudo"
   | "adeudo_liquidado";
 export type TipoEventoListaNegra = "agregada" | "quitada";
@@ -50,14 +34,12 @@ export type TipoEventoDisputa =
   | "respondida"
   | "reembolsada"
   | "rechazada"
-  // RQNF32: retención preventiva puesta o retirada de una venta.
   | "retencion"
   | "retencion_liberada";
 
 export type EventoReportePublicado = {
   tipo: TipoEventoReporte;
   mensaje: string;
-  /** Reportes que siguen pendientes de revisión tras el cambio. */
   pendientes: number;
   generadoEn: string;
 };
@@ -72,7 +54,6 @@ export type EventoUsuarioPublicado = {
 export type EventoListaNegraPublicado = {
   tipo: TipoEventoListaNegra;
   mensaje: string;
-  /** Entradas que tiene la lista negra tras el cambio. */
   entradas: number;
   generadoEn: string;
 };
@@ -80,16 +61,13 @@ export type EventoListaNegraPublicado = {
 export type EventoDisputaPublicado = {
   tipo: TipoEventoDisputa;
   mensaje: string;
-  /** Disputas que siguen abiertas tras el cambio. */
   abiertas: number;
   generadoEn: string;
 };
 
-/** RQNF1.9: aviso de una solicitud de revisión de un alta denegada. */
 export type EventoSolicitudRegistroPublicado = {
   tipo: "creada" | "revisada";
   mensaje: string;
-  /** Solicitudes que siguen pendientes de revisión. */
   pendientes: number;
   generadoEn: string;
 };
@@ -97,13 +75,8 @@ export type EventoSolicitudRegistroPublicado = {
 type Oyente = (evento: unknown) => void;
 
 const emisor = new EventEmitter();
-// Sin límite de oyentes: cada pestaña del BackOffice es una suscripción.
 emisor.setMaxListeners(0);
 
-/**
- * Iterador asíncrono respaldado por el EventEmitter: es lo que consumen los
- * resolvers de `Subscription` para entregar cada evento al cliente.
- */
 export function suscribirseAlCanal(canal: string): AsyncIterableIterator<unknown> {
   const pendientes: unknown[] = [];
   let resolverSiguiente:
@@ -148,7 +121,6 @@ export function suscribirseAlCanal(canal: string): AsyncIterableIterator<unknown
   };
 }
 
-/** Señal de que el resumen del dashboard debe recalcularse. */
 export function publicarResumenAdmin(): void {
   try {
     emisor.emit(CANAL_RESUMEN_ADMIN, {
@@ -162,7 +134,6 @@ export function publicarResumenAdmin(): void {
   }
 }
 
-/** Evento de reportes: se creó uno nuevo o se resolvió/rechazó uno existente. */
 export async function publicarReportesPendientes(
   tipo: TipoEventoReporte,
   mensaje: string,
@@ -185,7 +156,6 @@ export async function publicarReportesPendientes(
   }
 }
 
-/** Evento de usuarios: registro, suspensión, reactivación, puntos o purga. */
 export async function publicarEventoUsuario(
   tipo: TipoEventoUsuario,
   mensaje: string,
@@ -206,7 +176,6 @@ export async function publicarEventoUsuario(
   }
 }
 
-/** Evento de lista negra: entrada agregada o quitada. */
 export async function publicarListaNegraActualizada(
   tipo: TipoEventoListaNegra,
   mensaje: string,
@@ -227,10 +196,7 @@ export async function publicarListaNegraActualizada(
   }
 }
 
-/**
- * RQF40 / RQNF32: evento de disputas y retenciones preventivas; incluye
- * cuántas disputas siguen abiertas tras el cambio.
- */export async function publicarDisputasActualizadas(
+export async function publicarDisputasActualizadas(
   tipo: TipoEventoDisputa,
   mensaje: string,
 ): Promise<void> {
@@ -250,10 +216,6 @@ export async function publicarListaNegraActualizada(
   }
 }
 
-/**
- * RQNF1.9: evento de solicitudes de revisión de altas denegadas; el BackOffice
- * las ve al instante sin tener que recargar.
- */
 export async function publicarSolicitudRevisionRegistrada(
   solicitud: {
     id: string;

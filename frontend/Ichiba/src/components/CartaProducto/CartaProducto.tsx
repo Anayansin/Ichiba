@@ -7,8 +7,8 @@ type CartaProductoProps = {
   nombre: string;
   precio: number;
   imagenes: string[];
-  /** true si el vendedor está dentro de su horario de atención. */
   atendiendo?: boolean;
+  proximoBloque?: string | null;
 };
 
 function CartaProducto({
@@ -17,6 +17,7 @@ function CartaProducto({
   precio,
   imagenes,
   atendiendo = true,
+  proximoBloque = null,
 }: CartaProductoProps) {
   const claseAtencion = atendiendo
     ? "CartaProducto--atendiendo"
@@ -24,22 +25,28 @@ function CartaProducto({
 
   return (
     <Link to={`/producto/${id}`} className="CartaProducto__Link">
-      <div
-        className={`CartaProducto ${claseAtencion}`}
-        title={
-          atendiendo
-            ? "El vendedor está en horario de atención"
-            : "El vendedor está fuera de horario de atención"
-        }
-      >
-        <img
-          src={`${URL_BACKEND}${imagenes[0]}`}
-          alt={nombre}
-          className="CartaProducto__Imagen"
-        />
+      <article className={`CartaProducto ${claseAtencion}`}>
+        <div className="CartaProducto__Marco">
+          <img
+            src={`${URL_BACKEND}${imagenes[0]}`}
+            alt={nombre}
+            className="CartaProducto__Imagen"
+            loading="lazy"
+          />
+          <div className="CartaProducto__Disponibilidad" role="status">
+            {atendiendo ? (
+              <strong>Disponible</strong>
+            ) : (
+              <>
+                <strong>Inactivo por horario</strong>
+                {proximoBloque && <span>Atiende {proximoBloque}</span>}
+              </>
+            )}
+          </div>
+        </div>
         <h3 className="CartaProducto__Nombre">{nombre}</h3>
         <p className="CartaProducto__Precio">${precio}</p>
-      </div>
+      </article>
     </Link>
   );
 }

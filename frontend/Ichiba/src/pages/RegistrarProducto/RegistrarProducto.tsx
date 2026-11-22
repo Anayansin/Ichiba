@@ -15,8 +15,6 @@ import {
   CATEGORIAS_PRODUCTO,
   textoCategoria,
 } from "../../configuracion/categorias";
-// RQNF10.1: detección inmediata, con la misma lista y normalización que el
-// backend (que sigue siendo la autoridad al enviar).
 import {
   contienePalabrasProhibidas,
   mensajePalabrasNoPermitidas,
@@ -33,8 +31,6 @@ function RegistrarProducto() {
 
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
-  // RQF8/RQNF8.1: la categoría arranca vacía; el vendedor debe seleccionar
-  // una de las seis categorías predefinidas antes de publicar.
   const [categoria, setCategoria] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [condicion, setCondicion] = useState(CONDICIONES_PRODUCTO[0].valor);
@@ -45,7 +41,6 @@ function RegistrarProducto() {
   const [archivos, setArchivos] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState("");
-  // RQNF8: campo de texto que el backend señaló con palabras no permitidas.
   const [campoError, setCampoError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -83,8 +78,6 @@ function RegistrarProducto() {
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // RQNF10.1: en cuanto el texto de un campo contiene una palabra no
-  // permitida aparece la alerta roja bajo ese campo; al corregirla desaparece.
   function revisarEnVivo(campo: string, texto: string) {
     if (contienePalabrasProhibidas(texto)) {
       setCampoError(campo);
@@ -100,7 +93,6 @@ function RegistrarProducto() {
     setError("");
     setCampoError(null);
 
-    // RQNF10: no se envía contenido con palabras no permitidas.
     const camposTexto: Array<[string, string]> = [
       ["nombre", nombre],
       ["descripcion", descripcion],
@@ -172,8 +164,6 @@ function RegistrarProducto() {
       formData.append("categoria", categoria);
       formData.append("descripcion", descripcion);
       formData.append("condicion", condicion);
-      // El formulario tiene un solo campo de "Condiciones de uso"; se envía
-      // también en `condicionUso` porque el backend lo usa para las etiquetas.
       formData.append("condicionUso", condicion);
       formData.append("metodoEntrega", metodoEntrega);
       formData.append("horarioEntregaInicio", horarioEntregaInicio);
@@ -188,7 +178,6 @@ function RegistrarProducto() {
       const mensaje = mensajeDeError(err) || "Error al publicar el producto";
       setError(mensaje);
       setCampoError(campo);
-      // RQNF8.2: el usuario corrige el contenido señalado y vuelve a enviar.
       if (campo) {
         document.getElementById(`campo-${campo}`)?.focus();
       }
@@ -394,8 +383,6 @@ function RegistrarProducto() {
           )}
         </div>
 
-        {/* Solo se bloquea mientras se envía: si algo falta, al pulsar el
-            botón aparece el mensaje exacto en vez de no pasar nada. */}
         <Boton
           texto={cargando ? "Publicando..." : "Publicar producto"}
           onClick={() => {}}

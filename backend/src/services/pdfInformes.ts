@@ -1,11 +1,5 @@
 import PDFDocument from "pdfkit";
 
-/**
- * RQF13 / RQNF13.3 / RQF14: los informes mensuales se descargan en PDF.
- * El PDF se arma al momento de la descarga a partir del informe guardado, por
- * lo que el historial completo puede descargarse en cualquier momento.
- */
-
 const MARGEN = 50;
 const ANCHO_UTIL = 595.28 - MARGEN * 2;
 const COLOR_ROJO = "#d90429";
@@ -131,7 +125,6 @@ export type InformeVendedorPdf = {
   tiempoPromedioFilaMinutos: number | null;
 };
 
-/** RQF13 / RQNF13.3: PDF del informe mensual de ventas del vendedor. */
 export function pdfDeInformeVendedor(
   informe: InformeVendedorPdf,
   vendedor: { nombreCompleto: string; correo: string },
@@ -216,7 +209,6 @@ export type InformeGlobalPdf = {
   }[];
 };
 
-/** RQF14: PDF del informe global mensual de la plataforma (administrador). */
 export function pdfDeInformeGlobal(informe: InformeGlobalPdf): Promise<Buffer> {
   const documento = new PDFDocument({ size: "A4", margin: MARGEN });
 

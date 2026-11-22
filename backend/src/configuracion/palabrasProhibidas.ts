@@ -1,13 +1,4 @@
-/**
- * Palabras que no pueden ingresarse en ningún campo abierto del proyecto
- * (registro, productos, mensajes, reportes, notificaciones, etc.).
- *
- * El filtro (utils/filtroPalabras.ts) normaliza mayúsculas, acentos,
- * letras repetidas y formas evadidas con puntos o espacios, así que aquí
- * alcanza con escribir la forma base de cada palabra.
- */
 export const PALABRAS_PROHIBIDAS: string[] = [
-  // Insultos directos
   "puto",
   "puta",
   "putos",
@@ -100,7 +91,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "pendejadas",
   "mamarracho",
   "mamarracha",
-  // Vulgaridades y lenguaje sexual
   "verga",
   "vergas",
   "culo",
@@ -125,7 +115,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "mamada",
   "mamadas",
   "mamaste",
-  // Groserías y expresiones fuertes
   "chingar",
   "chingada",
   "chingadas",
@@ -149,7 +138,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "alv",
   "ptm",
   "ctm",
-  // Abreviaturas y formas evadidas
   "pto",
   "ptas",
   "pndjo",
@@ -174,7 +162,6 @@ export const PALABRAS_PROHIBIDAS: string[] = [
   "imbcls",
   "trdo",
   "culr",
-  // Inglés (común en redes sociales)
   "fuck",
   "fucker",
   "fuckers",

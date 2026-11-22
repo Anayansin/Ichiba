@@ -18,10 +18,6 @@
   margin-bottom: 1.2rem;
 }
 
-/*
- * El menú es una cuadrícula: las ocho secciones se ven siempre completas,
- * también en pantallas angostas, sin scroll horizontal ni botones cortados.
- */
 .admin__menu {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

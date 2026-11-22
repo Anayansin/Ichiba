@@ -23,36 +23,11 @@ import {
   publicarResumenAdmin,
 } from "../graphql/suscripciones.js";
 
-/**
- * RQF40 / RQNF32: disputas de reembolso y retenciones preventivas del escrow.
- *
- * Flujo aprobado:
- *
- *   1. El comprador abre la disputa desde «Mis pedidos» (solo en ventas
- *      `en_entrega` o `completada`) con motivo, descripción y evidencias
- *      (comprobante, fotografías del producto, capturas del chat).
- *   2. Mientras la disputa siga abierta el pago queda retenido (RQNF32): el
- *      vendedor no puede liberar la captura del escrow.
- *   3. El vendedor responde con sus propias evidencias y la administración
- *      revisa todo en la sección «Disputas» del BackOffice y dictamina:
- *      reembolsar al comprador (con adeudo al vendedor por su culpa directa,
- *      RQNF37) o rechazar la disputa.
- *   4. Las ventas retenidas por reportes (RQNF32) o porque el reembolso
- *      automático falló se resuelven en esa misma sección: reembolsar o
- *      retirar la retención.
- *
- * Una retención solo se retira cuando ya no queda ninguna disputa abierta ni
- * reportes vivos (pendientes o confirmados) sobre la venta; así una venta con
- * varias irregularidades no se libera por resolver solo una de ellas.
- */
-
 export const DISPUTAS_POR_PAGINA = 10;
 export const MAX_EVIDENCIAS = 5;
 
-/** RQF40: solo se puede disputar una compra en entrega o ya completada. */
 export const ESTADOS_VENTA_DISPUTABLES = ["en_entrega", "completada"];
 
-/** RQNF32: ventas cuyo pago aún no se ha liberado al vendedor. */
 export const ESTADOS_VENTA_PRE_ENTREGA = [
   "pendiente_comprobante",
   "pendiente_confirmacion",
@@ -70,7 +45,6 @@ export type DisputaSerializada = {
   monto: number;
   motivo: string;
   descripcion: string | null;
-  /** RQF40: rutas autorizadas de las evidencias del comprador (para verlas). */
   evidenciasComprador: string[];
   respuestaVendedor: string | null;
   evidenciasVendedor: string[];
@@ -80,7 +54,6 @@ export type DisputaSerializada = {
   resueltaPor: string | null;
   notaAdmin: string | null;
   reembolsoId: string | null;
-  /** Estado de la venta en el escrow (en_entrega, completada, …). */
   ventaEstado: string | null;
   fecha: Date;
 };
@@ -95,11 +68,8 @@ export type VentaRetenidaSerializada = {
   vendedorId: number;
   vendedorNombre: string;
   canceladoMotivo: string | null;
-  /** RQNF32: hay una disputa abierta sobre esta venta. */
   tieneDisputaAbierta: boolean;
-  /** RQNF32: reportes pendientes de revisión sobre la venta. */
   reportesPendientes: number;
-  /** RQNF32: reportes ya confirmados cuya resolución administrativa falta. */
   reportesConfirmados: number;
   fecha: Date;
 };
@@ -160,7 +130,6 @@ function serializarDisputa(
   };
 }
 
-/** Nombre visible de un administrador (para registrar quién dictaminó). */
 async function nombreDelAdmin(adminId: number | null): Promise<string> {
   if (adminId === null) return "Administración de Ichiba";
   const cuenta = await clientePrisma.usuario.findUnique({
@@ -172,7 +141,6 @@ async function nombreDelAdmin(adminId: number | null): Promise<string> {
     : `Administrador #${adminId}`;
 }
 
-/** RQNF32: marca la retención preventiva de la venta (PostgreSQL y espejo). */
 async function retenerVenta(venta: VentaEscrow, origen: string): Promise<void> {
   if (venta.retenido) return;
 
@@ -187,7 +155,6 @@ async function retenerVenta(venta: VentaEscrow, origen: string): Promise<void> {
   );
 }
 
-/** Reportes de una venta que todavía no fueron rechazados. */
 async function reportesVivosDeVenta(ventaIdPg: number): Promise<number> {
   const reportes = await clientePrisma.reporte.findMany({
     where: { ventaId: String(ventaIdPg) },
@@ -196,11 +163,6 @@ async function reportesVivosDeVenta(ventaIdPg: number): Promise<number> {
     .length;
 }
 
-/**
- * RQNF32: marca la venta como retenida al crearse un reporte sobre ella. Solo
- * aplica a ventas cuyo pago aún no se liberó al vendedor (antes de la
- * confirmación de entrega); el llamador ya validó el reporte.
- */
 export async function marcarVentaRetenidaPorReporte(
   ventaIdPg: number,
 ): Promise<boolean> {
@@ -221,11 +183,6 @@ export async function marcarVentaRetenidaPorReporte(
   return true;
 }
 
-/**
- * RQNF32: retira la retención preventiva de una venta cuando ya no queda
- * ninguna disputa abierta ni reportes vivos sobre ella. Devuelve `true` si la
- * retención se retiró.
- */
 export async function liberarRetencionSiCorresponde(
   ventaIdPg: number,
 ): Promise<boolean> {
@@ -255,15 +212,6 @@ export async function liberarRetencionSiCorresponde(
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Disputas (RQF40)
-// ---------------------------------------------------------------------------
-
-/**
- * RQF40: el comprador abre la disputa de una compra en entrega o completada.
- * El pago queda retenido mientras siga abierta (RQNF32) y el vendedor recibe
- * el aviso con el motivo y la descripción.
- */
 export async function crearDisputa(datos: {
   compradorId: string;
   ventaId: unknown;
@@ -345,7 +293,6 @@ export async function crearDisputa(datos: {
     evidenciasComprador: evidencias,
   });
 
-  // RQNF32: mientras la disputa siga abierta el pago queda retenido.
   await retenerVenta(venta, "disputa");
 
   const contacto = await contactoDelVendedor(Number(venta.vendedorId));
@@ -384,10 +331,6 @@ export async function crearDisputa(datos: {
   };
 }
 
-/**
- * RQF40: el vendedor responde la disputa con su versión y sus propias
- * evidencias. La administración revisa ambas partes antes de dictaminar.
- */
 export async function responderDisputa(datos: {
   vendedorId: number;
   disputaId: unknown;
@@ -472,7 +415,6 @@ export async function responderDisputa(datos: {
   };
 }
 
-/** RQF40: disputas de un comprador (para «Mis pedidos»). */
 export async function listarDisputasDeComprador(
   compradorId: string,
 ): Promise<DisputaSerializada[]> {
@@ -491,7 +433,6 @@ export async function listarDisputasDeComprador(
   );
 }
 
-/** RQF40: disputas de un vendedor (para su panel de ventas). */
 export async function listarDisputasDeVendedor(
   vendedorId: number,
 ): Promise<DisputaSerializada[]> {
@@ -526,16 +467,6 @@ async function estadosDeVentas(
   return estados;
 }
 
-/**
- * RQF40: el administrador dictamina la disputa.
- *
- *  - `reembolsar`: se devuelve el dinero al comprador aunque la venta esté
- *    completada o retenida; como el reembolso es por culpa directa del
- *    vendedor, se registra su adeudo y queda suspendido con saldo pendiente
- *    (RQNF37 / RQNF38).
- *  - `rechazar`: se retira la retención preventiva (si ya no hay otras
- *    disputas abiertas ni reportes vivos sobre la venta).
- */
 export async function resolverDisputaAdmin(
   id: unknown,
   dictamen: unknown,
@@ -578,8 +509,6 @@ export async function resolverDisputaAdmin(
   let reembolsoId: string | null = null;
 
   if (dictamen === "reembolsar") {
-    // RQNF32 + RQNF37: se reembolsa aunque esté retenida o completada y, por
-    // ser culpa directa del vendedor, se registra su adeudo.
     const resultado = await cancelarEscrow(venta, {
       motivo: `Disputa resuelta a favor del comprador: ${disputa.motivo}`,
       resolverRetencion: true,
@@ -604,8 +533,6 @@ export async function resolverDisputaAdmin(
   if (reembolsoId) disputa.reembolsoId = reembolsoId;
   await disputa.save();
 
-  // RQNF32: al rechazar se intenta retirar la retención; si hay más
-  // irregularidades vivas sobre la venta, la retención continúa.
   const retencionLiberada = reembolsada
     ? true
     : await liberarRetencionSiCorresponde(Number(disputa.ventaIdPg));
@@ -678,11 +605,6 @@ export async function resolverDisputaAdmin(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Ventas retenidas y adeudos (RQNF32 / RQNF37 / RQNF38)
-// ---------------------------------------------------------------------------
-
-/** Acepta el id numérico de PostgreSQL o el ObjectId del espejo de Mongo. */
 async function cargarVentaFlexible(idVenta: unknown): Promise<VentaEscrow | null> {
   const texto = String(idVenta ?? "").trim();
 
@@ -708,15 +630,6 @@ async function cargarVentaFlexible(idVenta: unknown): Promise<VentaEscrow | null
   return null;
 }
 
-/**
- * RQF40 / RQNF32: resuelve una venta con retención preventiva que no tiene
- * una disputa abierta (retenida por un reporte o porque el reembolso
- * automático falló):
- *
- *  - `reembolsar`: se devuelve el dinero al comprador; si se indica
- *    `causaAdeudo`, además se registra el adeudo del vendedor (RQNF37).
- *  - `liberar`: se retira la retención y la venta continúa su flujo normal.
- */
 export async function resolverVentaRetenidaAdmin(
   idVenta: unknown,
   opciones: {
@@ -822,10 +735,6 @@ export async function resolverVentaRetenidaAdmin(
   };
 }
 
-/**
- * RQF40 / RQNF32: listado del BackOffice con las disputas (paginadas) y todas
- * las ventas con retención preventiva pendiente de resolver.
- */
 export async function listarDisputasAdmin(
   opciones: { pagina?: number; porPagina?: number; estado?: string } = {},
 ): Promise<ListadoDisputas> {
