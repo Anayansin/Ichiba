@@ -4,146 +4,22 @@ import path from "path";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { Producto } from "../src/models/producto.js";
-import { Promocional, CONDICIONES_USO_PROMOCIONAL } from "../src/models/Promocional.js";
+import { Promocional } from "../src/models/Promocional.js";
 import {
   CATEGORIAS_PRODUCTO,
   CATEGORIAS_PROMOCIONAL,
 } from "../src/configuracion/categorias.js";
 import { campoConPalabrasProhibidas } from "../src/utils/filtroPalabras.js";
+import { validarPassword } from "../src/utils/validarPassword.js";
 import clientePrisma from "../src/configuracion/prisma.js";
 
-const MARCA_SEMILLA = true;
-const ARTICULOS_POR_CATEGORIA = 5;
-const RUTA_UPLOADS = path.join(process.cwd(), "uploads");
+export const PASSWORD_DEMO = "Ichiba#Demo2026";
+export const CORREO_ADMIN = "admin@ichiba.test";
 
-type Vendedor = { id: string; nombre: string };
+const COLECCIONES_CONSERVADAS = new Set(["ejecuciontareas"]);
+const CARPETA_IMAGENES = path.join(process.cwd(), "public", "uploads");
 
-type ProductoSemilla = {
-  categoria: (typeof CATEGORIAS_PRODUCTO)[number];
-  nombre: string;
-  descripcion: string;
-  precio: number;
-};
-
-type PromocionalSemilla = {
-  categoria: (typeof CATEGORIAS_PROMOCIONAL)[number];
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  coberturaEnvio: string;
-};
-
-const PRODUCTOS: ProductoSemilla[] = [
-  { categoria: "Artesanias", nombre: "Tejido a mano de palma de río", descripcion: "Cesta tejida a mano por artesanos de la región, ideal para llevar frutas o como pieza decorativa.", precio: 480 },
-  { categoria: "Artesanias", nombre: "Barro negro de Santa María", descripcion: "Pieza de cerámica pulida a mano con acabado negro tradicional, resistente y apta para alimentos.", precio: 650 },
-  { categoria: "Artesanias", nombre: "Máscara de madera tallada", descripcion: "Máscara tallada en madera de copal y pintada a mano, una pieza única para tu sala o estudio.", precio: 920 },
-  { categoria: "Artesanias", nombre: "Sombrero de palma tejido", descripcion: "Sombrero ligero tejido en palma natural con ala ancha, perfecto para el sol y los viajes.", precio: 390 },
-  { categoria: "Artesanias", nombre: "Cerámica esmaltada artesanal", descripcion: "Juego de tres tazas de cerámica esmaltadas a mano, cada una con un color y una textura distinta.", precio: 540 },
-  { categoria: "Ropa", nombre: "Vestido de algodón bordado", descripcion: "Vestido largo de algodón con bordados florales hechos a mano, cómodo para clima cálido.", precio: 780 },
-  { categoria: "Ropa", nombre: "Camisa de lino para hombre", descripcion: "Camisa de lino natural de corte clásico, fresca y elegante para la oficina o el fin de semana.", precio: 620 },
-  { categoria: "Ropa", nombre: "Bufanda de lana tejida a mano", descripcion: "Bufanda de lana abrigadora tejida a mano, con flecos terminados a mano y tonos tierra.", precio: 350 },
-  { categoria: "Ropa", nombre: "Falda de cuero artesanal", descripcion: "Falda de cuero real con costuras reforzadas, corte recto y cintura alta para uso diario.", precio: 1450 },
-  { categoria: "Ropa", nombre: "Chamarra vaquera clásica", descripcion: "Chamarra de mezclilla azul con botones metálicos, abrigadora y con bolsillos amplios.", precio: 990 },
-  { categoria: "Hogar", nombre: "Mantel de tela cuadriculado", descripcion: "Mantel de algodón con cuadros clásicos, mide 1.50 metros y resiste múltiples lavados.", precio: 320 },
-  { categoria: "Hogar", nombre: "Juego de cojines decorativos", descripcion: "Cuatro cojines rellenos de algodón con fundas lavables, ideales para sofá o sillón.", precio: 560 },
-  { categoria: "Hogar", nombre: "Lámpara de mesa artesanal", descripcion: "Lámpara de mesa con base de cerámica y pantalla de tela, luz cálida para tu escritorio.", precio: 740 },
-  { categoria: "Hogar", nombre: "Cortinas de algodón natural", descripcion: "Cortinas de algodón crudo que dejan pasar la luz suave, con ojales para vara o riel.", precio: 480 },
-  { categoria: "Hogar", nombre: "Set de toallas de algodón", descripcion: "Cuatro toallas de algodón peinado de alta absorción, disponibles en varios colores.", precio: 430 },
-  { categoria: "Electrodomesticos", nombre: "Licuadora de vaso 1.5 litros", descripcion: "Licuadora con vaso de vidrio de 1.5 litros, tres velocidades y base antideslizante.", precio: 1180 },
-  { categoria: "Electrodomesticos", nombre: "Tostadora de pan doble", descripcion: "Tostadora de dos ranuras con control de dorado y bandeja para migajas extraíble.", precio: 640 },
-  { categoria: "Electrodomesticos", nombre: "Cafetera de gota programable", descripcion: "Cafetera con programador horario de 12 horas, jarra térmica y filtro reutilizable.", precio: 1350 },
-  { categoria: "Electrodomesticos", nombre: "Ventilador de torre silencioso", descripcion: "Ventilador de torre con temporizador, tres velocidades y giro automático silencioso.", precio: 980 },
-  { categoria: "Electrodomesticos", nombre: "Hervidor eléctrico de acero", descripcion: "Hervidor de acero inoxidable de 1.7 litros con corte automático y apagado por seguridad.", precio: 520 },
-  { categoria: "Coleccionables", nombre: "Figura de vinilo coleccionable", descripcion: "Figura de vinilo de 20 centímetros con caja original, edición especial y sin abrir.", precio: 850 },
-  { categoria: "Coleccionables", nombre: "Tarjetas de béisbol vintage", descripcion: "Lote de diez tarjetas de béisbol de los años ochenta en buen estado de conservación.", precio: 760 },
-  { categoria: "Coleccionables", nombre: "Moneda antigua de plata", descripcion: "Moneda de plata acuñada en 1958, conserva sus detalles nítidos y llega en estuche protector.", precio: 1250 },
-  { categoria: "Coleccionables", nombre: "Reloj de cuerda de los 70", descripcion: "Reloj mecánico de cuerda de los años setenta, funciona perfecto con su correa original.", precio: 1890 },
-  { categoria: "Coleccionables", nombre: "Álbum de estampas antiguas", descripcion: "Álbum completo con más de doscientas estampas antiguas ordenadas por tema y época.", precio: 670 },
-  { categoria: "Otros", nombre: "Kit de jardinería para casa", descripcion: "Kit con herramientas de metal, guantes de trabajo y semillas para cultivar plantas en casa.", precio: 590 },
-  { categoria: "Otros", nombre: "Bicicleta urbana restaurada", descripcion: "Bicicleta de ciudad restaurada con cambios, frenos nuevos y canasta frontal de mimbre.", precio: 2850 },
-  { categoria: "Otros", nombre: "Mochila de viaje impermeable", descripcion: "Mochila de 40 litros impermeable con compartimento para portátil y cierre reforzado.", precio: 720 },
-  { categoria: "Otros", nombre: "Rompecabezas de 1000 piezas", descripcion: "Rompecabezas de paisaje con mil piezas, cartón grueso y bolsa intermedia para guardar.", precio: 380 },
-  { categoria: "Otros", nombre: "Cámara instantánea usada", descripcion: "Cámara instantánea probada una sola vez, incluye correa y funciona con cartuchos comunes.", precio: 1650 },
-];
-
-const PROMOCIONALES: PromocionalSemilla[] = [
-  { categoria: "autos-y-vehiculos", nombre: "Sedán 2018 con poco uso", descripcion: "Sedán 2018 de un solo dueño, 68,000 kilómetros, mantenimiento al día y papeles en regla.", precio: 268000, coberturaEnvio: "Entrega en persona dentro de la ciudad, papeles en regla." },
-  { categoria: "autos-y-vehiculos", nombre: "Camioneta 4x4 versión lujo", descripcion: "Camioneta cuatro por cuatro con interiores en cuero, navegación y doble cabina amplia.", precio: 545000, coberturaEnvio: "Entrega en agencia o domicilio dentro de la ciudad." },
-  { categoria: "autos-y-vehiculos", nombre: "Motocicleta deportiva 250cc", descripcion: "Motocicleta de 250 centímetros cúbicos, poco kilometraje y lista para rodar desde hoy.", precio: 89000, coberturaEnvio: "Recogida en punto acordado con el anunciante." },
-  { categoria: "autos-y-vehiculos", nombre: "Auto clásico restaurado", descripcion: "Auto clásico de los años setenta restaurado por completo, motor y carrocería impecables.", precio: 420000, coberturaEnvio: "Entrega personalizada en la ciudad y alrededores." },
-  { categoria: "autos-y-vehiculos", nombre: "Van familiar diésel 2016", descripcion: "Van familiar con siete asientos, motor diésel ahorrador y aire acondicionado dual.", precio: 315000, coberturaEnvio: "Entrega en domicilio o traslado a taller por acuerdo." },
-  { categoria: "casas-y-propiedades", nombre: "Casa moderna de 3 recámaras", descripcion: "Casa moderna con tres recámaras, dos baños, jardín, cochera techada y área de servicio.", precio: 2450000, coberturaEnvio: "Visita coordinada con el anunciante en el inmueble." },
-  { categoria: "casas-y-propiedades", nombre: "Departamento en zona centro", descripcion: "Departamento de dos cuartos en el centro, séptimo piso, con seguridad y área común.", precio: 1780000, coberturaEnvio: "Entrega en notaría coordinada entre las partes." },
-  { categoria: "casas-y-propiedades", nombre: "Casa con jardín y cochera", descripcion: "Casa familiar con jardín trasero, cochera para dos autos y azotea con vista libre.", precio: 3120000, coberturaEnvio: "Recorrido personalizado previo a la escrituración." },
-  { categoria: "casas-y-propiedades", nombre: "Penthouse con vista panorámica", descripcion: "Penthouse de dos niveles con terraza privada y vista panorámica a toda la ciudad.", precio: 4850000, coberturaEnvio: "Entrega en inmueble, visita con cita previa." },
-  { categoria: "casas-y-propiedades", nombre: "Bungalow frente al lago", descripcion: "Bungalow de madera frente al lago, con muelle compartido y mobiliario incluido.", precio: 1650000, coberturaEnvio: "Entrega en el lugar o traslado coordinado." },
-  { categoria: "terrenos-y-lotes", nombre: "Lote esquinero 10x20 metros", descripcion: "Lote esquinero con agua, luz y drenaje en sitio, listo para construir desde el primer mes.", precio: 690000, coberturaEnvio: "Catastro y visita en sitio coordinadas con el anunciante." },
-  { categoria: "terrenos-y-lotes", nombre: "Terreno con servicios listos", descripcion: "Terreno aplanado con servicios instalados y acceso pavimentado para vehículo.", precio: 540000, coberturaEnvio: "Visita al terreno con cita previa." },
-  { categoria: "terrenos-y-lotes", nombre: "Lote residencial en preventa", descripcion: "Lote dentro de un fraccionamiento cerrado con vigilancia, club y áreas verdes.", precio: 780000, coberturaEnvio: "Coordinación en oficina de ventas del fraccionamiento." },
-  { categoria: "terrenos-y-lotes", nombre: "Terreno agrícola de 2 hectáreas", descripcion: "Terreno agrícola de dos hectáreas con pozo de agua, ideal para cultivo o ganado menor.", precio: 1250000, coberturaEnvio: "Recorrido por el terreno acompañado del anunciante." },
-  { categoria: "terrenos-y-lotes", nombre: "Lote turístico cerca del mar", descripcion: "Lote turístico a cinco cuadras de la playa, con escrituras en regla y facilidades de pago.", precio: 940000, coberturaEnvio: "Entrega en notaría o en oficina del anunciante." },
-  { categoria: "joyas-y-relojes", nombre: "Anillo de oro 18 quilates", descripcion: "Anillo de oro de 18 quilates con certificado de autenticidad, disponible en varias tallas.", precio: 34500, coberturaEnvio: "Entrega en mano con cadena de custodia acordada." },
-  { categoria: "joyas-y-relojes", nombre: "Reloj suizo automático", descripcion: "Reloj suizo de movimiento automático con correa de acero y resistencia a la humedad.", precio: 68000, coberturaEnvio: "Envío asegurado o entrega en persona en la ciudad." },
-  { categoria: "joyas-y-relojes", nombre: "Collar de plata con dije", descripcion: "Collar de plata .925 con dije labrado, cierre de seguridad y caja de regalo incluida.", precio: 12800, coberturaEnvio: "Envío nacional asegurado con guía de rastreo." },
-  { categoria: "joyas-y-relojes", nombre: "Aretes de diamante brillante", descripcion: "Aretes con diamantes de talla brillante engarzados en oro blanco, con caja de terciopelo.", precio: 47500, coberturaEnvio: "Entrega en mano dentro de la ciudad." },
-  { categoria: "joyas-y-relojes", nombre: "Pulsera de oro rosa macizo", descripcion: "Pulsera de oro rosa de doce milímetros, cierre de seguridad y acabado pulido a espejo.", precio: 52000, coberturaEnvio: "Envío asegurado a todo el país." },
-  { categoria: "muebles-y-arte", nombre: "Sofá de cuero de tres cuerpos", descripcion: "Sofá de cuero genuino de tres cuerpos, estructura firme y cojines extraíbles para lavar.", precio: 28500, coberturaEnvio: "Entrega a domicilio con coordinación de horario." },
-  { categoria: "muebles-y-arte", nombre: "Comedor de madera maciza", descripcion: "Comedor de madera maciza para seis personas con acabado en barniz natural y patas reforzadas.", precio: 42000, coberturaEnvio: "Entrega e instalación dentro de la ciudad." },
-  { categoria: "muebles-y-arte", nombre: "Pintura al óleo original", descripcion: "Pintura al óleo sobre lienzo de sesenta por noventa centímetros, firmada por su autor.", precio: 18500, coberturaEnvio: "Entrega empacada en encomienda o en mano." },
-  { categoria: "muebles-y-arte", nombre: "Escultura de bronce firmada", descripcion: "Escultura de bronce fundida a la cera perdida, firmada y numerada en su base.", precio: 63000, coberturaEnvio: "Entrega con traslado especial acordado con el comprador." },
-  { categoria: "muebles-y-arte", nombre: "Escritorio ejecutivo de nogal", descripcion: "Escritorio de nogal con tres cajones, cableado oculto y superficie de cuero integrada.", precio: 35600, coberturaEnvio: "Envío a domicilio con ensamble incluido." },
-  { categoria: "servicios", nombre: "Fotografía para eventos", descripcion: "Servicio de fotografía para bodas, quinceañeros y eventos sociales, con entrega digital.", precio: 12000, coberturaEnvio: "Cobertura en toda la ciudad y alrededores." },
-  { categoria: "servicios", nombre: "Clases de cocina personalizadas", descripcion: "Clases prácticas de cocina a domicilio, con temática a tu gusto y para grupos de hasta seis.", precio: 8500, coberturaEnvio: "Servicio a domicilio dentro de la zona metropolitana." },
-  { categoria: "servicios", nombre: "Reforma integral de cocina", descripcion: "Reforma integral de cocina con diseño, instalación de gabinetes y acabados de primera.", precio: 45000, coberturaEnvio: "Cobertura en la ciudad y municipios cercanos." },
-  { categoria: "servicios", nombre: "Asesoría contable mensual", descripcion: "Asesoría contable mensual para personas físicas, con declaración anual y facturación incluida.", precio: 9600, coberturaEnvio: "Atención presencial o en línea, a elección del cliente." },
-  { categoria: "servicios", nombre: "Transporte de muebles y mudanzas", descripcion: "Servicio de mudanzas con personal capacitado, camión cerrado y protección para cada pieza.", precio: 14500, coberturaEnvio: "Cobertura local y traslados entre ciudades." },
-  { categoria: "otros", nombre: "Bicicleta de montaña 21 vel.", descripcion: "Bicicleta de montaña con marco de aluminio, veintiún velocidades y frenos de disco.", precio: 16500, coberturaEnvio: "Entrega en domicilio dentro de la ciudad." },
-  { categoria: "otros", nombre: "Inventario de herramientas", descripcion: "Lote completo de herramienta de mano: martillos, llaves, destornidores y maletín incluido.", precio: 11200, coberturaEnvio: "Recogida en punto acordado o envío por paquetería." },
-  { categoria: "otros", nombre: "Equipo de sonido profesional", descripcion: "Equipo de sonido con amplificador, bocinas activas y micrófono inalámbrico para eventos.", precio: 38500, coberturaEnvio: "Entrega a domicilio con soporte técnico incluido." },
-  { categoria: "otros", nombre: "Máquina de café comercial", descripcion: "Máquina de café de dos hornillos para negocios, con vaporizador y mantenimiento reciente.", precio: 27500, coberturaEnvio: "Entrega e instalación en el negocio del cliente." },
-  { categoria: "otros", nombre: "Set de camping completo", descripcion: "Set de camping con carpa para cuatro personas, saco térmico, refrigerador y lámpara.", precio: 19800, coberturaEnvio: "Envío a todo el país mediante paquetería." },
-];
-
-const CONDICIONES_ROTACION = ["nuevo", "usado-como-nuevo", "usado-buen-estado", "usado-aceptable"] as const;
-const METODOS_ENTREGA_ROTACION = ["domicilio", "tienda", "punto-encuentro"] as const;
-const HORARIOS_ROTACION: Array<[string, string]> = [
-  ["09:00", "18:00"],
-  ["10:00", "20:00"],
-  ["08:00", "14:00"],
-];
-
-function cargarImagenes(): string[] {
-  if (!fs.existsSync(RUTA_UPLOADS)) {
-    throw new Error(
-      `No existe la carpeta de imágenes ${RUTA_UPLOADS}. Sube al menos una imagen desde la app.`,
-    );
-  }
-
-  const permitidas = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
-  const archivos = fs
-    .readdirSync(RUTA_UPLOADS)
-    .filter((archivo) => permitidas.has(path.extname(archivo).toLowerCase()))
-    .sort();
-
-  if (archivos.length === 0) {
-    throw new Error(
-      `No hay imágenes en ${RUTA_UPLOADS}. Sube al menos una desde la app para que la semilla pueda usarla.`,
-    );
-  }
-
-  return archivos.map((archivo) => `/uploads/${archivo}`);
-}
-
-function imagenesPara(indice: number, total: string[], cantidad: number): string[] {
-  return Array.from(
-    { length: cantidad },
-    (_, paso) => total[(indice + paso) % total.length],
-  );
-}
-
-const CORREO_VENDEDOR_SEMILLA = "vendedor.demo@ichiba.test";
-const PASSWORD_VENDEDOR_SEMILLA = "IchibaDemo123!";
-const DIAS_SEMILLA = [
+const HORARIO_AMPLIO = [
   "lunes",
   "martes",
   "miercoles",
@@ -151,146 +27,376 @@ const DIAS_SEMILLA = [
   "viernes",
   "sabado",
   "domingo",
-] as const;
+].map((dia) => ({ dia, activo: true, horaInicio: "08:00", horaFin: "22:00" }));
 
-const HORARIOS_VENDEDOR_SEMILLA = DIAS_SEMILLA.map((dia) => ({
-  dia,
-  activo: true,
-  horaInicio: "09:00",
-  horaFin: "18:00",
-}));
+type ClaveVendedor = "mariana" | "carlos" | "lucia";
 
-function conLimite<T>(promesa: Promise<T>, milisegundos = 5000): Promise<T> {
-  return Promise.race([
-    promesa,
-    new Promise<never>((_, rechazar) =>
-      setTimeout(() => rechazar(new Error("timeout")), milisegundos),
-    ),
-  ]);
-}
+type CuentaSemilla = {
+  nombreCompleto: string;
+  direccion: string;
+  telefono: string;
+  correo: string;
+  rfc: string;
+  curp: string;
+  tipo: "vendedor" | "admin";
+};
 
-async function obtenerVendedorSemilla(): Promise<Vendedor> {
-  try {
-    const existente = await conLimite(
-      clientePrisma.usuario.findUnique({
-        where: { correo: CORREO_VENDEDOR_SEMILLA },
-        select: { id: true, nombreCompleto: true },
-      }),
-    );
+const ADMIN: CuentaSemilla = {
+  nombreCompleto: "Administración Ichiba",
+  direccion: "Av. Vallarta 1525, Col. Americana, Guadalajara, Jalisco",
+  telefono: "3330001000",
+  correo: CORREO_ADMIN,
+  rfc: "AIC260101AA1",
+  curp: "AICX260101HJCDCH00",
+  tipo: "admin",
+};
 
-    if (existente) {
-      await conLimite(
-        clientePrisma.usuario.update({
-          where: { id: existente.id },
-          data: {
-            horarios: HORARIOS_VENDEDOR_SEMILLA,
-            horarioConfirmadoEn: new Date(),
-            diasSinConfirmarHorario: 0,
-            suspendido: false,
-            motivoSuspension: null,
-            saldoPendiente: 0,
-          },
-        }),
-      );
-            return { id: String(existente.id), nombre: existente.nombreCompleto };
-    }
+const VENDEDORES: Record<ClaveVendedor, CuentaSemilla> = {
+  mariana: {
+    nombreCompleto: "Mariana Gómez Herrera",
+    direccion: "Av. Chapultepec 245, Col. Americana, Guadalajara, Jalisco",
+    telefono: "3312457890",
+    correo: "mariana.gomez@ichiba.test",
+    rfc: "GOHM900514AB1",
+    curp: "GOHM900514MJCMRR05",
+    tipo: "vendedor",
+  },
+  carlos: {
+    nombreCompleto: "Carlos Ruiz Medina",
+    direccion: "Calle Morelos 118, Centro, Zapopan, Jalisco",
+    telefono: "3318764520",
+    correo: "carlos.ruiz@ichiba.test",
+    rfc: "RUMC871102H3A",
+    curp: "RUMC871102HJCZDR08",
+    tipo: "vendedor",
+  },
+  lucia: {
+    nombreCompleto: "Lucía Fernández Ortega",
+    direccion: "Av. Guadalupe 3410, Col. Chapalita, Guadalajara, Jalisco",
+    telefono: "3325149873",
+    correo: "lucia.fernandez@ichiba.test",
+    rfc: "FEOL930321QK7",
+    curp: "FEOL930321MJCRRC02",
+    tipo: "vendedor",
+  },
+};
 
-    const passwordHasheada = await bcrypt.hash(PASSWORD_VENDEDOR_SEMILLA, 10);
+type Condicion = "nuevo" | "usado-como-nuevo" | "usado-buen-estado" | "usado-aceptable";
+type Entrega = "domicilio" | "tienda" | "punto-encuentro";
 
-    const creado = await conLimite(
-      clientePrisma.usuario.create({
-        data: {
-          nombreCompleto: "Vendedor Demo",
-          direccion: "Av. Principal 123, Centro, Ciudad de México",
-          telefono: "5500000000",
-          correo: CORREO_VENDEDOR_SEMILLA,
-          rfc: "XXXX000101MCO",
-          password: passwordHasheada,
-          tipo: "vendedor",
-          ineFrente: "/uploads/ine/demo-frente.jpg",
-          ineReverso: "/uploads/ine/demo-reverso.jpg",
-          aceptaTerminos: true,
-          recibirNotificacionesCriticas: true,
-          recibirNotificacionesPublicitarias: false,
-          correoVerificado: true,
-          paypalEmail: "vendedor.demo@example.com",
-          horarios: HORARIOS_VENDEDOR_SEMILLA,
-          horarioConfirmadoEn: new Date(),
-          diasSinConfirmarHorario: 0,
-        },
-      }),
-    );
+type ProductoSemilla = {
+  vendedor: ClaveVendedor;
+  categoria: (typeof CATEGORIAS_PRODUCTO)[number];
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  condicion: Condicion;
+  metodoEntrega: Entrega;
+  imagen: string;
+};
 
-    console.log(
-      `Cuenta demo creada: ${CORREO_VENDEDOR_SEMILLA} (contraseña ${PASSWORD_VENDEDOR_SEMILLA})`,
-    );
+type PromocionalSemilla = {
+  vendedor: ClaveVendedor;
+  categoria: (typeof CATEGORIAS_PROMOCIONAL)[number];
+  nombre: string;
+  descripcion: string;
+  precio: number;
+  condicion: Condicion;
+  coberturaEnvio: string;
+  imagen: string;
+};
 
-    return { id: String(creado.id), nombre: creado.nombreCompleto };
-  } catch (error) {
-    console.warn(
-      "No se pudo consultar PostgreSQL, se usará un vendedor de respaldo:",
-      (error as Error).message,
-    );
-  }
+const PRODUCTOS: ProductoSemilla[] = [
+  {
+    vendedor: "mariana",
+    categoria: "Artesanias",
+    nombre: "Jarrón de barro negro",
+    descripcion: "Jarrón de barro negro pulido a mano, de 30 cm de alto. Pieza única para sala o recibidor.",
+    precio: 850,
+    condicion: "nuevo",
+    metodoEntrega: "tienda",
+    imagen: "jarron-barro-negro.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "Artesanias",
+    nombre: "Juego de 4 canastas tejidas",
+    descripcion: "Cuatro canastas de mimbre tejidas a mano en distintos tamaños, ideales para organizar.",
+    precio: 690,
+    condicion: "nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "canasta-tejida.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "Artesanias",
+    nombre: "Par de tazas de cerámica artesanal",
+    descripcion: "Dos tazas de cerámica esmaltada hechas a mano, de 350 ml. Aptas para microondas.",
+    precio: 420,
+    condicion: "nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "tazas-ceramica.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Ropa",
+    nombre: "Zapatos de vestir de piel café",
+    descripcion: "Zapatos tipo Oxford de piel genuina color café, talla 27 MX. Usados solo dos veces.",
+    precio: 1350,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "punto-encuentro",
+    imagen: "zapatos-piel.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Ropa",
+    nombre: "Botas de piel con agujetas",
+    descripcion: "Botas de piel color chocolate, talla 26 MX, con suela de goma antiderrapante. Poco uso.",
+    precio: 1600,
+    condicion: "usado-buen-estado",
+    metodoEntrega: "punto-encuentro",
+    imagen: "botas-piel.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Ropa",
+    nombre: "Chamarra de mezclilla clásica",
+    descripcion: "Chamarra de mezclilla azul con cuello de pana, talla M. Lavada y en excelente estado.",
+    precio: 780,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "chamarra-mezclilla.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "Hogar",
+    nombre: "Lámpara de mesa con base cerámica",
+    descripcion: "Lámpara de mesa con base de cerámica texturizada y pantalla de lino. Incluye foco E27.",
+    precio: 950,
+    condicion: "nuevo",
+    metodoEntrega: "tienda",
+    imagen: "lampara-ceramica.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "Hogar",
+    nombre: "Par de cojines decorativos de lino",
+    descripcion: "Dos cojines de 45 x 45 cm con funda de lino natural removible y relleno de fibra.",
+    precio: 520,
+    condicion: "nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "cojines-decorativos.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "Hogar",
+    nombre: "Espejo redondo con marco de madera",
+    descripcion: "Espejo redondo de 60 cm de diámetro con marco de madera de pino. Incluye herrajes.",
+    precio: 1450,
+    condicion: "nuevo",
+    metodoEntrega: "tienda",
+    imagen: "espejo-redondo.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Electrodomesticos",
+    nombre: "Cafetera de goteo para 10 tazas",
+    descripcion: "Cafetera eléctrica de goteo con jarra de vidrio para 10 tazas y placa que mantiene el calor.",
+    precio: 890,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "cafetera-goteo.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Electrodomesticos",
+    nombre: "Tostador de pan de dos ranuras",
+    descripcion: "Tostador de acero inoxidable con dos ranuras, siete niveles de dorado y charola de migajas.",
+    precio: 650,
+    condicion: "usado-buen-estado",
+    metodoEntrega: "domicilio",
+    imagen: "tostador-pan.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Electrodomesticos",
+    nombre: "Licuadora de alto rendimiento",
+    descripcion: "Licuadora de 1,200 W con vaso de 2 litros libre de BPA, ideal para jugos y licuados.",
+    precio: 2400,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "punto-encuentro",
+    imagen: "licuadora.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Coleccionables",
+    nombre: "Cámara fotográfica de rollo vintage",
+    descripcion: "Cámara de 35 mm de los años 60 con correa de piel. Funciona; ideal para coleccionistas.",
+    precio: 2800,
+    condicion: "usado-buen-estado",
+    metodoEntrega: "tienda",
+    imagen: "camara-vintage.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Coleccionables",
+    nombre: "Colección de 40 discos de vinil",
+    descripcion: "Lote de 40 discos de vinil de rock, jazz y música mexicana de los años 70 y 80.",
+    precio: 3500,
+    condicion: "usado-buen-estado",
+    metodoEntrega: "punto-encuentro",
+    imagen: "discos-vinil.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "Coleccionables",
+    nombre: "Máquina de escribir antigua",
+    descripcion: "Máquina de escribir mecánica de los años 50, teclado completo y cinta nueva instalada.",
+    precio: 4200,
+    condicion: "usado-aceptable",
+    metodoEntrega: "tienda",
+    imagen: "maquina-escribir.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Otros",
+    nombre: "Mochila de piel para laptop",
+    descripcion: "Mochila de piel color vino con compartimento acolchado para laptop de 15 pulgadas.",
+    precio: 1800,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "mochila-piel.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Otros",
+    nombre: "Audífonos inalámbricos",
+    descripcion: "Audífonos inalámbricos con cancelación de ruido, 30 horas de batería y estuche rígido.",
+    precio: 2900,
+    condicion: "usado-como-nuevo",
+    metodoEntrega: "domicilio",
+    imagen: "audifonos-inalambricos.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "Otros",
+    nombre: "Guitarra acústica de cedro",
+    descripcion: "Guitarra acústica con tapa de cedro, cuerdas nuevas y funda acolchada incluida.",
+    precio: 3200,
+    condicion: "usado-buen-estado",
+    metodoEntrega: "tienda",
+    imagen: "guitarra-acustica.jpg",
+  },
+];
 
-  return { id: "1", nombre: "Vendedor Demo" };
-}
+const PROMOCIONALES: PromocionalSemilla[] = [
+  {
+    vendedor: "lucia",
+    categoria: "autos-y-vehiculos",
+    nombre: "Sedán compacto 2020",
+    descripcion: "Sedán blanco modelo 2020, 45,000 km, un solo dueño y servicios de agencia al corriente.",
+    precio: 289000,
+    condicion: "usado-buen-estado",
+    coberturaEnvio: "Se muestra en Guadalajara, Jalisco, con cita previa.",
+    imagen: "sedan-blanco.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "casas-y-propiedades",
+    nombre: "Casa de dos plantas con cochera",
+    descripcion: "Casa de 3 recámaras y 2.5 baños, cochera para dos autos y patio. Escrituras en regla.",
+    precio: 3450000,
+    condicion: "usado-como-nuevo",
+    coberturaEnvio: "Ubicada en Zapopan, Jalisco. Visitas con cita previa.",
+    imagen: "casa-dos-plantas.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "terrenos-y-lotes",
+    nombre: "Terreno campestre de 2,000 m²",
+    descripcion: "Terreno plano con acceso por camino de terracería, con agua y luz a pie de predio.",
+    precio: 780000,
+    condicion: "nuevo",
+    coberturaEnvio: "Tlajomulco, Jalisco. Recorridos en fin de semana.",
+    imagen: "terreno-campestre.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "joyas-y-relojes",
+    nombre: "Reloj automático de acero",
+    descripcion: "Reloj automático con caja de acero de 40 mm, cristal de zafiro y correa de piel café.",
+    precio: 18500,
+    condicion: "usado-como-nuevo",
+    coberturaEnvio: "Entrega en persona en Guadalajara o envío asegurado.",
+    imagen: "reloj-acero.jpg",
+  },
+  {
+    vendedor: "mariana",
+    categoria: "muebles-y-arte",
+    nombre: "Sofá de tres plazas tapizado",
+    descripcion: "Sofá de tres plazas tapizado en tela beige, estructura de madera y cojines removibles.",
+    precio: 14500,
+    condicion: "usado-buen-estado",
+    coberturaEnvio: "Entrega a domicilio en la zona metropolitana de Guadalajara.",
+    imagen: "sofa-tres-plazas.jpg",
+  },
+  {
+    vendedor: "lucia",
+    categoria: "servicios",
+    nombre: "Fotografía profesional de eventos",
+    descripcion: "Cobertura fotográfica de bodas y eventos sociales: 6 horas y 300 fotos editadas.",
+    precio: 9800,
+    condicion: "nuevo",
+    coberturaEnvio: "Servicio en todo Jalisco; fuera del estado con costo de traslado.",
+    imagen: "equipo-fotografia.jpg",
+  },
+  {
+    vendedor: "carlos",
+    categoria: "otros",
+    nombre: "Bicicleta de montaña rodada 29",
+    descripcion: "Bicicleta de montaña con cuadro de aluminio, 21 velocidades y frenos de disco.",
+    precio: 8900,
+    condicion: "usado-buen-estado",
+    coberturaEnvio: "Entrega en Guadalajara o envío por paquetería a todo el país.",
+    imagen: "bicicleta-montana.jpg",
+  },
+];
+
+const HORARIOS_ENTREGA: Record<Entrega, [string, string]> = {
+  domicilio: ["09:00", "19:00"],
+  tienda: ["10:00", "20:00"],
+  "punto-encuentro": ["12:00", "20:00"],
+};
 
 function validarDatos() {
   const errores: string[] = [];
+  if (validarPassword(PASSWORD_DEMO)) errores.push("La contraseña demo no cumple RQNF1.7");
 
-  const contar = <T extends { categoria: string }>(items: T[]) => {
-    const mapa = new Map<string, number>();
-    for (const item of items) {
-      mapa.set(item.categoria, (mapa.get(item.categoria) ?? 0) + 1);
+  const revisar = (etiqueta: string, nombre: string, descripcion: string, imagen: string) => {
+    if (nombre.length < 10 || nombre.length > 35) {
+      errores.push(`${etiqueta}: el nombre mide ${nombre.length} caracteres (10-35)`);
     }
-    return mapa;
+    if (descripcion.length < 30 || descripcion.length > 100) {
+      errores.push(`${etiqueta}: la descripción mide ${descripcion.length} caracteres (30-100)`);
+    }
+    if (campoConPalabrasProhibidas({ nombre, descripcion })) {
+      errores.push(`${etiqueta}: contiene palabras no permitidas`);
+    }
+    if (!fs.existsSync(path.join(CARPETA_IMAGENES, imagen))) {
+      errores.push(`${etiqueta}: no existe la imagen ${imagen}`);
+    }
   };
 
-  for (const [categoria, total] of contar(PRODUCTOS)) {
-    if (total !== ARTICULOS_POR_CATEGORIA) {
-      errores.push(`Categoría "${categoria}" tiene ${total} productos, se esperaban ${ARTICULOS_POR_CATEGORIA}`);
-    }
-  }
-
-  for (const [categoria, total] of contar(PROMOCIONALES)) {
-    if (total !== ARTICULOS_POR_CATEGORIA) {
-      errores.push(`Tipo "${categoria}" tiene ${total} promocionales, se esperaban ${ARTICULOS_POR_CATEGORIA}`);
-    }
-  }
-
   for (const producto of PRODUCTOS) {
-    const etiqueta = `Producto "${producto.nombre}"`;
-    if (producto.nombre.length < 10 || producto.nombre.length > 35) {
-      errores.push(`${etiqueta}: el nombre mide ${producto.nombre.length} caracteres (debe ser 10-35)`);
-    }
-    if (producto.descripcion.length < 30 || producto.descripcion.length > 100) {
-      errores.push(`${etiqueta}: la descripción mide ${producto.descripcion.length} caracteres (debe ser 30-100)`);
-    }
-    if (!(producto.precio >= 10 && producto.precio <= 5000)) {
-      errores.push(`${etiqueta}: el precio ${producto.precio} debe estar entre 10 y 5000`);
-    }
-    if (campoConPalabrasProhibidas(producto.nombre) || campoConPalabrasProhibidas(producto.descripcion)) {
-      errores.push(`${etiqueta}: contiene palabras no permitidas`);
+    revisar(`Producto "${producto.nombre}"`, producto.nombre, producto.descripcion, producto.imagen);
+    if (producto.precio < 10 || producto.precio > 5000) {
+      errores.push(`Producto "${producto.nombre}": el precio debe estar entre $10 y $5,000`);
     }
   }
-
   for (const promocional of PROMOCIONALES) {
-    const etiqueta = `Promocional "${promocional.nombre}"`;
-    if (promocional.nombre.length < 10 || promocional.nombre.length > 35) {
-      errores.push(`${etiqueta}: el nombre mide ${promocional.nombre.length} caracteres (debe ser 10-35)`);
-    }
-    if (promocional.descripcion.length < 30 || promocional.descripcion.length > 100) {
-      errores.push(`${etiqueta}: la descripción mide ${promocional.descripcion.length} caracteres (debe ser 30-100)`);
-    }
-    if (!(promocional.precio > 5000)) {
-      errores.push(`${etiqueta}: el precio ${promocional.precio} debe ser mayor a 5000`);
-    }
-    if (!promocional.coberturaEnvio.trim()) {
-      errores.push(`${etiqueta}: falta la cobertura de envío`);
-    }
-    if (campoConPalabrasProhibidas(promocional.nombre) || campoConPalabrasProhibidas(promocional.descripcion)) {
-      errores.push(`${etiqueta}: contiene palabras no permitidas`);
+    revisar(`Promocional "${promocional.nombre}"`, promocional.nombre, promocional.descripcion, promocional.imagen);
+    if (promocional.precio < 5001) {
+      errores.push(`Promocional "${promocional.nombre}": el precio debe ser de $5,001 o más`);
     }
   }
 
@@ -299,91 +405,119 @@ function validarDatos() {
   }
 }
 
-function documentosProducto(vendedor: Vendedor, imagenes: string[]) {
-  const ahora = Date.now();
-  return PRODUCTOS.map((producto, indice) => ({
-    ...producto,
-    condicion: CONDICIONES_ROTACION[indice % CONDICIONES_ROTACION.length],
-    condicionUso: CONDICIONES_ROTACION[(indice + 2) % CONDICIONES_ROTACION.length],
-    metodoEntrega: METODOS_ENTREGA_ROTACION[indice % METODOS_ENTREGA_ROTACION.length],
-    horarioEntregaInicio: HORARIOS_ROTACION[indice % HORARIOS_ROTACION.length][0],
-    horarioEntregaFin: HORARIOS_ROTACION[indice % HORARIOS_ROTACION.length][1],
-    tiempoLimitePago: [30, 60, 90][indice % 3],
-    imagenes: imagenesPara(indice, imagenes, 2),
-    vendedor: vendedor.nombre,
-    vendedorId: vendedor.id,
-    activo: true,
-    semilla: MARCA_SEMILLA,
-    createdAt: new Date(ahora - indice * 60_000),
-    updatedAt: new Date(ahora - indice * 60_000),
-  }));
+async function vaciarPostgres() {
+  const todas = { id: { gte: 0 } };
+  for (const tabla of ["reporte", "venta", "cola", "usuario"] as const) {
+    const { count } = await clientePrisma[tabla].deleteMany({ where: todas });
+    console.log(`PostgreSQL: ${count} registro(s) eliminados de ${tabla}`);
+  }
 }
 
-function documentosPromocional(vendedor: Vendedor, imagenes: string[]) {
-  const ahora = Date.now();
-  return PROMOCIONALES.map((promocional, indice) => ({
-    ...promocional,
-    condicionUso: CONDICIONES_USO_PROMOCIONAL[indice % CONDICIONES_USO_PROMOCIONAL.length],
-    chatHabilitado: true,
-    zonaComentariosHabilitada: true,
-    imagenes: imagenesPara(indice + 3, imagenes, 2),
-    vendedor: vendedor.nombre,
-    vendedorId: vendedor.id,
-    activo: true,
-    semilla: MARCA_SEMILLA,
-    createdAt: new Date(ahora - indice * 60_000),
-    updatedAt: new Date(ahora - indice * 60_000),
-  }));
+async function vaciarMongo() {
+  const colecciones = await mongoose.connection.db!.collections();
+  for (const coleccion of colecciones) {
+    if (COLECCIONES_CONSERVADAS.has(coleccion.collectionName)) continue;
+    const { deletedCount } = await coleccion.deleteMany({});
+    if (deletedCount > 0) {
+      console.log(`MongoDB: ${deletedCount} documento(s) eliminados de ${coleccion.collectionName}`);
+    }
+  }
+}
+
+async function crearCuenta(cuenta: CuentaSemilla, passwordHasheada: string) {
+  const creada = await clientePrisma.usuario.create({
+    data: {
+      nombreCompleto: cuenta.nombreCompleto,
+      direccion: cuenta.direccion,
+      telefono: cuenta.telefono,
+      correo: cuenta.correo,
+      rfc: cuenta.rfc,
+      curp: cuenta.curp,
+      password: passwordHasheada,
+      tipo: cuenta.tipo,
+      ineFrente: "/uploads/ine/semilla-frente.jpg",
+      ineReverso: "/uploads/ine/semilla-reverso.jpg",
+      aceptaTerminos: true,
+      recibirNotificacionesCriticas: true,
+      recibirNotificacionesPublicitarias: true,
+      correoVerificado: true,
+      paypalEmail: cuenta.correo,
+      metodoPago: "paypal",
+      horarios: HORARIO_AMPLIO,
+      horarioConfirmadoEn: new Date(),
+      diasSinConfirmarHorario: 0,
+    },
+  });
+  return { id: String(creada.id), nombre: cuenta.nombreCompleto };
 }
 
 async function main() {
   validarDatos();
 
   const uri = process.env.MONGO_URI;
-  if (!uri) {
-    throw new Error("La variable MONGO_URI no está definida en backend/.env");
-  }
+  if (!uri) throw new Error("La variable MONGO_URI no está definida en backend/.env");
 
   await mongoose.connect(uri);
-  console.log("Conectado a MongoDB");
-
   try {
-    const vendedor = await obtenerVendedorSemilla();
-    const imagenes = cargarImagenes();
+    await vaciarPostgres();
+    await vaciarMongo();
 
-    const borradosProducto = await Producto.collection.deleteMany({ semilla: MARCA_SEMILLA });
-    const borradosPromocional = await Promocional.collection.deleteMany({ semilla: MARCA_SEMILLA });
-    console.log(
-      `Semilla anterior eliminada: ${borradosProducto.deletedCount} productos y ${borradosPromocional.deletedCount} promocionales`,
+    const passwordHasheada = await bcrypt.hash(PASSWORD_DEMO, 10);
+    await crearCuenta(ADMIN, passwordHasheada);
+
+    const vendedores = {} as Record<ClaveVendedor, { id: string; nombre: string }>;
+    for (const clave of Object.keys(VENDEDORES) as ClaveVendedor[]) {
+      vendedores[clave] = await crearCuenta(VENDEDORES[clave], passwordHasheada);
+    }
+
+    const ahora = Date.now();
+    await Producto.insertMany(
+      PRODUCTOS.map((producto, indice) => ({
+        nombre: producto.nombre,
+        descripcion: producto.descripcion,
+        precio: producto.precio,
+        categoria: producto.categoria,
+        condicion: producto.condicion,
+        condicionUso: producto.condicion,
+        metodoEntrega: producto.metodoEntrega,
+        horarioEntregaInicio: HORARIOS_ENTREGA[producto.metodoEntrega][0],
+        horarioEntregaFin: HORARIOS_ENTREGA[producto.metodoEntrega][1],
+        tiempoLimitePago: 60,
+        imagenes: [`/uploads/${producto.imagen}`],
+        vendedor: vendedores[producto.vendedor].nombre,
+        vendedorId: vendedores[producto.vendedor].id,
+        activo: true,
+        createdAt: new Date(ahora - indice * 60_000),
+      })),
     );
 
-    const productos = documentosProducto(vendedor, imagenes);
-    const promocionales = documentosPromocional(vendedor, imagenes);
+    await Promocional.insertMany(
+      PROMOCIONALES.map((promocional, indice) => ({
+        nombre: promocional.nombre,
+        descripcion: promocional.descripcion,
+        precio: promocional.precio,
+        categoria: promocional.categoria,
+        condicionUso: promocional.condicion,
+        coberturaEnvio: promocional.coberturaEnvio,
+        chatHabilitado: true,
+        zonaComentariosHabilitada: true,
+        imagenes: [`/uploads/${promocional.imagen}`],
+        vendedor: vendedores[promocional.vendedor].nombre,
+        vendedorId: vendedores[promocional.vendedor].id,
+        activo: true,
+        createdAt: new Date(ahora - indice * 60_000),
+      })),
+    );
 
-    await Producto.collection.insertMany(productos);
-    await Promocional.collection.insertMany(promocionales);
-
-    console.log(`\nVendedor de la semilla: ${vendedor.nombre} (id ${vendedor.id})`);
-    console.log(`Productos insertados: ${productos.length}`);
-    for (const categoria of CATEGORIAS_PRODUCTO) {
-      const total = productos.filter((p) => p.categoria === categoria).length;
-      console.log(`  - ${categoria}: ${total}`);
+    console.log(`\nCuentas creadas (contraseña: ${PASSWORD_DEMO}):`);
+    console.log(`  - ${ADMIN.correo} (administrador)`);
+    for (const clave of Object.keys(VENDEDORES) as ClaveVendedor[]) {
+      console.log(`  - ${VENDEDORES[clave].correo} (vendedor)`);
     }
-    console.log(`Promocionales insertados: ${promocionales.length}`);
-    for (const categoria of CATEGORIAS_PROMOCIONAL) {
-      const total = promocionales.filter((p) => p.categoria === categoria).length;
-      console.log(`  - ${categoria}: ${total}`);
-    }
+    console.log(`Productos: ${PRODUCTOS.length} · Promocionales: ${PROMOCIONALES.length}`);
   } finally {
-    await cerrarPostgres();
+    await clientePrisma.close().catch(() => {});
     await mongoose.disconnect();
-  }
-}
-
-async function cerrarPostgres() {
-  const cerrar = (clientePrisma as { close?: () => Promise<void> }).close;
-  if (typeof cerrar === "function") {
-    await cerrar().catch(() => {});
   }
 }
 
@@ -392,6 +526,5 @@ main()
   .catch(async (error) => {
     console.error("\nFalló la semilla:", error instanceof Error ? error.message : error);
     process.exitCode = 1;
-    await cerrarPostgres();
     await mongoose.disconnect().catch(() => {});
   });

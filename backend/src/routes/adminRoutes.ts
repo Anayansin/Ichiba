@@ -7,6 +7,7 @@ import {
   obtenerReportesPendientes,
   resolverReporte,
   obtenerHistorialTransacciones,
+  obtenerBitacora,
   obtenerMensajesDeVenta,
   obtenerListaNegra,
   agregarEntradaListaNegra,
@@ -70,6 +71,7 @@ router.patch(
 );
 
 router.get("/historial", verificarToken, esAdmin, obtenerHistorialTransacciones);
+router.get("/bitacora", verificarToken, esAdmin, obtenerBitacora);
 
 router.get(
   "/ventas/:ventaId/mensajes",

@@ -433,3 +433,21 @@ export function textoCausaAdeudo(causa: string): string {
   const encontrada = CAUSAS_ADEUDO_ADMIN.find((item) => item.valor === causa);
   return encontrada?.etiqueta ?? causa;
 }
+
+export type EntradaBitacora = {
+  _id: string;
+  actorTipo: "usuario" | "comprador" | "visitante" | "sistema";
+  actorId: string | null;
+  actorNombre: string | null;
+  accion: string;
+  descripcion: string;
+  createdAt: string;
+};
+
+export async function fetchBitacora(filtros: {
+  accion?: string;
+  actor?: string;
+}): Promise<EntradaBitacora[]> {
+  const response = await api.get("/admin/bitacora", { params: filtros });
+  return response.data;
+}

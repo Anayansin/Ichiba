@@ -5,6 +5,7 @@ import InformesGlobales from "./InformesGlobales";
 import ListaNegra from "./ListaNegra";
 import RevisionReportes from "./RevisionReportes";
 import Trazabilidad from "./Trazabilidad";
+import Bitacora from "./Bitacora";
 import Dashboard from "./Dashboard";
 import Disputas from "./Disputas";
 import Adeudos from "./Adeudos";
@@ -63,6 +64,11 @@ const SECCIONES: SeccionAdmin[] = [
     etiqueta: "Trazabilidad",
     descripcion: "Historial de operaciones",
   },
+  {
+    id: "bitacora",
+    etiqueta: "Bitácora",
+    descripcion: "Acciones de cada usuario",
+  },
 ];
 
 function Admin() {
@@ -120,6 +126,7 @@ function Admin() {
         {seccionActiva === "lista-negra" && <ListaNegra />}
         {seccionActiva === "solicitudes-registro" && <SolicitudesRegistro />}
         {seccionActiva === "trazabilidad" && <Trazabilidad />}
+        {seccionActiva === "bitacora" && <Bitacora />}
       </div>
     </div>
   );

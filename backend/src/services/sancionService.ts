@@ -1,4 +1,5 @@
 import { Sancion } from "../models/Sancion.js";
+import { registrarAccion } from "./bitacoraService.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { categoriaRequiereRevisionInmediata } from "../configuracion/categoriasReporte.js";
 import {
@@ -268,6 +269,12 @@ export async function registrarFalta(
   const estado = estadoBloqueo(sancion);
 
   if (estado.bloqueosAplicados > bloqueosAntes || (!revisionAntes && estado.revisionAdministrativa)) {
+    await registrarAccion({
+      actorTipo: "sistema",
+      actorId: falta.sujetoId,
+      accion: "sancion",
+      descripcion: `Sanción automática a ${falta.sujetoTipo} ${falta.sujetoId}: ${describirEstadoBloqueo(estado)}`,
+    });
     const contacto = await correoDelSujeto(falta);
     if (contacto) {
       try {

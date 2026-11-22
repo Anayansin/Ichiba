@@ -21,6 +21,7 @@ import {
   resolverVentaRetenidaAdmin,
 } from "../services/backofficeService.js";
 import { RequestConUsuario } from "../middleware/auth.js";
+import { consultarBitacora } from "../services/bitacoraService.js";
 
 function responderError(
   res: Response,
@@ -298,5 +299,19 @@ export async function liquidarAdeudo(req: RequestConUsuario, res: Response) {
     );
   } catch (error) {
     responderError(res, error, "Error al liquidar el adeudo");
+  }
+}
+
+export async function obtenerBitacora(req: Request, res: Response) {
+  try {
+    res.json(
+      await consultarBitacora({
+        accion: typeof req.query.accion === "string" ? req.query.accion : undefined,
+        actor: typeof req.query.actor === "string" ? req.query.actor.trim() : undefined,
+        limite: Number(req.query.limite),
+      }),
+    );
+  } catch (error) {
+    responderError(res, error, "Error al obtener la bitácora de acciones");
   }
 }

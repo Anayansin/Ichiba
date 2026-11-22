@@ -37,6 +37,7 @@ import { extraerContextoGraphQL } from "./graphql/contexto.js";
 import { iniciarServidorDeSuscripciones } from "./graphql/servidorSuscripciones.js";
 import { filtroPalabrasProhibidas } from "./utils/filtroPalabras.js";
 import { enviarArchivoGuardado } from "./configuracion/archivosPersistentes.js";
+import { bitacoraDeAcciones } from "./services/bitacoraService.js";
 
 const app = express();
 
@@ -161,6 +162,8 @@ app.use((_req, _res, next) => {
   }
   next();
 });
+
+app.use(bitacoraDeAcciones);
 
 app.use("/api/productos", productoRoutes);
 app.use("/api/usuarios", usuarioRoutes);
