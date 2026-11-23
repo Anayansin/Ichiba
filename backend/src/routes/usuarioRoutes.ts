@@ -16,16 +16,13 @@ import {
   rechazarCuentaCancelada,
   requiereVendedor,
 } from "../middleware/vendedor.js";
-import { uploadIne } from "../middleware/uploadIne.js";
+import { subirImagenesIne } from "../middleware/uploadIne.js";
 
 const router = Router();
 
 router.post(
   "/registro",
-  uploadIne.fields([
-    { name: "ineFrente", maxCount: 1 },
-    { name: "ineReverso", maxCount: 1 },
-  ]),
+  subirImagenesIne,
   registrarUsuario,
 );
 router.post("/login", iniciarSesion);

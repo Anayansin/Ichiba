@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose";
 import { Router } from "express";
 import {
   obtenerPromocionales,
@@ -20,6 +21,11 @@ import { requiereCompradorId } from "../middleware/comprador.js";
 import { subirFotosProducto } from "../middleware/upload.js";
 
 const router = Router();
+
+router.param("id", (_req, res, next, id) => {
+  if (isValidObjectId(id)) return next();
+  res.status(404).json({ message: "Promocional no encontrado" });
+});
 
 router.get("/", obtenerPromocionales);
 router.get("/mios/lista", verificarToken, obtenerMisPromocionales);

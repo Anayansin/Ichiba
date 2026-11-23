@@ -1,4 +1,5 @@
 import multer from "multer";
+import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import { carpetaIne } from "../configuracion/almacenamiento.js";
 
@@ -35,3 +36,19 @@ export const uploadIne = multer({
   fileFilter: filtroArchivos,
   limits: { fileSize: 8 * 1024 * 1024 },
 });
+
+export function subirImagenesIne(req: Request, res: Response, next: NextFunction) {
+  uploadIne.fields([
+    { name: "ineFrente", maxCount: 1 },
+    { name: "ineReverso", maxCount: 1 },
+  ])(req, res, (error) => {
+    if (error) {
+      const mensaje =
+        error instanceof multer.MulterError
+          ? "Las imágenes de tu INE deben pesar máximo 8 MB"
+          : error.message || "No se pudieron procesar las imágenes de tu INE";
+      return res.status(400).json({ message: mensaje });
+    }
+    next();
+  });
+}

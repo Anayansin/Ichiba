@@ -1,5 +1,6 @@
 import { Response, Request } from "express";
 import { Mensaje } from "../models/Mensaje.js";
+import { isValidObjectId } from "mongoose";
 import { Venta } from "../models/Venta.js";
 import { RequestConComprador } from "../middleware/comprador.js";
 import { RequestConUsuario } from "../middleware/auth.js";
@@ -10,6 +11,7 @@ const MENSAJE_CHAT_AJENO =
   "No puedes acceder a este chat porque esta venta no pertenece a tu cuenta";
 
 async function validarAccesoComprador(ventaId: string, compradorId: string) {
+  if (!isValidObjectId(ventaId)) return null;
   const venta = await Venta.findById(ventaId);
   if (!venta) return null;
   if (venta.compradorId !== compradorId) return null;
@@ -17,6 +19,7 @@ async function validarAccesoComprador(ventaId: string, compradorId: string) {
 }
 
 async function validarAccesoVendedor(ventaId: string, vendedorId: string) {
+  if (!isValidObjectId(ventaId)) return null;
   const venta = await Venta.findById(ventaId);
   if (!venta) return null;
   if (String(venta.vendedorId) !== String(vendedorId)) return null;

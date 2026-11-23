@@ -1,3 +1,4 @@
+import { isValidObjectId } from "mongoose";
 import { Router } from "express";
 import {
   getProductos,
@@ -16,6 +17,11 @@ import { requiereUsuarioSinSancion } from "../middleware/sancion.js";
 import { subirFotosProducto } from "../middleware/upload.js";
 
 const router = Router();
+
+router.param("id", (_req, res, next, id) => {
+  if (isValidObjectId(id)) return next();
+  res.status(404).json({ message: "Producto no encontrado" });
+});
 
 router.get("/", getProductos);
 router.get("/mios/lista", verificarToken, getMisProductos);
