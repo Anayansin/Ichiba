@@ -13,7 +13,7 @@ import { campoConPalabrasProhibidas } from "../src/utils/filtroPalabras.js";
 import { validarPassword } from "../src/utils/validarPassword.js";
 import clientePrisma from "../src/configuracion/prisma.js";
 
-export const PASSWORD_DEMO = "Ichiba#Demo2026";
+export const PASSWORD_DEMO = process.env.PASSWORD_DEMO?.trim() ?? "";
 export const CORREO_ADMIN = "admin@ichiba.test";
 
 const COLECCIONES_CONSERVADAS = new Set(["ejecuciontareas"]);
@@ -370,7 +370,8 @@ const HORARIOS_ENTREGA: Record<Entrega, [string, string]> = {
 
 function validarDatos() {
   const errores: string[] = [];
-  if (validarPassword(PASSWORD_DEMO)) errores.push("La contraseña demo no cumple RQNF1.7");
+  if (!PASSWORD_DEMO) errores.push("Define PASSWORD_DEMO en backend/.env");
+  else if (validarPassword(PASSWORD_DEMO)) errores.push("PASSWORD_DEMO no cumple RQNF1.7");
 
   const revisar = (etiqueta: string, nombre: string, descripcion: string, imagen: string) => {
     if (nombre.length < 10 || nombre.length > 35) {
@@ -509,7 +510,7 @@ async function main() {
       })),
     );
 
-    console.log(`\nCuentas creadas (contraseña: ${PASSWORD_DEMO}):`);
+    console.log("\nCuentas creadas (contraseña: la de PASSWORD_DEMO en backend/.env):");
     console.log(`  - ${ADMIN.correo} (administrador)`);
     for (const clave of Object.keys(VENDEDORES) as ClaveVendedor[]) {
       console.log(`  - ${VENDEDORES[clave].correo} (vendedor)`);
