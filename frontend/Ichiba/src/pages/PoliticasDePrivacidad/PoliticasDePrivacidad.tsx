@@ -1,4 +1,4 @@
-import "./PoliticasDePrivasidad.css";
+import "./PoliticasDePrivacidad.css";
 
 const ULTIMA_ACTUALIZACION = "octubre de 2026";
 
@@ -32,14 +32,17 @@ function PoliticasDePrivacidad() {
         <h2>2. Datos que recopilamos</h2>
         <ul>
           <li>
-            <strong>Datos de registro:</strong> nombre completo, correo
-            electrónico, contraseña (guardada con cifrado irreversible) y tipo
-            de cuenta (comprador o vendedor).
+            <strong>Datos de registro del vendedor:</strong> nombre completo,
+            dirección, teléfono, correo electrónico, RFC, contraseña (guardada
+            con cifrado irreversible) y horario de atención. Los compradores no
+            crean una cuenta: solo se guarda un identificador anónimo generado
+            por su navegador.
           </li>
           <li>
             <strong>Verificación de vendedores:</strong> identificación oficial
-            (INE) y selfie de verificación. Estos datos son personales
-            sensibles y se tratan con tu consentimiento explícito.
+            (INE, por ambos lados), de la que se obtiene la CURP para
+            compararla con el RFC. Estos datos son personales sensibles y se
+            tratan con tu consentimiento explícito.
           </li>
           <li>
             <strong>Datos de cobro:</strong> correo de la cuenta de PayPal donde
@@ -89,7 +92,7 @@ function PoliticasDePrivacidad() {
         <p>
           La base legal del tratamiento es el consentimiento que otorgas al
           registrarte y la ejecución del contrato que celebras al comprar o
-          vender. En el caso de datos sensibles (INE y selfie) el
+          vender. En el caso de datos sensibles (INE) el
           consentimiento es expreso.
         </p>
       </section>
@@ -97,11 +100,11 @@ function PoliticasDePrivacidad() {
       <section className="privacidad__seccion">
         <h2>4. Datos sensibles y su protección</h2>
         <p>
-          La identificación oficial y la selfie de verificación se usan
+          La identificación oficial se usa
           únicamente para comprobar que eres la persona que se registra como
-          vendedor. No se muestran a otros usuarios, no se usan para fines
+          vendedor. No se muestra a otros usuarios, no se usa para fines
           publicitarios y solo el personal autorizado y el servicio de lectura
-          automática de identificaciones las procesan. Cuando una cuenta de
+          automática de identificaciones la procesan. Cuando una cuenta de
           vendedor se cancela y ya no tiene entregas pendientes, estos datos se
           eliminan conforme a las políticas de la plataforma.
         </p>

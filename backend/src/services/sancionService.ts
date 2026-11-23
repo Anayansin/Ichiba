@@ -260,7 +260,7 @@ export async function registrarFalta(
       },
       $unset: { levantadaPorAdminEn: 1, levantadaPorAdminMotivo: 1 },
     },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
+    { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
   );
 
   recalcularDesdeHistorial(sancion);

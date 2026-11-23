@@ -23,13 +23,13 @@ const PASOS = [
     numero: "04",
     titulo: "Paga con PayPal",
     texto:
-      "El pago se procesa de forma segura y va directo a la cuenta de PayPal del vendedor.",
+      "El pago se procesa de forma segura con PayPal y queda retenido hasta que recibes el producto.",
   },
   {
     numero: "05",
     titulo: "Coordina la entrega",
     texto:
-      "Al confirmarse el pago, se habilita un chat privado entre tú y el vendedor para acordar la entrega.",
+      "Cuando el vendedor confirma tu comprobante, se abre un chat privado para acordar la entrega. Al recibir el producto le das tu código de entrega y el pago se libera.",
   },
 ];
 

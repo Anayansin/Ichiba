@@ -61,7 +61,7 @@ export async function guardarSuscripcion(
         categorias: listaCategorias,
         aceptaTerminos: true,
       },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
     );
 
     res.json({ message: "Preferencias guardadas", suscripcion });

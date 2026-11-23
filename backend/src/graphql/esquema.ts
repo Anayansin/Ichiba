@@ -45,9 +45,6 @@ export const definicionesEsquema = `
     mensajesComoVendedor(ventaId: ID!): [Mensaje!]!
   }
 
-  # ------------------------------------------------------------------
-  # Fase 4 — BackOffice en vivo (GraphQL Subscriptions)
-  # ------------------------------------------------------------------
 
   type UsuarioAdmin {
     id: ID!

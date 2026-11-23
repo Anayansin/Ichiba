@@ -14,7 +14,8 @@ import {
 } from "../../services/mensajeService";
 import BotonReportar from "../../components/BotonReportar/BotonReportar";
 import CoordinacionEntrega from "../../components/CoordinacionEntrega/CoordinacionEntrega";
-import api, { URL_BACKEND } from "../../services/api";
+import { URL_BACKEND } from "../../services/api";
+import { calificarVenta } from "../../services/pagoService";
 import BurbujaDeTexto from "../../components/BurbujaDeTexto/BurbujaDeTexto";
 import EtiquetaEstadoVenta from "../../components/EtiquetaEstadoVenta/EtiquetaEstadoVenta";
 import "./Chats.css";
@@ -190,7 +191,7 @@ function Chats() {
     setCalificacionEnviando(true);
     setCalificacionError("");
     try {
-      await api.post(`/pagos/${ventaActivaId}/calificar`, {
+      await calificarVenta(ventaActivaId, {
         quienCalifica: esVendedor ? "vendedor" : "comprador",
         puntuacion,
       });

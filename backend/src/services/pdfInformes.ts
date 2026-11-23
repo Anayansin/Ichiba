@@ -38,7 +38,7 @@ function encabezado(documento: PDFKit.PDFDocument, titulo: string, subtitulo: st
     .fillColor(COLOR_ROJO)
     .fontSize(22)
     .font("Helvetica-Bold")
-    .text("ICHBA", MARGEN, MARGEN);
+    .text("ICHIBA", MARGEN, MARGEN);
   documento
     .fillColor(COLOR_TEXTO)
     .fontSize(15)

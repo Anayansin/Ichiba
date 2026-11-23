@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { Producto } from "../models/producto.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { Mensaje } from "../models/Mensaje.js";
 import { Venta } from "../models/Venta.js";
@@ -521,9 +522,26 @@ export async function historialTransaccionesAdmin(): Promise<
     }),
   ]);
 
+  const idsProducto = [
+    ...new Set(
+      [...colas, ...ventas, ...reportes]
+        .map((registro) => String(registro.productoId ?? ""))
+        .filter((id) => mongoose.isValidObjectId(id)),
+    ),
+  ];
+  const productos = idsProducto.length
+    ? await Producto.find({ _id: { $in: idsProducto } })
+        .select("nombre vendedor")
+        .lean()
+    : [];
+  const productoPorId = new Map(
+    productos.map((producto) => [String(producto._id), producto]),
+  );
+  const productoDe = (id: unknown) => productoPorId.get(String(id ?? ""));
+
   const historial: EntradaHistorial[] = [
     ...colas.map((fila) => {
-      const producto = resolverProducto(fila.productoId);
+      const producto = resolverProducto(productoDe(fila.productoId));
       return {
         id: String(fila.id),
         tipo: "fila" as const,
@@ -536,7 +554,7 @@ export async function historialTransaccionesAdmin(): Promise<
       };
     }),
     ...ventas.map((venta) => {
-      const producto = resolverProducto(venta.productoId);
+      const producto = resolverProducto(productoDe(venta.productoId));
       return {
         id: String(venta.id),
         tipo: "venta" as const,
@@ -551,7 +569,7 @@ export async function historialTransaccionesAdmin(): Promise<
       };
     }),
     ...reportes.map((reporte) => {
-      const producto = resolverProducto(reporte.productoId);
+      const producto = resolverProducto(productoDe(reporte.productoId));
       const categoria =
         reporte.categoriaNombre ?? reporte.categoria ?? "Reporte sin categoría";
       return {

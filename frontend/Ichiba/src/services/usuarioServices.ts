@@ -122,21 +122,3 @@ export async function fetchPerfilPublico(id: string): Promise<PerfilPublico> {
   const response = await api.get(`/usuarios/${id}/publico`);
   return response.data;
 }
-
-export async function solicitarRecuperacion(correo: string) {
-  const response = await api.post("/usuarios/recuperar/solicitar", { correo });
-  return response.data;
-}
-
-export async function restablecerPassword(
-  correo: string,
-  codigo: string,
-  password: string,
-) {
-  const response = await api.post("/usuarios/recuperar/restablecer", {
-    correo,
-    codigo,
-    password,
-  });
-  return response.data;
-}

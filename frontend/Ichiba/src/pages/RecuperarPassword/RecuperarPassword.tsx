@@ -4,29 +4,13 @@ import Boton from "../../components/Boton/Boton";
 import {
   solicitarRecuperacion,
   restablecerPassword,
-} from "../../services/usuarioServices";
+} from "../../services/authService";
 import { mensajeDeError } from "../../utils/errores";
+import {
+  REQUISITOS_PASSWORD,
+  cumpleRequisitosPassword,
+} from "../../utils/requisitosPassword";
 import "./RecuperarPassword.css";
-
-const requisitosPassword = [
-  {
-    texto: "Entre 10 y 15 caracteres",
-    test: (p: string) => p.length >= 10 && p.length <= 15,
-  },
-  {
-    texto: "Al menos una letra mayúscula",
-    test: (p: string) => /[A-Z]/.test(p),
-  },
-  {
-    texto: "Al menos una letra minúscula",
-    test: (p: string) => /[a-z]/.test(p),
-  },
-  { texto: "Al menos un número", test: (p: string) => /[0-9]/.test(p) },
-  {
-    texto: "Al menos un carácter especial (!@#$%&*-_)",
-    test: (p: string) => /[!@#$%&*\-_]/.test(p),
-  },
-];
 
 function RecuperarPassword() {
   const navigate = useNavigate();
@@ -39,9 +23,7 @@ function RecuperarPassword() {
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(false);
 
-  const passwordValida = requisitosPassword.every((req) =>
-    req.test(passwordNueva),
-  );
+  const passwordValida = cumpleRequisitosPassword(passwordNueva);
   const passwordsCoinciden = passwordNueva === passwordConfirmar;
   const formularioValido =
     correo.trim() !== "" && codigo.trim() !== "" && passwordValida && passwordsCoinciden;
@@ -162,7 +144,7 @@ function RecuperarPassword() {
             <div className="requisitos-box">
               <p className="requisitos-titulo">Tu contraseña debe cumplir:</p>
               <ul>
-                {requisitosPassword.map((req) => (
+                {REQUISITOS_PASSWORD.map((req) => (
                   <li
                     key={req.texto}
                     className={req.test(passwordNueva) ? "requisito-cumplido" : ""}

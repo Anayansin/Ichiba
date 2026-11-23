@@ -5,7 +5,7 @@ import Chats from "./pages/Chats/Chats";
 import Inicio from "./pages/Inicio/Inicio";
 import Ayuda from "./pages/Ayuda/Ayuda";
 import IniciarSesion from "./components/auth/IniciarSesionModal/IniciarSesion";
-import RegistarCuenta from "./pages/RegistrarCuenta/RegistrarCuenta";
+import RegistrarCuenta from "./pages/RegistrarCuenta/RegistrarCuenta";
 import ProductoCompleto from "./pages/ProductoCompleto/ProductoCompleto";
 import PanelVendedor from "./pages/PanelVendedor/PanelVendedor";
 import RegistrarProducto from "./pages/RegistrarProducto/RegistrarProducto";
@@ -44,7 +44,7 @@ function App() {
             element={<Nosotros onOpenLogin={() => setInicioSesion(true)} />}
           />
           <Route path="/ayuda" element={<Ayuda />} />
-          <Route path="/registro" element={<RegistarCuenta />} />
+          <Route path="/registro" element={<RegistrarCuenta />} />
           <Route path="/producto/:id" element={<ProductoCompleto />} />
           <Route path="/promocionales" element={<Promocionales />} />
           <Route path="/promocional/:id" element={<PromocionalDetalle />} />

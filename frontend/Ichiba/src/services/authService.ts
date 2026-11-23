@@ -25,17 +25,6 @@ export async function solicitarRecuperacion(correo: string) {
   return response.data;
 }
 
-export async function verificarCodigoRecuperacion(
-  correo: string,
-  codigo: string,
-) {
-  const response = await api.post("/usuarios/recuperar/verificar", {
-    correo,
-    codigo,
-  });
-  return response.data;
-}
-
 export async function restablecerPassword(
   correo: string,
   codigo: string,

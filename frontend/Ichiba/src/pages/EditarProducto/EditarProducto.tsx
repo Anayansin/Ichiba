@@ -15,21 +15,17 @@ import {
   TIEMPOS_LIMITE_PAGO,
   textoTiempoPago,
 } from "../../utils/opcionesProducto";
-import { textoCategoria } from "../../configuracion/categorias";
+import {
+  CATEGORIAS_PRODUCTO,
+  textoCategoria,
+} from "../../configuracion/categorias";
 import {
   contienePalabrasProhibidas,
   mensajePalabrasNoPermitidas,
 } from "../../configuracion/palabrasProhibidas";
 import "./EditarProducto.css";
 
-const categorias = [
-  "Artesanias",
-  "Ropa",
-  "Hogar",
-  "Electrodomesticos",
-  "Coleccionables",
-  "Otros",
-];
+const categorias = CATEGORIAS_PRODUCTO;
 const MAX_IMAGENES = 6;
 
 function categoriaCanonica(valor: string): string {
@@ -240,7 +236,8 @@ function EditarProducto() {
           <label>Precio (MXN)</label>
           <input
             type="number"
-            min="0"
+            min="10"
+            max="5000"
             step="0.01"
             className="editar-producto-input"
             value={precio}

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import clientePrisma from "../src/configuracion/prisma.js";
 import { Usuario } from "../src/models/usuario.js";
+import { validarPassword } from "../src/utils/validarPassword.js";
 
 const DIAS = [
   "lunes",
@@ -111,7 +112,14 @@ async function main() {
     process.exit(1);
   }
 
-  const passwordElegida = password ?? "IchibaAdmin123!";
+  const passwordElegida = password ?? process.env.PASSWORD_DEMO?.trim() ?? "";
+  const problema = passwordElegida
+    ? validarPassword(passwordElegida)
+    : "Indica la contraseña como argumento o define PASSWORD_DEMO en backend/.env";
+  if (problema) {
+    console.error(problema);
+    process.exit(1);
+  }
   const passwordHasheada = await bcrypt.hash(passwordElegida, 10);
 
   const creado = await clientePrisma.usuario.create({
@@ -140,7 +148,7 @@ async function main() {
 
   console.log("Cuenta de administrador creada:");
   console.log(`  correo:     ${correo}`);
-  console.log(`  contraseña: ${passwordElegida}`);
+  console.log("  contraseña: la indicada al ejecutar el script");
   console.log(`  id:         ${creado.id}`);
   console.log("Entra en /inicio con esos datos y abre /admin desde el menú.");
 }

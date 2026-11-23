@@ -8,13 +8,13 @@ import {
   type RespuestaDisputas,
   type VentaRetenidaAdmin,
 } from "../../services/adminService";
-import { fetchEvidenciaDisputa } from "../../services/pagoService";
 import {
   suscribirse,
   type EventoDisputa,
 } from "../../services/suscripcionesService";
 import { mensajeDeError } from "../../utils/errores";
 import "./Disputas.css";
+import EvidenciasDeDisputa from "../../components/EvidenciasDeDisputa/EvidenciasDeDisputa";
 
 const CONSULTA_DISPUTAS = `
   subscription DisputasEnVivo {
@@ -56,67 +56,6 @@ function textoEstadoVenta(estado: string | null): string {
     cancelada: "Cancelada",
   };
   return estado ? textos[estado] ?? estado : "—";
-}
-
-function Evidencias({
-  disputaId,
-  lado,
-  cantidad,
-}: {
-  disputaId: string;
-  lado: "comprador" | "vendedor";
-  cantidad: number;
-}) {
-  const [urls, setUrls] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (cantidad === 0) {
-      setUrls([]);
-      return;
-    }
-
-    let activo = true;
-    const creadas: string[] = [];
-
-    (async () => {
-      for (let indice = 0; indice < cantidad; indice += 1) {
-        try {
-          const url = await fetchEvidenciaDisputa(disputaId, lado, indice);
-          creadas.push(url);
-          if (activo) setUrls([...creadas]);
-        } catch {
-        }
-      }
-    })();
-
-    return () => {
-      activo = false;
-      for (const url of creadas) URL.revokeObjectURL(url);
-    };
-  }, [disputaId, lado, cantidad]);
-
-  if (cantidad === 0) return null;
-
-  return (
-    <div className="admin-disputas__evidencias">
-      {urls.map((url, indice) => (
-        <a
-          key={url}
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          title="Ver evidencia en tamaño completo"
-        >
-          <img src={url} alt={`Evidencia ${indice + 1} del ${lado}`} />
-        </a>
-      ))}
-      {urls.length < cantidad && (
-        <span className="admin-disputas__evidencias-cargando">
-          Cargando evidencias…
-        </span>
-      )}
-    </div>
-  );
 }
 
 function Disputas() {
@@ -318,7 +257,8 @@ function Disputas() {
                   El comprador no adjuntó evidencias.
                 </p>
               ) : (
-                <Evidencias
+                <EvidenciasDeDisputa
+                  className="admin-disputas__evidencias"
                   disputaId={disputa.id}
                   lado="comprador"
                   cantidad={disputa.evidenciasComprador.length}
@@ -332,7 +272,8 @@ function Disputas() {
                     {disputa.respuestaVendedor}
                   </p>
                   {disputa.evidenciasVendedor.length > 0 && (
-                    <Evidencias
+                    <EvidenciasDeDisputa
+                      className="admin-disputas__evidencias"
                       disputaId={disputa.id}
                       lado="vendedor"
                       cantidad={disputa.evidenciasVendedor.length}

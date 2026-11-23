@@ -23,7 +23,6 @@ import {
 import {
   confirmarComprobanteDeVenta,
   fetchDisputasDelVendedor,
-  fetchEvidenciaDisputa,
   fetchImagenComprobante,
   fetchVentasDelVendedor,
   rechazarComprobanteDeVenta,
@@ -43,6 +42,7 @@ import { fechaLimiteTexto } from "../../utils/estadoVenta";
 import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
+import EvidenciasDeDisputa from "../../components/EvidenciasDeDisputa/EvidenciasDeDisputa";
 
 function textoEstadoDisputaVendedor(estado: string): string {
   const textos: Record<string, string> = {
@@ -70,56 +70,6 @@ function textoComisionVenta(venta: VentaDelVendedor): string {
   return comision.cobrada
     ? `${detalle} · Recibiste ${neto}.`
     : `${detalle} · Recibirás ${neto} al liberar el pago.`;
-}
-
-function EvidenciasDeDisputaVendedor({
-  disputaId,
-  lado,
-  cantidad,
-}: {
-  disputaId: string;
-  lado: "comprador" | "vendedor";
-  cantidad: number;
-}) {
-  const [urls, setUrls] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (cantidad === 0) {
-      setUrls([]);
-      return;
-    }
-
-    let activo = true;
-    const creadas: string[] = [];
-
-    (async () => {
-      for (let indice = 0; indice < cantidad; indice += 1) {
-        try {
-          const url = await fetchEvidenciaDisputa(disputaId, lado, indice);
-          creadas.push(url);
-          if (activo) setUrls([...creadas]);
-        } catch {
-        }
-      }
-    })();
-
-    return () => {
-      activo = false;
-      for (const url of creadas) URL.revokeObjectURL(url);
-    };
-  }, [disputaId, lado, cantidad]);
-
-  if (cantidad === 0) return null;
-
-  return (
-    <div className="panel-vendedor__evidencias">
-      {urls.map((url) => (
-        <a key={url} href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={`Evidencia del ${lado}`} />
-        </a>
-      ))}
-    </div>
-  );
 }
 
 function PanelVendedor() {
@@ -682,7 +632,8 @@ function PanelVendedor() {
             </p>
           )}
           {disputa.evidenciasComprador.length > 0 && (
-            <EvidenciasDeDisputaVendedor
+            <EvidenciasDeDisputa
+              className="panel-vendedor__evidencias"
               disputaId={disputa.id}
               lado="comprador"
               cantidad={disputa.evidenciasComprador.length}
@@ -694,7 +645,8 @@ function PanelVendedor() {
             </p>
           )}
           {disputa.evidenciasVendedor.length > 0 && (
-            <EvidenciasDeDisputaVendedor
+            <EvidenciasDeDisputa
+              className="panel-vendedor__evidencias"
               disputaId={disputa.id}
               lado="vendedor"
               cantidad={disputa.evidenciasVendedor.length}
@@ -754,7 +706,8 @@ function PanelVendedor() {
     );
   }
 
-  function renderProducto(producto: Producto) {    return (
+  function renderProducto(producto: Producto) {
+    return (
       <div key={producto._id} className="panel-vendedor__producto-fila">
         <Link
           to={`/producto/${producto._id}`}
@@ -773,7 +726,7 @@ function PanelVendedor() {
         </Link>
         {cuentaCancelada ? (
           <p className="panel-vendedor__venta-nota">
-            Desactivado por la cancelación de tu cuenta (RQNF10.6).
+            Desactivado por la cancelación de tu cuenta.
           </p>
         ) : (
           <div className="panel-vendedor__acciones">
@@ -823,7 +776,7 @@ function PanelVendedor() {
         </Link>
         {cuentaCancelada ? (
           <p className="panel-vendedor__venta-nota">
-            Desactivado por la cancelación de tu cuenta (RQNF10.6).
+            Desactivado por la cancelación de tu cuenta.
           </p>
         ) : (
           <div className="panel-vendedor__acciones">
@@ -859,14 +812,14 @@ function PanelVendedor() {
           <h2>Tu cuenta fue cancelada de forma permanente</h2>
           <p>
             Acumulaste {puntosReputacion}/{puntosCancelacion} puntos de
-            infracción (RQNF10.1), por lo que tu cuenta fue cancelada de forma
+            infracción, por lo que tu cuenta fue cancelada de forma
             definitiva: ya no puedes publicar ni vender, y tus datos de
             identificación (RFC, CURP e INE) quedaron en la lista negra de
-            Ichiba (RQNF10.3 / RQNF10.6).
+            Ichiba.
           </p>
           <p>
             Conservas el acceso únicamente para completar las entregas cuyo pago
-            ya está confirmado (RQF12). Cuando termines la última entrega
+            ya está confirmado. Cuando termines la última entrega
             pendiente, tus datos personales se eliminarán y ya no podrás iniciar
             sesión.
           </p>
@@ -1037,7 +990,7 @@ function PanelVendedor() {
         <h2>Disputas de reembolso</h2>
         <p className="panel-vendedor__informes-nota">
           Cuando un comprador abre una disputa, el pago de esa venta queda
-          retenido (RQNF32) hasta que la administración resuelva el caso. Aquí
+          retenido hasta que la administración resuelva el caso. Aquí
           puedes presentar tu versión y adjuntar tus evidencias.
         </p>
 
@@ -1131,43 +1084,43 @@ function PanelVendedor() {
       {!cuentaCancelada && (
         <div className="panel-vendedor__preferencias">
           <h2>Preferencias de notificaciones</h2>
-        <p className="panel-vendedor__preferencias-nota">
-          Las notificaciones críticas son obligatorias desde tu registro.
-          Solo puedes elegir si quieres recibir el aviso de comentarios.
-        </p>
-
-        <div className="panel-vendedor__preferencia panel-vendedor__preferencia--fija">
-          <span
-            className="panel-vendedor__preferencia-candado"
-            aria-hidden="true"
-          >
-            🔒
-          </span>
-          <span>
-            <strong>Notificaciones críticas (obligatorias):</strong> el estado
-            de tu cuenta, la fila virtual y tus pagos.
-          </span>
-        </div>
-
-        <label className="panel-vendedor__preferencia">
-          <input
-            type="checkbox"
-            checked={preferencias.recibirNotificacionesPublicitarias}
-            onChange={(e) =>
-              setPreferencias((anteriores) => ({
-                ...anteriores,
-                recibirNotificacionesPublicitarias: e.target.checked,
-              }))
-            }
-          />
-          Comentarios de los visitantes en mis publicaciones publicitarias.
-        </label>
-
-        {avisoPreferencias && (
-          <p className="panel-vendedor__preferencias-aviso">
-            {avisoPreferencias}
+          <p className="panel-vendedor__preferencias-nota">
+            Las notificaciones críticas son obligatorias desde tu registro.
+            Solo puedes elegir si quieres recibir el aviso de comentarios.
           </p>
-        )}
+
+          <div className="panel-vendedor__preferencia panel-vendedor__preferencia--fija">
+            <span
+              className="panel-vendedor__preferencia-candado"
+              aria-hidden="true"
+            >
+              🔒
+            </span>
+            <span>
+              <strong>Notificaciones críticas (obligatorias):</strong> el estado
+              de tu cuenta, la fila virtual y tus pagos.
+            </span>
+          </div>
+
+          <label className="panel-vendedor__preferencia">
+            <input
+              type="checkbox"
+              checked={preferencias.recibirNotificacionesPublicitarias}
+              onChange={(e) =>
+                setPreferencias((anteriores) => ({
+                  ...anteriores,
+                  recibirNotificacionesPublicitarias: e.target.checked,
+                }))
+              }
+            />
+            Comentarios de los visitantes en mis publicaciones publicitarias.
+          </label>
+
+          {avisoPreferencias && (
+            <p className="panel-vendedor__preferencias-aviso">
+              {avisoPreferencias}
+            </p>
+          )}
 
           <button
             type="button"

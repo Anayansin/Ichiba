@@ -1,3 +1,5 @@
+import { randomInt } from "crypto";
+
 export function generarCodigo(): string {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return String(randomInt(1000, 10000));
 }

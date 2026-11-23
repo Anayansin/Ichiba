@@ -59,6 +59,10 @@ const fechaFormato = new Intl.DateTimeFormat("es-MX", {
 function textoEstado(estado: string): string {
   const textos: Record<string, string> = {
     completada: "Completada",
+    pendiente_comprobante: "Pendiente de comprobante",
+    pendiente_confirmacion: "Comprobante por confirmar",
+    en_entrega: "En entrega",
+    reembolsada: "Reembolsada",
     pendiente: "Pendiente",
     expirada: "Expirada",
     cancelada: "Cancelada",

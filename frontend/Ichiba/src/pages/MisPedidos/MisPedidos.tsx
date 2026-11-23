@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   abrirDisputaDeCompra,
-  fetchEvidenciaDisputa,
   fetchMisCompras,
   fetchMisDisputas,
   fetchVentasDelVendedor,
@@ -16,6 +15,7 @@ import { fechaLimiteTexto } from "../../utils/estadoVenta";
 import { mensajeDeError } from "../../utils/errores";
 import { URL_BACKEND } from "../../services/api";
 import "./MisPedidos.css";
+import EvidenciasDeDisputa from "../../components/EvidenciasDeDisputa/EvidenciasDeDisputa";
 
 function textoEstadoDisputa(estado: string): string {
   const textos: Record<string, string> = {
@@ -25,56 +25,6 @@ function textoEstadoDisputa(estado: string): string {
     rechazada: "Disputa rechazada: la venta continúa su curso normal",
   };
   return textos[estado] ?? estado;
-}
-
-function EvidenciasDeDisputa({
-  disputaId,
-  lado,
-  cantidad,
-}: {
-  disputaId: string;
-  lado: "comprador" | "vendedor";
-  cantidad: number;
-}) {
-  const [urls, setUrls] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (cantidad === 0) {
-      setUrls([]);
-      return;
-    }
-
-    let activo = true;
-    const creadas: string[] = [];
-
-    (async () => {
-      for (let indice = 0; indice < cantidad; indice += 1) {
-        try {
-          const url = await fetchEvidenciaDisputa(disputaId, lado, indice);
-          creadas.push(url);
-          if (activo) setUrls([...creadas]);
-        } catch {
-        }
-      }
-    })();
-
-    return () => {
-      activo = false;
-      for (const url of creadas) URL.revokeObjectURL(url);
-    };
-  }, [disputaId, lado, cantidad]);
-
-  if (cantidad === 0) return null;
-
-  return (
-    <div className="mis-pedidos__evidencias">
-      {urls.map((url) => (
-        <a key={url} href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={`Evidencia del ${lado}`} />
-        </a>
-      ))}
-    </div>
-  );
 }
 
 function MisPedidos() {
@@ -292,6 +242,7 @@ function MisPedidos() {
                     </p>
                     {disputa.evidenciasComprador.length > 0 && (
                       <EvidenciasDeDisputa
+                        className="mis-pedidos__evidencias"
                         disputaId={disputa.id}
                         lado="comprador"
                         cantidad={disputa.evidenciasComprador.length}
@@ -304,6 +255,7 @@ function MisPedidos() {
                     )}
                     {disputa.evidenciasVendedor.length > 0 && (
                       <EvidenciasDeDisputa
+                        className="mis-pedidos__evidencias"
                         disputaId={disputa.id}
                         lado="vendedor"
                         cantidad={disputa.evidenciasVendedor.length}
@@ -352,7 +304,7 @@ function MisPedidos() {
               {disputaAbiertaPara === compra.ventaId && !disputa && (
                 <div className="mis-pedidos__formulario-disputa">
                   <p className="mis-pedidos__formulario-titulo">
-                    Disputa de reembolso (RQF40)
+                    Disputa de reembolso
                   </p>
                   <p className="mis-pedidos__formulario-nota">
                     Cuéntanos qué pasó. Mientras la administración revisa tu

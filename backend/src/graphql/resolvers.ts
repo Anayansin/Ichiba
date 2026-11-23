@@ -181,7 +181,10 @@ export const resolutoresGraphQL = {
       if (fila.posicion === 1) {
         if (!fila.pagoExpiraEn) {
           await iniciarTemporizadorPago(fila);
-          await fila.save();
+          await clientePrisma.cola.update({
+            where: { id: Number(fila.id) },
+            data: { pagoExpiraEn: fila.pagoExpiraEn },
+          });
         } else if (await expirarTurnoSiVencido(fila)) {
           return null;
         }

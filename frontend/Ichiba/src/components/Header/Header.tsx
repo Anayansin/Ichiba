@@ -40,7 +40,7 @@ function Header({ onOpenLogin }: HeaderProps) {
     setBusquedaAbierta(false);
   }
 
-  function manjarTeclasBusqueda(evento: KeyboardEvent<HTMLFormElement>) {
+  function manejarTeclasBusqueda(evento: KeyboardEvent<HTMLFormElement>) {
     if (evento.key === "Escape") {
       cerrarBusqueda();
     }
@@ -129,7 +129,7 @@ function Header({ onOpenLogin }: HeaderProps) {
         <form
           className="header__buscador header__buscador--expandido"
           onSubmit={enviarBusqueda}
-          onKeyDown={manjarTeclasBusqueda}
+          onKeyDown={manejarTeclasBusqueda}
           role="search"
         >
           <input
@@ -209,7 +209,7 @@ function Header({ onOpenLogin }: HeaderProps) {
           )}
         </div>
       ) : (
-        <Boton texto="Iniciar Sesion" onClick={onOpenLogin} />
+        <Boton texto="Iniciar sesión" onClick={onOpenLogin} />
       )}
     </header>
   );

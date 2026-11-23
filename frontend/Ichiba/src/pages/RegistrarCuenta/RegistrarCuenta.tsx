@@ -11,36 +11,16 @@ import {
 } from "../../utils/validarImagen";
 import { useAuth } from "../../context/AuthContext";
 import { codigoDeError, mensajeDeError, motivoDeError } from "../../utils/errores";
+import {
+  REQUISITOS_PASSWORD,
+  cumpleRequisitosPassword,
+} from "../../utils/requisitosPassword";
 import { useNavigate } from "react-router-dom";
 import SelectorHorario, {
   type BloqueHorario,
 } from "../../components/SelectorHorario/SelectorHorario";
 
 const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const requisitosPassword = [
-  {
-    texto: "Al menos 10 caracteres",
-    test: (p: string) => p.length >= 10,
-  },
-  {
-    texto: "Al menos una letra mayúscula",
-    test: (p: string) => /[A-Z]/.test(p),
-  },
-  {
-    texto: "Al menos una letra minúscula",
-    test: (p: string) => /[a-z]/.test(p),
-  },
-  { texto: "Al menos un número", test: (p: string) => /[0-9]/.test(p) },
-  {
-    texto: "Al menos un carácter especial (!@#$%&*-_)",
-    test: (p: string) => /[!@#$%&*\-_]/.test(p),
-  },
-  {
-    texto: "Solo letras, números y los símbolos !@#$%&*-_",
-    test: (p: string) => /^[A-Za-z0-9!@#$%&*\-_]+$/.test(p),
-  },
-];
 
 type Campo =
   | "nombreCompleto"
@@ -101,7 +81,7 @@ function errorDeHorario(horarios: BloqueHorario[]): string {
   return "";
 }
 
-function RegistarCuenta() {
+function RegistrarCuenta() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -201,7 +181,7 @@ function RegistarCuenta() {
     setArchivo(archivo);
   }
 
-  const passwordValida = requisitosPassword.every((req) => req.test(password));
+  const passwordValida = cumpleRequisitosPassword(password);
 
   const errores: Partial<Record<Campo, string>> = {};
   if (!nombreCompleto.trim()) {
@@ -304,18 +284,16 @@ function RegistarCuenta() {
 
       login(data.usuario, data.token);
 
-      {
-        try {
-          const { url } = await iniciarVinculacionPayPal();
-          setAbriendoPaypal(true);
-          window.location.href = url;
-          return;
-        } catch (errVinculacion) {
-          setError(
-            mensajeDeError(errVinculacion) ||
-              "No se pudo abrir la página de PayPal. Tu cuenta ya quedó creada: verifica tu correo para entrar.",
-          );
-        }
+      try {
+        const { url } = await iniciarVinculacionPayPal();
+        setAbriendoPaypal(true);
+        window.location.href = url;
+        return;
+      } catch (errVinculacion) {
+        setError(
+          mensajeDeError(errVinculacion) ||
+            "No se pudo abrir la página de PayPal. Tu cuenta ya quedó creada: verifica tu correo para entrar.",
+        );
       }
 
       setMostrarVerificacion(true);
@@ -495,7 +473,7 @@ function RegistarCuenta() {
 
         <div className="form-group">
           <label htmlFor="campo-correo">
-            Correo Electrónico <span className="registro-obligatorio">*</span>
+            Correo electrónico <span className="registro-obligatorio">*</span>
           </label>
           <input
             id="campo-correo"
@@ -538,7 +516,7 @@ function RegistarCuenta() {
 
         <div className="form-group">
           <label>
-            Identificación Oficial por ambos lados (INE){" "}
+            Identificación oficial por ambos lados (INE){" "}
             <span className="registro-obligatorio">*</span>
           </label>
           <div className="file-inputs">
@@ -603,7 +581,7 @@ function RegistarCuenta() {
         >
           <p className="requisitos-titulo">Tu contraseña debe cumplir:</p>
           <ul>
-            {requisitosPassword.map((req) => (
+            {REQUISITOS_PASSWORD.map((req) => (
               <li
                 key={req.texto}
                 className={req.test(password) ? "requisito-cumplido" : ""}
@@ -636,30 +614,28 @@ function RegistarCuenta() {
           </p>
         </div>
 
-        {(
-          <div className="form-group">
-            <label htmlFor="campo-datos-pago">
-              Correo de PayPal (aquí recibirás tus pagos){" "}
-              <span className="registro-obligatorio">*</span>
-            </label>
-            <input
-              id="campo-datos-pago"
-              type="text"
-              inputMode="email"
-              className={claseDeCampo("datosMetodoPago", "registro-input")}
-              placeholder="tu-correo@paypal.com"
-              value={datosMetodoPago}
-              onChange={(e) => setDatosMetodoPago(e.target.value)}
-              onBlur={() => marcarTocado("datosMetodoPago")}
-              ref={guardarRef("datosMetodoPago") as (el: HTMLInputElement | null) => void}
-            />
-            {mensajeDeCampo("datosMetodoPago") && (
-              <span className="registro-campo-error">
-                {mensajeDeCampo("datosMetodoPago")}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="form-group">
+          <label htmlFor="campo-datos-pago">
+            Correo de PayPal (aquí recibirás tus pagos){" "}
+            <span className="registro-obligatorio">*</span>
+          </label>
+          <input
+            id="campo-datos-pago"
+            type="text"
+            inputMode="email"
+            className={claseDeCampo("datosMetodoPago", "registro-input")}
+            placeholder="tu-correo@paypal.com"
+            value={datosMetodoPago}
+            onChange={(e) => setDatosMetodoPago(e.target.value)}
+            onBlur={() => marcarTocado("datosMetodoPago")}
+            ref={guardarRef("datosMetodoPago") as (el: HTMLInputElement | null) => void}
+          />
+          {mensajeDeCampo("datosMetodoPago") && (
+            <span className="registro-campo-error">
+              {mensajeDeCampo("datosMetodoPago")}
+            </span>
+          )}
+        </div>
 
         <div className="form-group">
           <label>
@@ -759,4 +735,4 @@ function RegistarCuenta() {
   );
 }
 
-export default RegistarCuenta;
+export default RegistrarCuenta;
