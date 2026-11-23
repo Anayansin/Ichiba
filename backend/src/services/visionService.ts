@@ -447,6 +447,32 @@ export function mensajeDeVerificacionComprobante(
   return "No se encontró una fecha legible en el comprobante. Sube una imagen donde se vea la fecha de la operación.";
 }
 
+export async function moderarFotosPromocional(
+  rutasArchivos: string[],
+): Promise<string | null> {
+  if (moderacionOmitida()) return null;
+
+  for (const ruta of rutasArchivos) {
+    const analisis = await analizarContenidoInseguro(ruta);
+    if (analisis.permitido) continue;
+
+    if (analisis.motivo === "no-configurada") {
+      console.error(
+        "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de fotos de promocionales está activa y bloquea publicaciones (RQNF9.3).",
+      );
+      return "La moderación de imágenes no está disponible en este momento; no se puede publicar. Intenta más tarde o contacta al administrador.";
+    }
+
+    if (analisis.motivo === "error") {
+      return "No fue posible analizar la fotografía en este momento; intenta de nuevo.";
+    }
+
+    return "La fotografía del promocional contiene contenido inapropiado y no puede publicarse.";
+  }
+
+  return null;
+}
+
 export async function moderarComprobante(
   rutaArchivo: string,
   contexto: "comprobante" | "chat" = "comprobante",

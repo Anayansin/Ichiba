@@ -3,7 +3,7 @@ import clientePrisma from "../configuracion/prisma.js";
 import { Mensaje } from "../models/Mensaje.js";
 import { Venta } from "../models/Venta.js";
 import { ListaNegra } from "../models/ListaNegra.js";
-import { puntosDeCategoria } from "../configuracion/categoriasReporte.js";
+import { CATEGORIA_REVISION_MANUAL, puntosDeCategoria } from "../configuracion/categoriasReporte.js";
 import {
   acumularPuntosDeReporte,
   PUNTOS_CANCELACION,
@@ -26,7 +26,7 @@ import {
   type ResumenAdminSerializado,
   type UsuarioResumido,
 } from "./resumenAdminService.js";
-import { levantarSancionPorAdmin, quitarFalta } from "./sancionService.js";
+import { levantarSancionPorAdmin, quitarFalta, registrarFalta } from "./sancionService.js";
 import { ErrorBackoffice } from "./errorBackoffice.js";
 import {
   listarAdeudosAdmin as listarAdeudosDelServicio,
@@ -371,6 +371,18 @@ export async function resolverReporteAdmin(
     where: { id: reporte.id },
     data: { estado: "confirmado" },
   });
+
+  if (reporte.categoria === CATEGORIA_REVISION_MANUAL) {
+    await registrarFalta({
+      sujetoTipo: reporte.sujetoTipo === "comprador" ? "comprador" : "usuario",
+      sujetoId: String(reporte.sujetoId),
+      reporteId: String(reporte.id),
+      categoria: reporte.categoria,
+      tipoFalta: reporte.tipoFalta === "grave" ? "grave" : "leve",
+      elemento: String(reporte.elemento),
+      reportadoPor: `${reporte.reportadoPorTipo}:${reporte.reportadoPorId}`,
+    });
+  }
 
   if (!vendedor) {
     await publicarReportesPendientes(

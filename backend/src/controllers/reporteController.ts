@@ -122,15 +122,17 @@ async function registrarReporte(datos: DatosNuevoReporte) {
     });
   }
 
-  await registrarFalta({
-    sujetoTipo: datos.sujeto.tipo,
-    sujetoId: datos.sujeto.id,
-    reporteId: String(reporte.id),
-    categoria: infoCategoria.id,
-    tipoFalta: infoCategoria.tipoFalta,
-    elemento: datos.elemento,
-    reportadoPor: `${datos.reportero.tipo}:${datos.reportero.id}`,
-  });
+  if (infoCategoria.id !== CATEGORIA_REVISION_MANUAL) {
+    await registrarFalta({
+      sujetoTipo: datos.sujeto.tipo,
+      sujetoId: datos.sujeto.id,
+      reporteId: String(reporte.id),
+      categoria: infoCategoria.id,
+      tipoFalta: infoCategoria.tipoFalta,
+      elemento: datos.elemento,
+      reportadoPor: `${datos.reportero.tipo}:${datos.reportero.id}`,
+    });
+  }
 
   if (infoCategoria.id === CATEGORIA_REVISION_MANUAL) {
     if (datos.ventaRelacionada) {
@@ -499,6 +501,18 @@ export async function confirmarReporte(req: Request, res: Response) {
       where: { id: reporte.id },
       data: { estado: "confirmado" },
     });
+
+    if (reporte.categoria === CATEGORIA_REVISION_MANUAL) {
+      await registrarFalta({
+        sujetoTipo: "usuario",
+        sujetoId: String(idVendedor),
+        reporteId: String(reporte.id),
+        categoria: reporte.categoria,
+        tipoFalta: reporte.tipoFalta === "grave" ? "grave" : "leve",
+        elemento: String(reporte.elemento),
+        reportadoPor: `${reporte.reportadoPorTipo}:${reporte.reportadoPorId}`,
+      });
+    }
 
     const faltas = await aplicarFaltaConfirmada(
       idVendedor,

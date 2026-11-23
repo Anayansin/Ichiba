@@ -12,6 +12,7 @@ import {
   mensajePalabrasProhibidas,
 } from "../utils/filtroPalabras.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
+import { moderarFotosPromocional } from "../services/visionService.js";
 
 function booleanoDeTexto(valor: unknown, porDefecto: boolean): boolean {
   if (valor === undefined || valor === null || valor === "") {
@@ -105,6 +106,14 @@ export async function crearPromocional(req: RequestConUsuario, res: Response) {
         message: mensajePalabrasProhibidas(campoProhibido),
         campo: campoProhibido,
       });
+    }
+
+    const errorModeracion = await moderarFotosPromocional(
+      archivos.map((archivo) => archivo.path),
+    );
+    if (errorModeracion) {
+      borrarSubidas();
+      return res.status(400).json({ message: errorModeracion });
     }
 
     const nuevoPromocional = new Promocional({
@@ -298,6 +307,14 @@ export async function actualizarPromocional(
         message: mensajePalabrasProhibidas(campoProhibido),
         campo: campoProhibido,
       });
+    }
+
+    const errorModeracion = await moderarFotosPromocional(
+      archivosNuevos.map((archivo) => archivo.path),
+    );
+    if (errorModeracion) {
+      borrarNuevas();
+      return res.status(400).json({ message: errorModeracion });
     }
 
     imagenesEliminadas.forEach((rutaRelativa) => {
