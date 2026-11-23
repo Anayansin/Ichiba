@@ -499,13 +499,13 @@ export async function registrarComprobante(
     }
 
     const palabraClave = String(req.body?.palabraClave ?? "").trim();
-    if (!/^d{4}$/.test(palabraClave)) {
+    if (!/^\d{4}$/.test(palabraClave)) {
       limpiarArchivo();
       return res
         .status(400)
         .json({ message: "Ingresa la palabra clave de 4 dígitos de tu compra" });
     }
-    if (!/^d{6,8}$/.test(referencia)) {
+    if (!/^\d{6,8}$/.test(referencia)) {
       limpiarArchivo();
       return res.status(400).json({
         message:

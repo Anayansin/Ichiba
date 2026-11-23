@@ -150,7 +150,7 @@ function PagoExitoso() {
     }
 
     const referenciaLimpia = referencia.trim();
-    if (!/^d{6,8}$/.test(referenciaLimpia)) {
+    if (!/^\d{6,8}$/.test(referenciaLimpia)) {
       setErrorComprobante(
         "El número de referencia debe ser numérico y tener entre 6 y 8 dígitos",
       );
@@ -303,7 +303,7 @@ function PagoExitoso() {
                   maxLength={8}
                   value={referencia}
                   onChange={(e) =>
-                    setReferencia(e.target.value.replace(/D/g, ""))
+                    setReferencia(e.target.value.replace(/\D/g, ""))
                   }
                   placeholder="Ej. 12345678"
                 />

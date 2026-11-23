@@ -194,7 +194,7 @@ export async function registrarComprobanteDeVenta(
   }
 
   const referencia = datos.referencia.trim();
-  if (!/^d{6,8}$/.test(referencia)) {
+  if (!/^\d{6,8}$/.test(referencia)) {
     return {
       error:
         "El número de referencia debe ser numérico y tener entre 6 y 8 dígitos",
