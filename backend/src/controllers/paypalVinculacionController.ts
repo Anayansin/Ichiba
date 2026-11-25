@@ -68,15 +68,16 @@ export async function callbackVinculacionPayPal(
     if (!code) return volver("denegado");
 
     const token = await intercambiarCodigoPorToken(code);
+    console.log("[paypal] Permisos concedidos:", token.scope ?? "(sin detalle)");
     const identidad = await identidadPaypal(token.access_token);
 
-    const merchantId = identidad.payer_id;
+    const merchantId = identidad.payer_id ?? null;
     const correoPayPal =
       identidad.email ??
       identidad.emails?.find((e) => e.primary)?.value ??
       identidad.emails?.[0]?.value;
 
-    if (!merchantId || !correoPayPal) {
+    if (!correoPayPal) {
       console.error("[paypal] Vinculación sin identidad completa:", identidad);
       return volver("sin-identidad");
     }
@@ -90,7 +91,7 @@ export async function callbackVinculacionPayPal(
       {
         usuarioId: pendiente.usuarioId,
         correoPayPal,
-        merchantId,
+        merchantId: merchantId ?? undefined,
         tokenCifrado: cifrar(token.access_token),
         refrescoCifrado: token.refresh_token
           ? cifrar(token.refresh_token)
@@ -102,7 +103,7 @@ export async function callbackVinculacionPayPal(
     );
 
     console.log(
-      `[paypal] Cuenta vinculada para el usuario ${pendiente.usuarioId} (Merchant ID ${merchantId})`,
+      `[paypal] Cuenta vinculada para el usuario ${pendiente.usuarioId} (${merchantId ? `Merchant ID ${merchantId}` : "sin Merchant ID, se cobra por correo"})`,
     );
 
     volver("vinculado");

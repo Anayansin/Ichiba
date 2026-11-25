@@ -257,12 +257,12 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
     }
 
     const vinculo = await VinculoPayPal.findOne({ usuarioId: vendedor.id })
-      .select("merchantId")
+      .select("merchantId correoPayPal")
       .lean();
 
     const orden = await crearOrdenPaypal(
       producto.precio,
-      paypalEmail,
+      vinculo?.correoPayPal ?? paypalEmail,
       productoId,
       vinculo?.merchantId,
       compradorId,

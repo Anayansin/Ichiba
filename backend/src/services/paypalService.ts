@@ -443,30 +443,63 @@ export async function intercambiarCodigoPorToken(codigo: string) {
     refresh_token?: string;
     expires_in?: number;
     token_type?: string;
+    scope?: string;
   };
 }
 
-export async function identidadPaypal(tokenDeUsuario: string) {
+type IdentidadPaypal = {
+  payer_id?: string;
+  email?: string;
+  emails?: { value: string; primary?: boolean }[];
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+};
+
+// PayPal expone la identidad en dos endpoints según el esquema; algunas apps
+// solo responden en uno de ellos, así que se consultan ambos y se combinan.
+const ENDPOINTS_IDENTIDAD = [
+  "/v1/identity/openidconnect/userinfo?schema=openid",
+  "/v1/identity/oauth2/userinfo?schema=paypalv1.1",
+];
+
+export async function identidadPaypal(
+  tokenDeUsuario: string,
+): Promise<IdentidadPaypal> {
   const { apiBase } = configuracionPaypal();
+  const identidad: IdentidadPaypal = {};
+  const fallos: string[] = [];
 
-  // Sin schema=paypalv1.1 PayPal responde 400 "Unable to fetch details".
-  const respuesta = await fetch(
-    `${apiBase}/v1/identity/oauth2/userinfo?schema=paypalv1.1`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${tokenDeUsuario}` },
-    },
-  );
+  for (const ruta of ENDPOINTS_IDENTIDAD) {
+    try {
+      const respuesta = await fetch(`${apiBase}${ruta}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${tokenDeUsuario}` },
+      });
+      const datos = (await leerRespuesta(
+        respuesta,
+        "Vinculación (identidad)",
+      )) as IdentidadPaypal;
+      for (const [clave, valor] of Object.entries(datos ?? {})) {
+        if (valor && !(clave in identidad)) {
+          (identidad as Record<string, unknown>)[clave] = valor;
+        }
+      }
+    } catch (error) {
+      fallos.push(
+        `${ruta.split("?")[0]}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+  }
 
-  const datos = await leerRespuesta(respuesta, "Vinculación (identidad)");
+  if (fallos.length === ENDPOINTS_IDENTIDAD.length) {
+    throw new Error(`Vinculación (identidad): ${fallos.join(" | ")}`);
+  }
+  if (fallos.length) {
+    console.warn("[paypal] Identidad parcial:", fallos.join(" | "));
+  }
 
-  return datos as {
-    payer_id?: string;
-    email?: string;
-    emails?: { value: string; primary?: boolean }[];
-    given_name?: string;
-    family_name?: string;
-  };
+  return identidad;
 }
 
 export async function verificarFirmaWebhookPaypal(

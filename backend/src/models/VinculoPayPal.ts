@@ -4,7 +4,7 @@ const vinculoPayPalSchema = new Schema(
   {
     usuarioId: { type: Number, required: true, unique: true, index: true },
     correoPayPal: { type: String, required: true },
-    merchantId: { type: String, required: true },
+    merchantId: { type: String },
     tokenCifrado: { type: String, required: true },
     refrescoCifrado: { type: String },
     tokenExpiraEn: { type: Date },
