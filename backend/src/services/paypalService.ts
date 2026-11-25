@@ -449,10 +449,14 @@ export async function intercambiarCodigoPorToken(codigo: string) {
 export async function identidadPaypal(tokenDeUsuario: string) {
   const { apiBase } = configuracionPaypal();
 
-  const respuesta = await fetch(`${apiBase}/v1/identity/oauth2/userinfo`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${tokenDeUsuario}` },
-  });
+  // Sin schema=paypalv1.1 PayPal responde 400 "Unable to fetch details".
+  const respuesta = await fetch(
+    `${apiBase}/v1/identity/oauth2/userinfo?schema=paypalv1.1`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${tokenDeUsuario}` },
+    },
+  );
 
   const datos = await leerRespuesta(respuesta, "Vinculación (identidad)");
 
