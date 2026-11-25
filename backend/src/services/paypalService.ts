@@ -54,9 +54,14 @@ function configuracionPaypal(): VariablesPaypal {
   return { clientId, clientSecret, apiBase };
 }
 
-function frontUrl(): string {
+// FRONTEND_URL puede traer varias direcciones separadas por comas (CORS);
+// los regresos desde PayPal usan la primera.
+export function frontUrl(): string {
   const frontend =
-    process.env.FRONTEND_URL?.trim() || "http://localhost:5173";
+    (process.env.FRONTEND_URL ?? "")
+      .split(",")
+      .map((origen) => origen.trim())
+      .find(Boolean) || "http://localhost:5173";
   return frontend.replace(/\/+$/, "");
 }
 

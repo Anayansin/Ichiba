@@ -5,6 +5,7 @@ import {
   intercambiarCodigoPorToken,
   identidadPaypal,
   paypalEnSandbox,
+  frontUrl,
 } from "../services/paypalService.js";
 import { cifrar } from "../services/cifradoService.js";
 import { VinculoPayPal, EstadoVinculacionPayPal } from "../models/VinculoPayPal.js";
@@ -12,11 +13,6 @@ import clientePrisma from "../configuracion/prisma.js";
 import { RequestConUsuario } from "../middleware/auth.js";
 
 const MINUTOS_STATE = 10;
-
-function frontUrl(): string {
-  const frontend = process.env.FRONTEND_URL ?? "http://localhost:5173";
-  return frontend.replace(/\/+$/, "");
-}
 
 function idNumerico(usuarioId?: string): number | null {
   const numero = Number(usuarioId);
