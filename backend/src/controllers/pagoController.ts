@@ -15,8 +15,31 @@ import {
   crearOrdenPaypal,
   autorizarOrdenPaypal,
   obtenerOrdenPaypal,
+  obtenerCapturaPaypal,
   verificarFirmaWebhookPaypal,
 } from "../services/paypalService.js";
+
+type EstadoFondos = "retenido" | "en_proceso" | "liberado" | "reembolsado" | "cancelado";
+
+async function estadoDeFondos(venta: {
+  estado: string;
+  capturaPaypalId?: string | null;
+}): Promise<EstadoFondos> {
+  if (venta.estado === "reembolsada") return "reembolsado";
+  if (venta.estado === "cancelada") return "cancelado";
+  if (venta.estado !== "completada") return "retenido";
+  if (!venta.capturaPaypalId) return "en_proceso";
+  try {
+    const captura = await obtenerCapturaPaypal(venta.capturaPaypalId);
+    return captura?.status === "COMPLETED" ? "liberado" : "en_proceso";
+  } catch (error) {
+    console.error(
+      "[pago] No se pudo consultar la captura en PayPal:",
+      error instanceof Error ? error.message : error,
+    );
+    return "en_proceso";
+  }
+}
 import { registrarVentaExitosa } from "../services/ventaService.js";
 import { validarDimensionesProducto } from "../services/imagenProductoService.js";
 import { enviarCorreoPalabraClaveCompra } from "../services/emailService.js";
@@ -865,11 +888,12 @@ export async function ventasDelVendedor(
           netoPorRecibir: Number(comisiones.netoPorRecibir.toFixed(2)),
         },
       },
-      ventas: visibles.map((venta) => {
+      ventas: await Promise.all(visibles.map(async (venta) => {
         const producto = mapaProductos.get(String(venta.productoId));
         return {
           ventaId: Number(venta.id),
           estado: venta.estado,
+          estadoFondos: await estadoDeFondos(venta),
           monto: Number(venta.monto),
           comision: comisionDeVenta(Number(venta.monto), venta.estado),
           producto: producto
@@ -897,7 +921,7 @@ export async function ventasDelVendedor(
           },
           canceladoMotivo: venta.canceladoMotivo ?? null,
         };
-      }),
+      })),
     });
   } catch (error) {
     console.error("[pago] Error al listar las ventas del vendedor:", error);

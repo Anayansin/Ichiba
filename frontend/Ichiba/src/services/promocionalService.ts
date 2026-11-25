@@ -63,6 +63,7 @@ export type Comentario = {
   texto: string;
   autorNombre: string;
   createdAt: string;
+  respuesta?: { texto: string; fecha: string } | null;
 };
 
 export async function fetchComentarios(
@@ -80,6 +81,70 @@ export async function crearComentario(
   const response = await api.post(
     `/promocionales/${promocionalId}/comentarios`,
     { texto, autorNombre },
+  );
+  return response.data;
+}
+
+export async function responderComentario(
+  promocionalId: string,
+  comentarioId: string,
+  texto: string,
+): Promise<Comentario> {
+  const response = await api.post(
+    `/promocionales/${promocionalId}/comentarios/${comentarioId}/respuesta`,
+    { texto },
+  );
+  return response.data;
+}
+
+export type MensajeConsulta = {
+  _id: string;
+  promocionalId: string;
+  compradorId: string;
+  remitente: "comprador" | "vendedor";
+  contenido: string;
+  createdAt: string;
+};
+
+export type ConversacionConsulta = {
+  promocionalId: string;
+  promocionalNombre: string;
+  compradorId: string;
+  mensajes: MensajeConsulta[];
+};
+
+export async function fetchConsulta(
+  promocionalId: string,
+): Promise<MensajeConsulta[]> {
+  const response = await api.get(`/promocionales/${promocionalId}/consulta`);
+  return response.data;
+}
+
+export async function enviarConsulta(
+  promocionalId: string,
+  contenido: string,
+): Promise<MensajeConsulta> {
+  const response = await api.post(`/promocionales/${promocionalId}/consulta`, {
+    contenido,
+  });
+  return response.data;
+}
+
+export async function fetchConsultasDelVendedor(): Promise<
+  ConversacionConsulta[]
+> {
+  const response = await api.get("/promocionales/mios/consultas");
+  return response.data;
+}
+
+export async function responderConsulta(
+  promocionalId: string,
+  compradorId: string,
+  contenido: string,
+): Promise<MensajeConsulta> {
+  const response = await api.post(
+    `/promocionales/${promocionalId}/consulta/${encodeURIComponent(compradorId)}`,
+    { contenido },
   );
   return response.data;
 }

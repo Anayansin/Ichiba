@@ -4,6 +4,7 @@ import {
   agregarUsuarioAListaNegra,
   fetchUsuarios,
   reactivarUsuario,
+  suspenderUsuario,
   type UsuarioAdmin,
 } from "../../services/adminService";
 import {
@@ -13,6 +14,8 @@ import {
 import "./GestionUsuarios.css";
 
 const USUARIOS_POR_PAGINA = 10;
+const MOTIVO_MINIMO = 10;
+const MOTIVO_MAXIMO = 500;
 
 const CONSULTA_USUARIOS = `
   subscription UsuariosEnVivo {
@@ -61,6 +64,8 @@ function GestionUsuarios() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
+  const [porSuspender, setPorSuspender] = useState<UsuarioAdmin | null>(null);
+  const [motivoSuspension, setMotivoSuspension] = useState("");
   const [busqueda, setBusqueda] = useState("");
   const busquedaRef = useRef("");
   const [usuarioEnAccion, setUsuarioEnAccion] = useState<string | null>(null);
@@ -134,6 +139,49 @@ function GestionUsuarios() {
       setError(
         (axios.isAxiosError(err) && err.response?.data?.message) ||
           "No pudimos reactivar el usuario",
+      );
+    } finally {
+      setUsuarioEnAccion(null);
+    }
+  }
+
+  function abrirSuspension(usuario: UsuarioAdmin) {
+    setError("");
+    setAviso("");
+    setMotivoSuspension("");
+    setPorSuspender(usuario);
+  }
+
+  async function suspender(evento: React.FormEvent) {
+    evento.preventDefault();
+    if (!porSuspender) return;
+    const motivo = motivoSuspension.trim();
+    if (motivo.length < MOTIVO_MINIMO) {
+      setError(
+        `Escribe el motivo de la suspensión (mínimo ${MOTIVO_MINIMO} caracteres)`,
+      );
+      return;
+    }
+
+    setError("");
+    setUsuarioEnAccion(porSuspender.id);
+
+    try {
+      const usuarioActualizado = await suspenderUsuario(porSuspender.id, motivo);
+      setUsuarios((anteriores) =>
+        anteriores.map((item) =>
+          item.id === usuarioActualizado.id ? usuarioActualizado : item,
+        ),
+      );
+      setAviso(
+        `Cuenta suspendida: ${usuarioActualizado.nombreCompleto}. Se le envió el motivo por correo.`,
+      );
+      setPorSuspender(null);
+      setMotivoSuspension("");
+    } catch (err) {
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.message) ||
+          "No pudimos suspender la cuenta",
       );
     } finally {
       setUsuarioEnAccion(null);
@@ -218,6 +266,55 @@ function GestionUsuarios() {
 
       {error && <p className="gestion-usuarios__error">{error}</p>}
       {aviso && <p className="gestion-usuarios__aviso">{aviso}</p>}
+
+      {porSuspender && (
+        <form className="gestion-usuarios__suspension" onSubmit={suspender}>
+          <h3>Suspender a {porSuspender.nombreCompleto}</h3>
+          <p>
+            La cuenta no podrá iniciar sesión mientras esté suspendida. El
+            motivo se le enviará por correo a {porSuspender.correo}.
+          </p>
+          <label htmlFor="motivo-suspension">Motivo de la suspensión</label>
+          <textarea
+            id="motivo-suspension"
+            rows={3}
+            maxLength={MOTIVO_MAXIMO}
+            value={motivoSuspension}
+            onChange={(evento) => setMotivoSuspension(evento.target.value)}
+            placeholder="Por ejemplo: incumplimiento reiterado de entregas acordadas"
+            autoFocus
+          />
+          <span
+            className={`gestion-usuarios__contador${
+              motivoSuspension.trim().length < MOTIVO_MINIMO
+                ? " gestion-usuarios__contador--falta"
+                : ""
+            }`}
+          >
+            {motivoSuspension.trim().length}/{MOTIVO_MAXIMO} (mínimo{" "}
+            {MOTIVO_MINIMO})
+          </span>
+          <div className="gestion-usuarios__suspension-acciones">
+            <button
+              type="button"
+              className="gestion-usuarios__cancelar"
+              onClick={() => setPorSuspender(null)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="gestion-usuarios__suspender"
+              disabled={
+                usuarioEnAccion === porSuspender.id ||
+                motivoSuspension.trim().length < MOTIVO_MINIMO
+              }
+            >
+              Suspender cuenta
+            </button>
+          </div>
+        </form>
+      )}
 
       {usuarios.length === 0 ? (
         <p className="gestion-usuarios__vacio">No hay usuarios registrados.</p>
@@ -308,15 +405,27 @@ function GestionUsuarios() {
                       Reactivar
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      className="gestion-usuarios__lista-negra"
-                      title="No suspende la cuenta: bloquea sus datos para nuevas altas (RQNF1.9)"
-                      disabled={usuarioEnAccion === usuario.id}
-                      onClick={() => agregarAListaNegra(usuario)}
-                    >
-                      Lista negra
-                    </button>
+                    <div className="gestion-usuarios__acciones">
+                      {usuario.tipo !== "admin" && (
+                        <button
+                          type="button"
+                          className="gestion-usuarios__suspender"
+                          disabled={usuarioEnAccion === usuario.id}
+                          onClick={() => abrirSuspension(usuario)}
+                        >
+                          Suspender
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="gestion-usuarios__lista-negra"
+                        title="No suspende la cuenta: bloquea sus datos para nuevas altas (RQNF1.9)"
+                        disabled={usuarioEnAccion === usuario.id}
+                        onClick={() => agregarAListaNegra(usuario)}
+                      >
+                        Lista negra
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>

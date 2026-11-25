@@ -710,7 +710,8 @@ function RegistrarCuenta() {
         {abriendoPaypal && (
           <p className="registro-nota">
             Tu cuenta ya fue creada. Abriendo la página segura de PayPal para
-            que autorices la vinculación de tu cuenta...
+            que autorices la vinculación de tu cuenta. Al terminar volverás a
+            tu panel; si cierras PayPal, puedes vincularla después desde ahí.
           </p>
         )}
 

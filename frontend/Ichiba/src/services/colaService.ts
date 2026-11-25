@@ -67,3 +67,19 @@ export async function fetchEstadoDeMiFila(
   const response = await api.get(`/colas/producto/${productoId}/estado`);
   return response.data;
 }
+
+export type FilaDePublicacion = {
+  productoId: string;
+  nombre: string;
+  imagen: string | null;
+  activo: boolean;
+  enEspera: number;
+  totalEnFila: number;
+  estadoFila: string;
+  pagoExpiraEn: string | null;
+};
+
+export async function fetchFilasDelVendedor(): Promise<FilaDePublicacion[]> {
+  const response = await api.get("/colas/vendedor/estado");
+  return response.data;
+}

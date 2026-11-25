@@ -31,6 +31,7 @@ export async function estadoVinculacionPayPal() {
     correoPayPal: string | null;
     merchantId: string | null;
     vinculadoEn: string | null;
+    sandbox: boolean;
   };
 }
 
@@ -60,6 +61,13 @@ export type CompraDelComprador = {
   calificacionComprador: number | null;
 };
 
+export type EstadoFondos =
+  | "retenido"
+  | "en_proceso"
+  | "liberado"
+  | "reembolsado"
+  | "cancelado";
+
 export type ComisionDeVenta = {
   porcentaje: number;
   base: number;
@@ -75,6 +83,7 @@ export type VentaDelVendedor = {
   estado: EstadoVenta;
   monto: number;
   comision: ComisionDeVenta;
+  estadoFondos: EstadoFondos;
   producto: { nombre: string; imagenes: string[] } | null;
   compradorId: string;
   comprobante: {

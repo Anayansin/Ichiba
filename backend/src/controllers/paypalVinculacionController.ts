@@ -4,6 +4,7 @@ import {
   construirUrlVinculacionPaypal,
   intercambiarCodigoPorToken,
   identidadPaypal,
+  paypalEnSandbox,
 } from "../services/paypalService.js";
 import { cifrar } from "../services/cifradoService.js";
 import { VinculoPayPal, EstadoVinculacionPayPal } from "../models/VinculoPayPal.js";
@@ -134,6 +135,7 @@ export async function estadoVinculacionPayPal(
       correoPayPal: vinculo?.correoPayPal ?? null,
       merchantId: vinculo?.merchantId ?? null,
       vinculadoEn: vinculo?.vinculadoEn ?? null,
+      sandbox: paypalEnSandbox(),
     });
   } catch (error) {
     console.error("[paypal] No se pudo leer la vinculación:", error);

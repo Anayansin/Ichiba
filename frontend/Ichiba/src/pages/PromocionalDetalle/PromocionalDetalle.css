@@ -337,3 +337,108 @@
   flex-wrap: wrap;
   margin: 0.5rem 0;
 }
+
+.promocional-detalle__respuesta {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fdecec;
+  border-left: 3px solid #d90429;
+  border-radius: 0 8px 8px 0;
+}
+
+.promocional-detalle__respuesta strong {
+  font-size: 0.78rem;
+  color: #b3001b;
+}
+
+.promocional-detalle__respuesta p {
+  margin: 0.2rem 0 0;
+}
+
+.promocional-detalle__responder,
+.promocional-detalle__consulta-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.promocional-detalle__responder input,
+.promocional-detalle__consulta-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #cdcdcd;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.promocional-detalle__responder button,
+.promocional-detalle__consulta-form button {
+  border: none;
+  background: #d90429;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+}
+
+.promocional-detalle__responder button:disabled,
+.promocional-detalle__consulta-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.promocional-detalle__consulta {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.promocional-detalle__consulta h3 {
+  margin: 0 0 0.4rem;
+}
+
+.promocional-detalle__consulta-nota {
+  margin: 0 0 0.6rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.promocional-detalle__consulta-mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 10px;
+}
+
+.promocional-detalle__consulta-mensaje {
+  max-width: 80%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.promocional-detalle__consulta-mensaje--comprador {
+  align-self: flex-end;
+  background: #fdecec;
+  border-color: #f5c6cb;
+}
+
+.promocional-detalle__consulta-mensaje strong {
+  font-size: 0.78rem;
+}
+
+.promocional-detalle__consulta-mensaje p {
+  margin: 0.2rem 0;
+}
+
+.promocional-detalle__consulta-mensaje span {
+  font-size: 0.72rem;
+  color: #888;
+}

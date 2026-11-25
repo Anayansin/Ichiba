@@ -5,8 +5,12 @@ import {
   fetchPromocionalPorId,
   fetchComentarios,
   crearComentario,
+  enviarConsulta,
+  fetchConsulta,
+  responderComentario,
   type Promocional,
   type Comentario,
+  type MensajeConsulta,
 } from "../../services/promocionalService";
 import { textoPromocional } from "../../configuracion/categorias";
 import { useAuth } from "../../context/AuthContext";
@@ -30,6 +34,25 @@ function PromocionalDetalle() {
   const [enviandoComentario, setEnviandoComentario] = useState(false);
   const [errorComentario, setErrorComentario] = useState("");
   const [avisoComentario, setAvisoComentario] = useState("");
+
+  const [respuestas, setRespuestas] = useState<Record<string, string>>({});
+  const [respondiendo, setRespondiendo] = useState<string | null>(null);
+
+  const [consulta, setConsulta] = useState<MensajeConsulta[]>([]);
+  const [textoConsulta, setTextoConsulta] = useState("");
+  const [enviandoConsulta, setEnviandoConsulta] = useState(false);
+  const [errorConsulta, setErrorConsulta] = useState("");
+
+  useEffect(() => {
+    if (!id) return;
+    const cargar = () =>
+      fetchConsulta(id)
+        .then(setConsulta)
+        .catch(() => {});
+    cargar();
+    const intervalo = setInterval(cargar, 5000);
+    return () => clearInterval(intervalo);
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -58,6 +81,52 @@ function PromocionalDetalle() {
         Este promocional ya no está disponible
       </p>
     );
+  }
+
+  async function responder(comentarioId: string) {
+    if (!promocional) return;
+    const texto = (respuestas[comentarioId] ?? "").trim();
+    if (!texto) {
+      setErrorComentario("Escribe tu respuesta antes de enviarla");
+      return;
+    }
+    setErrorComentario("");
+    setRespondiendo(comentarioId);
+    try {
+      const actualizado = await responderComentario(
+        promocional._id,
+        comentarioId,
+        texto,
+      );
+      setComentarios((anteriores) =>
+        anteriores.map((c) => (c._id === comentarioId ? actualizado : c)),
+      );
+      setRespuestas((anteriores) => ({ ...anteriores, [comentarioId]: "" }));
+    } catch (err) {
+      setErrorComentario(
+        mensajeDeError(err) || "No se pudo publicar tu respuesta",
+      );
+    } finally {
+      setRespondiendo(null);
+    }
+  }
+
+  async function manejarConsulta(e: React.FormEvent) {
+    e.preventDefault();
+    if (!promocional) return;
+    const contenido = textoConsulta.trim();
+    if (!contenido) return;
+    setEnviandoConsulta(true);
+    setErrorConsulta("");
+    try {
+      const mensaje = await enviarConsulta(promocional._id, contenido);
+      setConsulta((anteriores) => [...anteriores, mensaje]);
+      setTextoConsulta("");
+    } catch (err) {
+      setErrorConsulta(mensajeDeError(err) || "No se pudo enviar tu mensaje");
+    } finally {
+      setEnviandoConsulta(false);
+    }
   }
 
   async function manejarComentario(e: React.FormEvent) {
@@ -199,6 +268,37 @@ function PromocionalDetalle() {
                         </span>
                       </div>
                       <p>{comentario.texto}</p>
+                      {comentario.respuesta?.texto ? (
+                        <div className="promocional-detalle__respuesta">
+                          <strong>Respuesta del vendedor</strong>
+                          <p>{comentario.respuesta.texto}</p>
+                        </div>
+                      ) : (
+                        esDueno && (
+                          <div className="promocional-detalle__responder">
+                            <input
+                              type="text"
+                              maxLength={MAX_CARACTERES}
+                              placeholder="Responde este comentario"
+                              value={respuestas[comentario._id] ?? ""}
+                              onChange={(e) =>
+                                setRespuestas((anteriores) => ({
+                                  ...anteriores,
+                                  [comentario._id]: e.target.value,
+                                }))
+                              }
+                              aria-label="Respuesta al comentario"
+                            />
+                            <button
+                              type="button"
+                              disabled={respondiendo === comentario._id}
+                              onClick={() => responder(comentario._id)}
+                            >
+                              Responder
+                            </button>
+                          </div>
+                        )
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -250,6 +350,79 @@ function PromocionalDetalle() {
                   disabled={enviandoComentario}
                 >
                   {enviandoComentario ? "Enviando..." : "Publicar comentario"}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+
+        <div className="promocional-detalle__consulta">
+          <h3>Chat de consulta con el vendedor</h3>
+          {esDueno ? (
+            <p className="promocional-detalle__comentarios-aviso">
+              Las consultas de los interesados aparecen en tu panel, en
+              «Consultas de tus promocionales».
+            </p>
+          ) : promocional.chatHabilitado === false ? (
+            <p className="promocional-detalle__comentarios-aviso">
+              El vendedor no habilitó el chat de consulta en esta publicación.
+            </p>
+          ) : usuario?.tipo === "admin" ? (
+            <p className="promocional-detalle__comentarios-aviso">
+              La cuenta de administración no participa en consultas.
+            </p>
+          ) : (
+            <>
+              <p className="promocional-detalle__consulta-nota">
+                Pregúntale al vendedor en privado. Solo tú y el vendedor ven
+                esta conversación.
+              </p>
+              <div className="promocional-detalle__consulta-mensajes">
+                {consulta.length === 0 ? (
+                  <p className="promocional-detalle__comentarios-vacio">
+                    Aún no has enviado mensajes.
+                  </p>
+                ) : (
+                  consulta.map((mensaje) => (
+                    <div
+                      key={mensaje._id}
+                      className={`promocional-detalle__consulta-mensaje promocional-detalle__consulta-mensaje--${mensaje.remitente}`}
+                    >
+                      <strong>
+                        {mensaje.remitente === "vendedor" ? "Vendedor" : "Tú"}
+                      </strong>
+                      <p>{mensaje.contenido}</p>
+                      <span>
+                        {new Date(mensaje.createdAt).toLocaleString("es-MX", {
+                          timeZone: "America/Mexico_City",
+                        })}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+              {errorConsulta && (
+                <p className="promocional-detalle__comentario-error">
+                  {errorConsulta}
+                </p>
+              )}
+              <form
+                className="promocional-detalle__consulta-form"
+                onSubmit={manejarConsulta}
+              >
+                <input
+                  type="text"
+                  maxLength={MAX_CARACTERES}
+                  placeholder="Escribe tu pregunta"
+                  value={textoConsulta}
+                  onChange={(e) => setTextoConsulta(e.target.value)}
+                  aria-label="Mensaje para el vendedor"
+                />
+                <button
+                  type="submit"
+                  disabled={enviandoConsulta || !textoConsulta.trim()}
+                >
+                  {enviandoConsulta ? "Enviando..." : "Enviar"}
                 </button>
               </form>
             </>

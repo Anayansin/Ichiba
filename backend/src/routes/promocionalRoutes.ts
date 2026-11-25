@@ -13,6 +13,13 @@ import {
   crearComentario,
   obtenerComentarios,
 } from "../controllers/comentarioController.js";
+import {
+  consultaDelComprador,
+  consultasDelVendedor,
+  enviarConsultaComprador,
+  responderComentario,
+  responderConsulta,
+} from "../controllers/consultaPromocionalController.js";
 import { verificarToken } from "../middleware/auth.js";
 import { requiereVendedor } from "../middleware/vendedor.js";
 import { requiereVerificado } from "../middleware/verificado.js";
@@ -29,12 +36,32 @@ router.param("id", (_req, res, next, id) => {
 
 router.get("/", obtenerPromocionales);
 router.get("/mios/lista", verificarToken, obtenerMisPromocionales);
+router.get(
+  "/mios/consultas",
+  verificarToken,
+  requiereVendedor,
+  consultasDelVendedor,
+);
 router.get("/:id", obtenerPromocionalPorId);
 router.get("/:id/comentarios", obtenerComentarios);
 router.post(
   "/:id/comentarios",
   requiereCompradorId,
   crearComentario,
+);
+router.post(
+  "/:id/comentarios/:comentarioId/respuesta",
+  verificarToken,
+  requiereVendedor,
+  responderComentario,
+);
+router.get("/:id/consulta", requiereCompradorId, consultaDelComprador);
+router.post("/:id/consulta", requiereCompradorId, enviarConsultaComprador);
+router.post(
+  "/:id/consulta/:compradorId",
+  verificarToken,
+  requiereVendedor,
+  responderConsulta,
 );
 router.post(
   "/",

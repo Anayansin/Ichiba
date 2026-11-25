@@ -243,3 +243,70 @@
   color: #555;
   border: 1px solid #cdcdcd;
 }
+
+.gestion-usuarios__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.gestion-usuarios__suspension {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #f5c6cb;
+  border-left: 5px solid #d90429;
+  border-radius: 0 12px 12px 0;
+  padding: 1rem 1.2rem;
+}
+
+.gestion-usuarios__suspension h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.gestion-usuarios__suspension p {
+  margin: 0;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.gestion-usuarios__suspension label {
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.gestion-usuarios__suspension textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cdcdcd;
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.gestion-usuarios__contador {
+  align-self: flex-end;
+  font-size: 0.78rem;
+  color: #14683a;
+}
+
+.gestion-usuarios__contador--falta {
+  color: #b3001b;
+}
+
+.gestion-usuarios__suspension-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.gestion-usuarios__cancelar {
+  border: 1px solid #cdcdcd;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}

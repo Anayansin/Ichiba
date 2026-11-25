@@ -6,6 +6,10 @@ const comentarioSchema = new Schema(
     texto: { type: String, required: true, trim: true },
     autorNombre: { type: String, default: "Visitante", trim: true },
     compradorId: { type: String, default: "" },
+    respuesta: {
+      texto: { type: String, trim: true },
+      fecha: { type: Date },
+    },
   },
   { timestamps: true },
 );

@@ -140,19 +140,24 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Suspender usuario",
       description:
-        "Suspende (bloquea el acceso) a un usuario. Acepta el id del usuario en MongoDB o el id numérico de PostgreSQL. No aplica a cuentas canceladas de forma permanente por acumular 8 puntos.",
+        "Suspende (bloquea el acceso) a un usuario con el motivo indicado, que se le envía por correo. Acepta el id del usuario en MongoDB o el id numérico de PostgreSQL. No aplica a cuentas canceladas de forma permanente por acumular 8 puntos.",
       inputSchema: {
         id_usuario: z
           .string()
           .describe("Id del usuario (MongoDB de 24 caracteres o numérico de PostgreSQL)."),
+        motivo: z
+          .string()
+          .min(10)
+          .describe("Motivo de la suspensión (mínimo 10 caracteres); se envía al usuario por correo."),
       },
       annotations: { destructiveHint: true },
     },
-    async ({ id_usuario }) =>
+    async ({ id_usuario, motivo }) =>
       ejecutar(async () =>
         cambiarSuspensionUsuarioAdmin(
           await normalizarIdUsuario(id_usuario),
           true,
+          motivo,
         ),
       ),
   );

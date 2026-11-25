@@ -653,3 +653,168 @@
 .panel-vendedor__archivo-disputa {
   font-size: 0.82rem;
 }
+
+.panel-vendedor__fondos {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.panel-vendedor__fondos--retenido {
+  background: #fdf3de;
+  color: #8a5a00;
+}
+
+.panel-vendedor__fondos--en_proceso {
+  background: #e7f0fb;
+  color: #1d4f91;
+}
+
+.panel-vendedor__fondos--liberado {
+  background: #e9f7ef;
+  color: #14683a;
+}
+
+.panel-vendedor__fondos--reembolsado,
+.panel-vendedor__fondos--cancelado {
+  background: #fdecec;
+  color: #b3001b;
+}
+
+.panel-vendedor__filas {
+  margin-top: 2rem;
+}
+
+.panel-vendedor__tabla-filas {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+
+.panel-vendedor__tabla-filas th,
+.panel-vendedor__tabla-filas td {
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.panel-vendedor__tabla-filas th {
+  background: #f9f9f9;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.panel-vendedor__fila-producto {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.panel-vendedor__fila-producto img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.panel-vendedor__fila-producto small {
+  color: #888;
+}
+
+.panel-vendedor__fila-limite {
+  display: block;
+  color: #8a5a00;
+  font-size: 0.78rem;
+}
+
+.panel-vendedor__fila-espera {
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .panel-vendedor__tabla-filas th,
+  .panel-vendedor__tabla-filas td {
+    padding: 0.5rem;
+  }
+
+  .panel-vendedor__fila-producto img {
+    display: none;
+  }
+}
+
+.panel-vendedor__consultas {
+  margin-top: 2rem;
+}
+
+.panel-vendedor__consulta {
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.8rem;
+  border: 1px solid #eee;
+}
+
+.panel-vendedor__consulta-mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+}
+
+.panel-vendedor__consulta-mensaje {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  background: #f9f9f9;
+  font-size: 0.9rem;
+}
+
+.panel-vendedor__consulta-mensaje--vendedor {
+  background: #fdecec;
+}
+
+.panel-vendedor__consulta-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.panel-vendedor__consulta-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #cdcdcd;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.panel-vendedor__paypal {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: #fdf3de;
+  border: 1px solid #f3d9a4;
+  font-size: 0.9rem;
+}
+
+.panel-vendedor__paypal p {
+  margin: 0 0 0.5rem;
+}
+
+.panel-vendedor__paypal--ok {
+  background: #e9f7ef;
+  border-color: #b7e4c7;
+}
+
+.panel-vendedor__paypal--ok p {
+  margin: 0;
+}

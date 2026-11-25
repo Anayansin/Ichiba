@@ -356,11 +356,31 @@ export async function obtenerOrdenPaypal(orderId: string) {
   return leerRespuesta(respuesta, "Consultar orden");
 }
 
-function urlAutorizacionPaypal(): string {
+export async function obtenerCapturaPaypal(captureId: string) {
   const { apiBase } = configuracionPaypal();
-  return apiBase.includes("sandbox")
-    ? "https://www.sandbox.paypal.com/webapps/oauth2/authorize"
-    : "https://www.paypal.com/webapps/oauth2/authorize";
+  const token = await obtenerAccessToken();
+
+  const respuesta = await fetch(`${apiBase}/v2/payments/captures/${captureId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return leerRespuesta(respuesta, "Consultar captura");
+}
+
+export function paypalEnSandbox(): boolean {
+  const apiBase =
+    process.env.PAYPAL_API_BASE?.trim() || "https://api-m.sandbox.paypal.com";
+  return apiBase.includes("sandbox");
+}
+
+function urlAutorizacionPaypal(): string {
+  return paypalEnSandbox()
+    ? "https://www.sandbox.paypal.com/signin/authorize"
+    : "https://www.paypal.com/signin/authorize";
 }
 
 function redirectUriPaypal(): string {
@@ -377,6 +397,7 @@ export function construirUrlVinculacionPaypal(estado: string): string {
   const { clientId } = configuracionPaypal();
 
   const parametros = new URLSearchParams({
+    flowEntry: "static",
     client_id: clientId,
     response_type: "code",
     scope: "openid profile email",

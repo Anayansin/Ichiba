@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { RequestConComprador } from "../middleware/comprador.js";
+import type { RequestConUsuario } from "../middleware/auth.js";
 import clientePrisma from "../configuracion/prisma.js";
 import { Producto } from "../models/producto.js";
 import { FORMATO_CORREO } from "../utils/formatoCorreo.js";
@@ -409,5 +410,61 @@ export async function responderEsperaConfirmacion(
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al procesar tu respuesta" });
+  }
+}
+
+const TEXTO_TURNO: Record<string, string> = {
+  activa: "Turno de pago en curso",
+  esperando_apertura: "Primer lugar esperando tu siguiente bloque",
+  esperando_confirmacion: "En pausa mientras confirmas un comprobante",
+  pagada: "Pagado: esperando el comprobante",
+  reposo: "Comprobante por revisar",
+};
+
+export async function filasDelVendedor(req: RequestConUsuario, res: Response) {
+  try {
+    const vendedorId = String(req.usuarioId ?? "");
+    const productos = await Producto.find({ vendedorId })
+      .select("nombre imagenes activo")
+      .sort({ createdAt: -1 })
+      .lean();
+    const ids = productos.map((p) => String(p._id));
+
+    const filas = ids.length
+      ? await clientePrisma.cola.findMany({
+          where: { productoId: { in: ids }, estado: { in: ESTADOS_OCUPANDO_FILA } },
+          orderBy: { posicion: "asc" },
+          select: { productoId: true, estado: true, posicion: true, pagoExpiraEn: true },
+        })
+      : [];
+
+    const porProducto = new Map<string, typeof filas>();
+    for (const fila of filas) {
+      const lista = porProducto.get(String(fila.productoId)) ?? [];
+      lista.push(fila);
+      porProducto.set(String(fila.productoId), lista);
+    }
+
+    const resultado = productos
+      .filter((p) => p.activo || porProducto.has(String(p._id)))
+      .map((p) => {
+        const lista = porProducto.get(String(p._id)) ?? [];
+        const primero = lista[0] ?? null;
+        return {
+          productoId: String(p._id),
+          nombre: p.nombre,
+          imagen: p.imagenes?.[0] ?? null,
+          activo: Boolean(p.activo),
+          enEspera: lista.filter((f) => f !== primero && ESTADOS_EN_FILA.includes(f.estado)).length,
+          totalEnFila: lista.length,
+          estadoFila: primero ? TEXTO_TURNO[primero.estado] ?? primero.estado : "Sin fila",
+          pagoExpiraEn: primero?.estado === "activa" ? primero.pagoExpiraEn : null,
+        };
+      });
+
+    res.json(resultado);
+  } catch (error) {
+    console.error("Error al obtener las filas del vendedor:", error);
+    res.status(500).json({ message: "Error al obtener el estado de tus filas" });
   }
 }

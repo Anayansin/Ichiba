@@ -20,7 +20,11 @@ import {
   type ListadoSolicitudesRegistro,
   type SolicitudRevisionRegistro,
 } from "./bloqueoRegistroService.js";
-import { enviarCorreoRespuestaSolicitudRegistro } from "./emailService.js";
+import {
+  enviarCorreoCuentaReactivada,
+  enviarCorreoCuentaSuspendida,
+  enviarCorreoRespuestaSolicitudRegistro,
+} from "./emailService.js";
 import {
   calcularResumenAdmin,
   resumirUsuario,
@@ -142,6 +146,12 @@ export async function cambiarSuspensionUsuarioAdmin(
   }
 
   const motivoFinal = (motivo ?? "").trim();
+  if (suspendido && motivoFinal.length < 10) {
+    throw new ErrorBackoffice(
+      400,
+      "Escribe el motivo de la suspensión (mínimo 10 caracteres): se le enviará al usuario",
+    );
+  }
   const usuario = await clientePrisma.usuario.update({
     where: { id: idUsuario },
     data: {
@@ -168,6 +178,16 @@ export async function cambiarSuspensionUsuarioAdmin(
       );
     }
   }
+
+  const avisoPorCorreo = suspendido
+    ? enviarCorreoCuentaSuspendida(usuario.correo, usuario.nombreCompleto, motivoFinal)
+    : enviarCorreoCuentaReactivada(usuario.correo, usuario.nombreCompleto);
+  avisoPorCorreo.catch((error) =>
+    console.error(
+      "[backoffice] No se pudo avisar por correo el cambio de suspensión:",
+      error instanceof Error ? error.message : error,
+    ),
+  );
 
   await publicarEventoUsuario(
     suspendido ? "suspendido" : "reactivado",

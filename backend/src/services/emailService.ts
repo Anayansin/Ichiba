@@ -1067,3 +1067,72 @@ export async function enviarCorreoDisputaResuelta(
 
   return true;
 }
+
+export async function enviarCorreoCuentaSuspendida(
+  correo: string,
+  nombre: string,
+  motivo: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Cuenta suspendida para ${correo}: ${motivo}`);
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu cuenta de Ichiba fue suspendida",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>La administración suspendió tu cuenta por el siguiente motivo:</p>
+        <p style="background: #fdecec; padding: 12px; border-radius: 8px;">${escaparHtml(motivo)}</p>
+        <p>Mientras la suspensión siga vigente no podrás iniciar sesión. Si consideras que se trata de un error, responde a este correo para que revisemos tu caso.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}
+
+export async function enviarCorreoCuentaReactivada(
+  correo: string,
+  nombre: string,
+): Promise<boolean> {
+  if (faltaConfigurarCorreo()) {
+    console.log(`[correo local] Cuenta reactivada para ${correo}`);
+    return false;
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Ichiba" <${process.env.GMAIL_USER}>`,
+    to: correo,
+    subject: "Tu cuenta de Ichiba fue reactivada",
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #d90429;">Ichiba</h2>
+        <p>Hola${nombre ? ` ${escaparHtml(nombre)}` : ""}:</p>
+        <p>La administración reactivó tu cuenta. Ya puedes iniciar sesión, publicar y atender tus ventas con normalidad.</p>
+      </div>
+    `,
+  });
+
+  return true;
+}

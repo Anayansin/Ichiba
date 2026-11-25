@@ -6,3 +6,8 @@ dist/
 *.log
 backend/uploads/
 .vercel
+
+# Revisión de requerimientos: contienen tokens de sesión locales
+revision/sesiones.json
+revision/pestanas.txt
+frontend/Ichiba/revision-sesion.html

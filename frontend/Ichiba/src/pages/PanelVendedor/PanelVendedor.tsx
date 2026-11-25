@@ -18,17 +18,23 @@ import {
   fetchMisPromocionales,
   cambiarEstadoPromocional,
   eliminarPromocional,
+  fetchConsultasDelVendedor,
+  responderConsulta,
+  type ConversacionConsulta,
   type Promocional,
 } from "../../services/promocionalService";
 import {
   confirmarComprobanteDeVenta,
+  estadoVinculacionPayPal,
   fetchDisputasDelVendedor,
+  iniciarVinculacionPayPal,
   fetchImagenComprobante,
   fetchVentasDelVendedor,
   rechazarComprobanteDeVenta,
   registrarEntregaDeVenta,
   responderDisputaDeVenta,
   type DisputaDeVenta,
+  type EstadoFondos,
   type ResumenVentasDelVendedor,
   type VentaDelVendedor,
 } from "../../services/pagoService";
@@ -39,6 +45,10 @@ import {
   type InformeVendedor,
 } from "../../services/informeService";
 import { fechaLimiteTexto } from "../../utils/estadoVenta";
+import {
+  fetchFilasDelVendedor,
+  type FilaDePublicacion,
+} from "../../services/colaService";
 import { URL_BACKEND } from "../../services/api";
 import { mensajeDeError } from "../../utils/errores";
 import "./PanelVendedor.css";
@@ -54,6 +64,22 @@ function textoEstadoDisputaVendedor(estado: string): string {
       "Disputa rechazada: la venta continúa su curso normal y el pago se libera",
   };
   return textos[estado] ?? estado;
+}
+
+const TEXTO_FONDOS: Record<EstadoFondos, string> = {
+  retenido: "Fondos retenidos en garantía",
+  en_proceso: "Fondos en proceso de liberación",
+  liberado: "Fondos liberados a tu PayPal",
+  reembolsado: "Fondos reembolsados al comprador",
+  cancelado: "Venta cancelada",
+};
+
+function EtiquetaFondos({ estado }: { estado: EstadoFondos }) {
+  return (
+    <span className={`panel-vendedor__fondos panel-vendedor__fondos--${estado}`}>
+      {TEXTO_FONDOS[estado] ?? estado}
+    </span>
+  );
 }
 
 function textoComisionVenta(venta: VentaDelVendedor): string {
@@ -88,6 +114,32 @@ function PanelVendedor() {
   const [avisoPreferencias, setAvisoPreferencias] = useState("");
 
   const [avisoPaypal, setAvisoPaypal] = useState("");
+  const [vinculacion, setVinculacion] = useState<Awaited<
+    ReturnType<typeof estadoVinculacionPayPal>
+  > | null>(null);
+  const [abriendoPaypal, setAbriendoPaypal] = useState(false);
+  const [errorPaypal, setErrorPaypal] = useState("");
+
+  useEffect(() => {
+    if (!usuario) return;
+    estadoVinculacionPayPal()
+      .then(setVinculacion)
+      .catch(() => {});
+  }, [usuario]);
+
+  async function handleVincularPaypal() {
+    setErrorPaypal("");
+    setAbriendoPaypal(true);
+    try {
+      const { url } = await iniciarVinculacionPayPal();
+      window.location.href = url;
+    } catch (err) {
+      setErrorPaypal(
+        mensajeDeError(err) || "No se pudo abrir la página de PayPal.",
+      );
+      setAbriendoPaypal(false);
+    }
+  }
   const [parametros, setParametros] = useSearchParams();
 
   const [ventasData, setVentasData] = useState<ResumenVentasDelVendedor | null>(
@@ -112,6 +164,15 @@ function PanelVendedor() {
     null,
   );
   const [errorInformes, setErrorInformes] = useState("");
+
+  const [filasPublicaciones, setFilasPublicaciones] = useState<
+    FilaDePublicacion[]
+  >([]);
+  const [consultas, setConsultas] = useState<ConversacionConsulta[]>([]);
+  const [respuestasConsulta, setRespuestasConsulta] = useState<
+    Record<string, string>
+  >({});
+  const [errorConsultas, setErrorConsultas] = useState("");
 
   const [disputasVendedor, setDisputasVendedor] = useState<DisputaDeVenta[]>(
     [],
@@ -181,6 +242,21 @@ function PanelVendedor() {
       })
       .finally(() => setCargando(false));
   }
+
+  useEffect(() => {
+    if (!usuario) return;
+    const cargarFilas = () => {
+      fetchFilasDelVendedor()
+        .then(setFilasPublicaciones)
+        .catch(() => {});
+      fetchConsultasDelVendedor()
+        .then(setConsultas)
+        .catch(() => {});
+    };
+    cargarFilas();
+    const intervalo = setInterval(cargarFilas, 10000);
+    return () => clearInterval(intervalo);
+  }, [usuario]);
 
   useEffect(() => {
     if (!usuario) return;
@@ -420,6 +496,26 @@ function PanelVendedor() {
     }
   }
 
+  async function handleResponderConsulta(conversacion: ConversacionConsulta) {
+    const clave = `${conversacion.promocionalId}:${conversacion.compradorId}`;
+    const contenido = (respuestasConsulta[clave] ?? "").trim();
+    if (!contenido) return;
+    setErrorConsultas("");
+    try {
+      await responderConsulta(
+        conversacion.promocionalId,
+        conversacion.compradorId,
+        contenido,
+      );
+      setRespuestasConsulta((anteriores) => ({ ...anteriores, [clave]: "" }));
+      setConsultas(await fetchConsultasDelVendedor());
+    } catch (err) {
+      setErrorConsultas(
+        mensajeDeError(err) || "No se pudo enviar tu respuesta",
+      );
+    }
+  }
+
   async function handleDescargarInforme(periodo: string) {
     setDescargandoInforme(periodo);
     setErrorInformes("");
@@ -449,6 +545,7 @@ function PanelVendedor() {
           <p className="panel-vendedor__venta-comision">
             {textoComisionVenta(venta)}
           </p>
+          {venta.estadoFondos && <EtiquetaFondos estado={venta.estadoFondos} />}
           <p className="panel-vendedor__venta-detalle">
             Referencia del pago: {venta.comprobante?.referencia ?? "—"}
           </p>
@@ -528,6 +625,7 @@ function PanelVendedor() {
           <p className="panel-vendedor__venta-comision">
             {textoComisionVenta(venta)}
           </p>
+          {venta.estadoFondos && <EtiquetaFondos estado={venta.estadoFondos} />}
           {venta.fechas.entregaLimite && (
             <p className="panel-vendedor__venta-plazo">
               ⏰ Registra la entrega antes de:{" "}
@@ -594,6 +692,7 @@ function PanelVendedor() {
           <p className="panel-vendedor__venta-comision">
             {textoComisionVenta(venta)}
           </p>
+          {venta.estadoFondos && <EtiquetaFondos estado={venta.estadoFondos} />}
           {venta.canceladoMotivo && (
             <p className="panel-vendedor__venta-detalle">
               Motivo: {venta.canceladoMotivo}
@@ -807,6 +906,40 @@ function PanelVendedor() {
         <p className="panel-vendedor__paypal-aviso">{avisoPaypal}</p>
       )}
 
+      {vinculacion && !cuentaCancelada && (
+        <div
+          className={`panel-vendedor__paypal ${vinculacion.vinculado ? "panel-vendedor__paypal--ok" : ""}`}
+        >
+          {vinculacion.vinculado ? (
+            <p>
+              <strong>PayPal vinculado:</strong> {vinculacion.correoPayPal}
+              {vinculacion.sandbox && " (entorno de pruebas)"}
+            </p>
+          ) : (
+            <>
+              <p>
+                <strong>Tu cuenta de PayPal aún no está vinculada.</strong>{" "}
+                Mientras tanto, los pagos se envían al correo de PayPal que
+                registraste.
+                {vinculacion.sandbox &&
+                  " Estás en el entorno de pruebas: entra con una cuenta de prueba (sandbox) de PayPal, no con tu cuenta real."}
+              </p>
+              <button
+                type="button"
+                className="panel-vendedor__confirmar-btn"
+                onClick={handleVincularPaypal}
+                disabled={abriendoPaypal}
+              >
+                {abriendoPaypal ? "Abriendo PayPal..." : "Vincular con PayPal"}
+              </button>
+              {errorPaypal && (
+                <p className="panel-vendedor__error">{errorPaypal}</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {cuentaCancelada && (
         <div className="panel-vendedor__cancelada">
           <h2>Tu cuenta fue cancelada de forma permanente</h2>
@@ -983,6 +1116,131 @@ function PanelVendedor() {
           <div className="panel-vendedor__lista-ventas">
             {ventasHistorial.map(renderHistorial)}
           </div>
+        )}
+      </div>
+
+      <div className="panel-vendedor__filas">
+        <h2>Filas de tus publicaciones</h2>
+        <p className="panel-vendedor__informes-nota">
+          Cuántas personas esperan en cada publicación y en qué etapa está el
+          primer lugar. Se actualiza cada 10 segundos.
+        </p>
+        {filasPublicaciones.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes publicaciones activas.
+          </p>
+        ) : (
+          <table className="panel-vendedor__tabla-filas">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Primer lugar</th>
+                <th>En espera</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filasPublicaciones.map((fila) => (
+                <tr key={fila.productoId}>
+                  <td>
+                    <div className="panel-vendedor__fila-producto">
+                      {fila.imagen && (
+                        <img src={`${URL_BACKEND}${fila.imagen}`} alt="" />
+                      )}
+                      <span>
+                        {fila.nombre}
+                        {!fila.activo && (
+                          <small> · vendido o inactivo</small>
+                        )}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {fila.estadoFila}
+                    {fila.pagoExpiraEn && (
+                      <small className="panel-vendedor__fila-limite">
+                        Paga antes de {fechaLimiteTexto(fila.pagoExpiraEn)}
+                      </small>
+                    )}
+                  </td>
+                  <td className="panel-vendedor__fila-espera">
+                    {fila.enEspera}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="panel-vendedor__consultas">
+        <h2>Consultas de tus promocionales</h2>
+        <p className="panel-vendedor__informes-nota">
+          Mensajes privados de los interesados en tus promocionales con chat
+          de consulta habilitado. Los comentarios públicos se responden desde
+          cada publicación.
+        </p>
+        {errorConsultas && (
+          <p className="panel-vendedor__error">{errorConsultas}</p>
+        )}
+        {consultas.length === 0 ? (
+          <p className="panel-vendedor__sin-productos">
+            No tienes consultas por ahora.
+          </p>
+        ) : (
+          consultas.map((conversacion) => {
+            const clave = `${conversacion.promocionalId}:${conversacion.compradorId}`;
+            return (
+              <div key={clave} className="panel-vendedor__consulta">
+                <p className="panel-vendedor__venta-nombre">
+                  <Link to={`/promocional/${conversacion.promocionalId}`}>
+                    {conversacion.promocionalNombre}
+                  </Link>{" "}
+                  · Interesado n.º {conversacion.compradorId.slice(-6)}
+                </p>
+                <div className="panel-vendedor__consulta-mensajes">
+                  {conversacion.mensajes.map((mensaje) => (
+                    <p
+                      key={mensaje._id}
+                      className={`panel-vendedor__consulta-mensaje panel-vendedor__consulta-mensaje--${mensaje.remitente}`}
+                    >
+                      <strong>
+                        {mensaje.remitente === "vendedor" ? "Tú" : "Interesado"}:
+                      </strong>{" "}
+                      {mensaje.contenido}
+                    </p>
+                  ))}
+                </div>
+                <form
+                  className="panel-vendedor__consulta-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleResponderConsulta(conversacion);
+                  }}
+                >
+                  <input
+                    type="text"
+                    maxLength={500}
+                    placeholder="Escribe tu respuesta"
+                    value={respuestasConsulta[clave] ?? ""}
+                    onChange={(e) =>
+                      setRespuestasConsulta((anteriores) => ({
+                        ...anteriores,
+                        [clave]: e.target.value,
+                      }))
+                    }
+                    aria-label="Respuesta para el interesado"
+                  />
+                  <button
+                    type="submit"
+                    className="panel-vendedor__confirmar-btn"
+                    disabled={!(respuestasConsulta[clave] ?? "").trim()}
+                  >
+                    Responder
+                  </button>
+                </form>
+              </div>
+            );
+          })
         )}
       </div>
 

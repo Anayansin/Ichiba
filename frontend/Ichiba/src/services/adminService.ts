@@ -36,8 +36,13 @@ export async function fetchUsuarios(
   return response.data;
 }
 
-export async function suspenderUsuario(id: string): Promise<UsuarioAdmin> {
-  const response = await api.patch(`/admin/usuarios/${id}/suspender`);
+export async function suspenderUsuario(
+  id: string,
+  motivo: string,
+): Promise<UsuarioAdmin> {
+  const response = await api.patch(`/admin/usuarios/${id}/suspender`, {
+    motivo,
+  });
   return response.data;
 }
 

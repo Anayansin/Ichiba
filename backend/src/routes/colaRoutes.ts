@@ -7,7 +7,10 @@ import {
   estadoDeMiFila,
   responderEsperaConfirmacion,
   esperarProximaApertura,
+  filasDelVendedor,
 } from "../controllers/colaController.js";
+import { verificarToken } from "../middleware/auth.js";
+import { requiereVendedor } from "../middleware/vendedor.js";
 import { requiereCompradorId } from "../middleware/comprador.js";
 import { requiereCompradorSinSancion } from "../middleware/sancion.js";
 import { rechazarAdminEnCompra } from "../middleware/vendedor.js";
@@ -22,6 +25,7 @@ router.post(
   entrarEnFila,
 );
 router.get("/mias", requiereCompradorId, misFilas);
+router.get("/vendedor/estado", verificarToken, requiereVendedor, filasDelVendedor);
 router.get("/avisos", requiereCompradorId, avisosDeFilas);
 router.get("/producto/:productoId/estado", requiereCompradorId, estadoDeMiFila);
 router.patch("/:id/salir", requiereCompradorId, salirDeFila);
