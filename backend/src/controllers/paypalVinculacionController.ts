@@ -6,6 +6,7 @@ import {
   identidadPaypal,
   paypalEnSandbox,
   frontUrl,
+  afirmacionesIdToken,
 } from "../services/paypalService.js";
 import { cifrar } from "../services/cifradoService.js";
 import { VinculoPayPal, EstadoVinculacionPayPal } from "../models/VinculoPayPal.js";
@@ -69,16 +70,46 @@ export async function callbackVinculacionPayPal(
 
     const token = await intercambiarCodigoPorToken(code);
     console.log("[paypal] Permisos concedidos:", token.scope ?? "(sin detalle)");
-    const identidad = await identidadPaypal(token.access_token);
+    const afirmaciones = afirmacionesIdToken(token.id_token);
+    console.log(
+      "[paypal] id_token con:",
+      Object.keys(afirmaciones).join(", ") || "(no llegó)",
+    );
 
-    const merchantId = identidad.payer_id ?? null;
-    const correoPayPal =
+    let identidad: Awaited<ReturnType<typeof identidadPaypal>> = {};
+    try {
+      identidad = await identidadPaypal(token.access_token);
+    } catch (errorIdentidad) {
+      // El vendedor ya inició sesión y autorizó en PayPal (hay token), pero
+      // PayPal no entregó sus datos: se vincula con el correo de PayPal que
+      // registró en Ichiba.
+      console.warn(
+        "[paypal] Sin datos de identidad, se usa el correo registrado:",
+        errorIdentidad instanceof Error ? errorIdentidad.message : errorIdentidad,
+      );
+    }
+
+    const texto = (valor: unknown) =>
+      typeof valor === "string" && valor.trim() ? valor.trim() : undefined;
+
+    const merchantId =
+      identidad.payer_id ?? texto(afirmaciones.payer_id) ?? null;
+    let correoPayPal =
       identidad.email ??
       identidad.emails?.find((e) => e.primary)?.value ??
-      identidad.emails?.[0]?.value;
+      identidad.emails?.[0]?.value ??
+      texto(afirmaciones.email);
 
     if (!correoPayPal) {
-      console.error("[paypal] Vinculación sin identidad completa:", identidad);
+      const usuario = await clientePrisma.usuario.findUnique({
+        where: { id: pendiente.usuarioId },
+        select: { paypalEmail: true },
+      });
+      correoPayPal = usuario?.paypalEmail ?? undefined;
+    }
+
+    if (!correoPayPal) {
+      console.error("[paypal] Vinculación sin correo de PayPal");
       return volver("sin-identidad");
     }
 

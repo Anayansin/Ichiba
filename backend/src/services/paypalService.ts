@@ -444,6 +444,7 @@ export async function intercambiarCodigoPorToken(codigo: string) {
     expires_in?: number;
     token_type?: string;
     scope?: string;
+    id_token?: string;
   };
 }
 
@@ -459,9 +460,21 @@ type IdentidadPaypal = {
 // PayPal expone la identidad en dos endpoints según el esquema; algunas apps
 // solo responden en uno de ellos, así que se consultan ambos y se combinan.
 const ENDPOINTS_IDENTIDAD = [
-  "/v1/identity/openidconnect/userinfo?schema=openid",
+  "/v1/identity/openidconnect/userinfo",
   "/v1/identity/oauth2/userinfo?schema=paypalv1.1",
 ];
+
+// Lee las afirmaciones del id_token (JWT) que PayPal entrega junto con el
+// token de acceso; ya viene firmado por PayPal en la respuesta del servidor.
+export function afirmacionesIdToken(idToken?: string): Record<string, unknown> {
+  if (!idToken) return {};
+  try {
+    const carga = idToken.split(".")[1] ?? "";
+    return JSON.parse(Buffer.from(carga, "base64url").toString("utf8"));
+  } catch {
+    return {};
+  }
+}
 
 export async function identidadPaypal(
   tokenDeUsuario: string,
