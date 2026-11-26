@@ -247,24 +247,24 @@ export async function crearOrden(req: RequestConComprador, res: Response) {
 
     const avisoAtencion = avisoDeAtencion(vendedor as UsuarioEscrow);
 
-    const paypalEmail = (vendedor as { paypalEmail?: string | null })
-      .paypalEmail;
-    if (!paypalEmail) {
-      return res.status(400).json({
-        message:
-          "El vendedor aún no tiene configurado su correo de PayPal. Inténtalo más tarde.",
-      });
-    }
-
+    // Solo se cobra a cuentas de PayPal vinculadas: el correo escrito en el
+    // registro puede no existir en PayPal, y entonces PayPal deja aprobar el
+    // pago pero lo rechaza al autorizarlo.
     const vinculo = await VinculoPayPal.findOne({ usuarioId: vendedor.id })
       .select("merchantId correoPayPal")
       .lean();
+    if (!vinculo?.merchantId && !vinculo?.correoPayPal) {
+      return res.status(409).json({
+        message:
+          "El vendedor todavía no vincula su cuenta de PayPal, así que este producto aún no se puede pagar. Inténtalo más tarde.",
+      });
+    }
 
     const orden = await crearOrdenPaypal(
       producto.precio,
-      vinculo?.correoPayPal ?? paypalEmail,
+      vinculo.correoPayPal,
       productoId,
-      vinculo?.merchantId,
+      vinculo.merchantId,
       compradorId,
     );
 
@@ -299,6 +299,28 @@ type ResultadoAutorizacion =
   | { ok: true; datos: Record<string, unknown> }
   | { ok: false; estado: number; message: string };
 
+// Rechazos de PayPal al autorizar: la orden no se cobra y no hay que
+// reintentar (ni responder 500 al webhook, que PayPal reenviaría).
+const INCIDENCIAS_CUENTA_VENDEDOR = new Set([
+  "PAYEE_ACCOUNT_INVALID",
+  "PAYEE_ACCOUNT_LOCKED_OR_CLOSED",
+  "PAYEE_ACCOUNT_RESTRICTED",
+  "PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING",
+  "PAYEE_BLOCKED_TRANSACTION",
+  "PAYEE_ACCOUNT_NOT_VERIFIED",
+]);
+const INCIDENCIAS_RECHAZO = new Set([
+  ...INCIDENCIAS_CUENTA_VENDEDOR,
+  "TRANSACTION_REFUSED",
+  "PAYER_ACCOUNT_LOCKED_OR_CLOSED",
+  "PAYER_ACCOUNT_RESTRICTED",
+  "PAYER_CANNOT_PAY",
+  "COMPLIANCE_VIOLATION",
+  "TRANSACTION_LIMIT_EXCEEDED",
+  "MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED",
+  "DUPLICATE_INVOICE_ID",
+]);
+
 async function autorizarYRegistrarOrden(
   orderId: string,
   compradorId: string,
@@ -330,6 +352,17 @@ async function autorizarYRegistrarOrden(
 
     if (nombreError === "ORDER_ALREADY_AUTHORIZED") {
       resultado = await obtenerOrdenPaypal(orderId);
+    } else if (INCIDENCIAS_RECHAZO.has(incidencia)) {
+      console.warn(
+        `[paypal] PayPal rechazó la autorización de la orden ${orderId}: ${incidencia} (debug_id ${respuesta?.debug_id ?? "?"})`,
+      );
+      return {
+        ok: false,
+        estado: 422,
+        message: INCIDENCIAS_CUENTA_VENDEDOR.has(incidencia)
+          ? "PayPal rechazó el pago porque la cuenta de PayPal del vendedor no puede recibirlo. No se te hizo ningún cargo."
+          : "PayPal rechazó el pago. No se te hizo ningún cargo; intenta con otra cuenta o método de pago.",
+      };
     } else if (
       incidencia === "PAYER_NOT_APPROVED" ||
       incidencia === "ORDER_NOT_APPROVED" ||

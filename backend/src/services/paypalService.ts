@@ -119,11 +119,13 @@ async function leerRespuesta(respuesta: Response, contexto: string) {
   }
 
   if (!respuesta.ok) {
-    const detalle =
+    const incidencia = datos?.details?.[0]?.issue;
+    const descripcion =
       datos?.details?.[0]?.description ??
       datos?.message ??
       datos?.name ??
       texto.slice(0, 300);
+    const detalle = incidencia ? `${incidencia}: ${descripcion}` : descripcion;
     const error = new Error(
       `${contexto}: PayPal respondió ${respuesta.status} (${detalle})`,
     );

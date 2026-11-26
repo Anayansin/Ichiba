@@ -912,8 +912,8 @@ function PanelVendedor() {
             <>
               <p>
                 <strong>Tu cuenta de PayPal aún no está vinculada.</strong>{" "}
-                Mientras tanto, los pagos se envían al correo de PayPal que
-                registraste.
+                Los compradores no podrán pagar tus productos hasta que la
+                vincules.
               </p>
               <button
                 type="button"
