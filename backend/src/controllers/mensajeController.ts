@@ -37,14 +37,14 @@ function motivoChatBloqueado(venta: {
     case "en_entrega":
       return null;
     case "pendiente_comprobante":
-      return "El chat de coordinación se abrirá cuando el vendedor confirme tu pago y tu comprobante (RQNF29).";
+      return "El chat de coordinación se abrirá cuando el vendedor confirme tu pago y tu comprobante.";
     case "pendiente_confirmacion":
-      return "El chat está bloqueado hasta que el vendedor revise y confirme tu comprobante de pago (RQNF24.2).";
+      return "El chat está bloqueado hasta que el vendedor revise y confirme tu comprobante de pago.";
     case "completada":
-      return "La transacción ya concluyó: el chat de coordinación quedó deshabilitado (RQNF26).";
+      return "La transacción ya concluyó: el chat de coordinación quedó deshabilitado.";
     case "reembolsada":
     case "cancelada":
-      return "Esta compra fue cancelada y reembolsada: el chat quedó deshabilitado (RQNF26).";
+      return "Esta compra fue cancelada y reembolsada: el chat quedó deshabilitado.";
     default:
       return "El chat de esta compra no está disponible.";
   }

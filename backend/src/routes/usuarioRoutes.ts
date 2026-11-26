@@ -3,6 +3,7 @@ import {
   registrarUsuario,
   iniciarSesion,
   obtenerPerfil,
+  obtenerDatosSensibles,
   obtenerPerfilPublico,
   confirmarHorario,
   actualizarPreferencias,
@@ -31,6 +32,7 @@ router.post("/recuperar/solicitar", solicitarRecuperacion);
 router.post("/recuperar/verificar", verificarCodigoRecuperacion);
 router.post("/recuperar/restablecer", restablecerPassword);
 router.get("/perfil", verificarToken, obtenerPerfil);
+router.post("/perfil/datos-sensibles", verificarToken, obtenerDatosSensibles);
 router.put(
   "/preferencias",
   verificarToken,

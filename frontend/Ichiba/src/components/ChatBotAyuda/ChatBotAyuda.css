@@ -178,3 +178,20 @@
   background: #e0a3ac;
   cursor: not-allowed;
 }
+
+.chat-ayuda__icono {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  display: block;
+  margin: auto;
+}
+
+.chat-ayuda__avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}

@@ -1,0 +1,194 @@
+.mi-perfil {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.mi-perfil h1 {
+  font-size: 1.8rem;
+  color: #1a1a1a;
+  margin: 0 0 1.5rem;
+}
+
+.mi-perfil__tarjeta {
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+}
+
+.mi-perfil__tarjeta h2 {
+  font-size: 1.1rem;
+  margin: 0 0 1rem;
+  color: #1a1a1a;
+}
+
+.mi-perfil__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mi-perfil__encabezado h2 {
+  margin: 0;
+}
+
+.mi-perfil__lista {
+  margin: 0;
+}
+
+.mi-perfil__lista > div {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid #f2f2f2;
+}
+
+.mi-perfil__lista > div:first-child {
+  border-top: none;
+}
+
+.mi-perfil__lista dt {
+  color: #777;
+  font-size: 0.9rem;
+}
+
+.mi-perfil__lista dd {
+  margin: 0;
+  color: #1a1a1a;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  word-break: break-word;
+}
+
+.mi-perfil__lista dd.mi-perfil__oculto {
+  letter-spacing: 0.15em;
+  color: #9a9a9a;
+}
+
+.mi-perfil__etiqueta {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: #fdf3de;
+  color: #7a5200;
+}
+
+.mi-perfil__etiqueta--ok {
+  background: #e9f7ef;
+  color: #14683a;
+}
+
+.mi-perfil__boton,
+.mi-perfil__boton-secundario {
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: 2px solid #d90429;
+}
+
+.mi-perfil__boton {
+  background: #d90429;
+  color: #ffffff;
+}
+
+.mi-perfil__boton:hover:not(:disabled) {
+  background: #b8031f;
+  border-color: #b8031f;
+}
+
+.mi-perfil__boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mi-perfil__boton-secundario {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-color: #d6d6d6;
+}
+
+.mi-perfil__boton-secundario:hover {
+  border-color: #1a1a1a;
+}
+
+.mi-perfil__enlace {
+  background: none;
+  border: none;
+  color: #d90429;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.mi-perfil__password {
+  background: #faf7f2;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mi-perfil__password label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.mi-perfil__password-fila {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.mi-perfil__password-fila input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid #d6d6d6;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.mi-perfil__olvide {
+  font-size: 0.85rem;
+  color: #d90429;
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.mi-perfil__error {
+  background: #fdecef;
+  color: #d90429;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.mi-perfil__error--chico {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .mi-perfil__lista > div {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}

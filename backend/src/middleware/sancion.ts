@@ -53,7 +53,7 @@ function responderSuspension(
       motivo === "saldo_pendiente"
         ? `Tu cuenta está suspendida por un saldo pendiente de $${saldo.toFixed(
             2,
-          )}. Puedes terminar tus entregas en curso, pero no publicar ni recibir clientes hasta que la administración registre la liquidación (RQNF37 / RQNF38).`
+          )}. Puedes terminar tus entregas en curso, pero no publicar ni recibir clientes hasta que la administración registre la liquidación.`
         : `Tu cuenta está suspendida por la administración de Ichiba.${detalle} Contacta al equipo para revisar tu caso y solicitar la reactivación.`,
     sancion: {
       permanente: true,

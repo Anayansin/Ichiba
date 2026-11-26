@@ -553,22 +553,14 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
       select: {
         id: true,
         nombreCompleto: true,
-        direccion: true,
-        telefono: true,
         correo: true,
-        rfc: true,
         tipo: true,
         ventasExitosas: true,
         totalReportes: true,
         correoVerificado: true,
-        ineFrente: true,
-        ineReverso: true,
-        ineCodigoReverso: true,
         aceptaTerminos: true,
         recibirNotificacionesCriticas: true,
-        curp: true,
         recibirNotificacionesPublicitarias: true,
-        paypalEmail: true,
         horarios: true,
         horarioConfirmadoEn: true,
         diasSinConfirmarHorario: true,
@@ -592,6 +584,71 @@ export async function obtenerPerfil(req: RequestConUsuario, res: Response) {
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener perfil" });
+  }
+}
+
+// Intentos fallidos de contraseña al consultar datos sensibles, por usuario.
+const intentosDatosSensibles = new Map<number, { fallos: number; desde: number }>();
+const MAX_INTENTOS_DATOS_SENSIBLES = 5;
+const VENTANA_INTENTOS_MS = 15 * 60 * 1000;
+
+// Devuelve los datos sensibles del propio usuario solo tras confirmar su
+// contraseña; el perfil normal ya no los incluye.
+export async function obtenerDatosSensibles(
+  req: RequestConUsuario,
+  res: Response,
+) {
+  try {
+    const usuarioId = Number(req.usuarioId);
+    const ahora = Date.now();
+    const registro = intentosDatosSensibles.get(usuarioId);
+    if (registro && ahora - registro.desde > VENTANA_INTENTOS_MS) {
+      intentosDatosSensibles.delete(usuarioId);
+    }
+    const vigente = intentosDatosSensibles.get(usuarioId);
+    if (vigente && vigente.fallos >= MAX_INTENTOS_DATOS_SENSIBLES) {
+      return res.status(429).json({
+        message:
+          "Demasiados intentos. Espera unos minutos o recupera tu contraseña.",
+      });
+    }
+
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (!password) {
+      return res.status(400).json({ message: "Escribe tu contraseña" });
+    }
+
+    const usuario = await clientePrisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: {
+        password: true,
+        telefono: true,
+        direccion: true,
+        rfc: true,
+        curp: true,
+        ineCodigoReverso: true,
+        paypalEmail: true,
+      },
+    });
+    if (!usuario) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    const correcta = await bcrypt.compare(password, usuario.password);
+    if (!correcta) {
+      intentosDatosSensibles.set(usuarioId, {
+        fallos: (vigente?.fallos ?? 0) + 1,
+        desde: vigente?.desde ?? ahora,
+      });
+      return res.status(400).json({ message: "La contraseña no es correcta" });
+    }
+
+    intentosDatosSensibles.delete(usuarioId);
+    const { password: _omitida, ...datos } = usuario;
+    res.json(datos);
+  } catch (error) {
+    console.error("Error real:", error);
+    res.status(500).json({ message: "Error al obtener tus datos" });
   }
 }
 

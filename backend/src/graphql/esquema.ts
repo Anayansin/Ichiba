@@ -55,15 +55,15 @@ export const definicionesEsquema = `
     puntosReputacion: Float!
     estadoCuenta: String!
     fechaRegistro: String
-    "RQNF37 / RQNF38: motivo de la suspensión administrativa (p. ej. saldo_pendiente)."
+    "motivo de la suspensión administrativa (p. ej. saldo_pendiente)."
     motivoSuspension: String
-    "RQNF37 / RQNF38: adeudo pendiente de liquidar."
+    "adeudo pendiente de liquidar."
     saldoPendiente: Float!
-    "RQNF33 / RQNF34: fecha en que concluye el bloqueo temporal vigente."
+    "fecha en que concluye el bloqueo temporal vigente."
     sancionHasta: String
-    "RQNF34 / RQNF35: la sanción es indefinida."
+    "la sanción es indefinida."
     sancionPermanente: Boolean!
-    "RQNF35: la cuenta está en revisión administrativa."
+    "la cuenta está en revisión administrativa."
     revisionAdministrativa: Boolean!
   }
 
@@ -182,7 +182,7 @@ export const definicionesEsquema = `
     generadoEn: String!
   }
 
-  "RQNF1.9: alguien pidió revisar un alta que el sistema denegó."
+  "alguien pidió revisar un alta que el sistema denegó."
   type EventoSolicitudRegistro {
     tipo: String!
     mensaje: String!
@@ -200,9 +200,9 @@ export const definicionesEsquema = `
     usuariosAdmin: EventoUsuario!
     "Entrada agregada o quitada de la lista negra."
     listaNegraActualizada: EventoListaNegra!
-    "RQF40 / RQNF32: disputa abierta, respondida o resuelta y retenciones de ventas."
+    "disputa abierta, respondida o resuelta y retenciones de ventas."
     disputasActualizadas: EventoDisputa!
-    "RQNF1.9: solicitud de revisión de un alta denegada."
+    "solicitud de revisión de un alta denegada."
     solicitudesRegistro: EventoSolicitudRegistro!
   }
 

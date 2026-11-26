@@ -1068,7 +1068,7 @@ export async function calificar(req: Request, res: Response) {
       if (vendedor?.estadoCuenta === "cancelada") {
         return res.status(403).json({
           message:
-            "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado (RQNF10.3 / RQF12)",
+            "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado",
         });
       }
     }

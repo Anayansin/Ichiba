@@ -272,7 +272,7 @@ export async function cancelarCuentaPorPuntos(
       rfc: vendedor.rfc,
       curp: vendedor.curp,
       ineCodigoReverso: vendedor.ineCodigoReverso,
-      motivo: `Cuenta cancelada de forma permanente por acumular ${PUNTOS_CANCELACION} puntos de reputación por infracción (RQNF10.3)`,
+      motivo: `Cuenta cancelada de forma permanente por acumular ${PUNTOS_CANCELACION} puntos de reputación por infracción`,
       origen: "cuenta-eliminada",
     });
   } catch (error: unknown) {

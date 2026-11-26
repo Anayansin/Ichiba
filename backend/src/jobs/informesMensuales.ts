@@ -27,7 +27,7 @@ export async function ejecutarRevisionMensual(
   const faltas = await purgarFaltasExpiradas(ahora);
   if (faltas.faltas > 0) {
     acciones.push(
-      `Purga RQNF14.1: ${faltas.faltas} falta(s) de más de 13 meses eliminadas (${faltas.sanciones} sanción(es) recalculadas)`,
+      `Purga: ${faltas.faltas} falta(s) de más de 13 meses eliminadas (${faltas.sanciones} sanción(es) recalculadas)`,
     );
   }
 

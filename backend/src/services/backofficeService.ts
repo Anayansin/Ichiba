@@ -129,7 +129,7 @@ export async function cambiarSuspensionUsuarioAdmin(
   if (existente && existente.estadoCuenta === "cancelada") {
     throw new ErrorBackoffice(
       400,
-      "La cuenta fue cancelada de forma permanente por acumular 8 puntos (RQNF10.3)",
+      "La cuenta fue cancelada de forma permanente por acumular 8 puntos",
     );
   }
 
@@ -140,7 +140,7 @@ export async function cambiarSuspensionUsuarioAdmin(
         400,
         `No se puede reactivar: la cuenta tiene un saldo pendiente de $${saldo.toFixed(
           2,
-        )}. Registra la liquidación total del adeudo antes de reactivarla (RQNF38).`,
+        )}. Registra la liquidación total del adeudo antes de reactivarla.`,
       );
     }
   }

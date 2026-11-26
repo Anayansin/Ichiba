@@ -27,6 +27,7 @@ import AdminReportes from "./pages/AdminReportes/AdminReportes";
 import RecuperarPassword from "./pages/RecuperarPassword/RecuperarPassword";
 import Estadisticas from "./pages/Estadisticas/Estadisticas";
 import RutaVendedor from "./components/RutaVendedor/RutaVendedor";
+import MiPerfil from "./pages/MiPerfil/MiPerfil";
 
 function App() {
   const [inicioSesion, setInicioSesion] = useState(false);
@@ -62,6 +63,7 @@ function App() {
           </Route>
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/reportes" element={<AdminReportes />} />
+          <Route path="/mi-perfil" element={<MiPerfil />} />
           <Route path="/recuperar-password" element={<RecuperarPassword />} />
           <Route path="/vendedor/:id" element={<VendedorPerfil />} />
           <Route path="/pago-exitoso" element={<PagoExitoso />} />

@@ -49,7 +49,14 @@ export async function obtenerComentarios(req: Request, res: Response) {
       .sort({ createdAt: 1 })
       .lean();
 
-    res.json(comentarios);
+    const visitante = String(req.headers["x-comprador-id"] ?? "");
+    res.json(
+      comentarios.map(({ compradorId, ...comentario }) => ({
+        ...comentario,
+        esMio: Boolean(visitante) && compradorId === visitante,
+        reportable: Boolean(compradorId),
+      })),
+    );
   } catch (error) {
     console.error("Error real:", error);
     res.status(500).json({ message: "Error al obtener los comentarios" });

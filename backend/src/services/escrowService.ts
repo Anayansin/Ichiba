@@ -398,7 +398,7 @@ export async function registrarEntregaDeVenta(
   if (venta.retenido) {
     return {
       error:
-        "Esta venta tiene una retención preventiva de fondos (RQNF32): la administración debe resolverla antes de que puedas liberar el pago.",
+        "Esta venta tiene una retención preventiva de fondos: la administración debe resolverla antes de que puedas liberar el pago.",
     };
   }
 

@@ -40,12 +40,6 @@ function ReportarVendedor() {
   return (
     <div className="reportar">
       <h1>Reportar a los administradores</h1>
-      <p className="reportar__nota">
-        Puedes reportar desde aquí eligiendo una compra relacionada, o con el
-        botón «Reportar» que aparece en cada publicación, promocional, perfil
-        de vendedor y conversación. Los reportes de «Otro motivo» los revisa un
-        administrador; el resto se registra automáticamente.
-      </p>
 
       <div className="reportar__form">
         <label>

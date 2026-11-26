@@ -5,6 +5,7 @@ import ComoFunciona from "../ComoFunciona/ComoFunciona";
 import PoliticasDePrivacidad from "../PoliticasDePrivacidad/PoliticasDePrivacidad";
 import MisPedidos from "../MisPedidos/MisPedidos";
 import ReportarVendedor from "../ReportarVendedor/ReportarVendedor";
+import EnviarQueja from "../EnviarQueja/EnviarQueja";
 import "./Ayuda.css";
 
 const SECCIONES = [
@@ -12,6 +13,7 @@ const SECCIONES = [
   { id: "como-funciona", label: "Cómo funciona" },
   { id: "mis-pedidos", label: "Mis pedidos" },
   { id: "reportar", label: "Reportar un vendedor" },
+  { id: "queja", label: "Enviar una queja" },
   { id: "privacidad", label: "Políticas de privacidad" },
 ];
 
@@ -43,6 +45,7 @@ function Ayuda() {
         {seccionActiva === "como-funciona" && <ComoFunciona />}
         {seccionActiva === "mis-pedidos" && <MisPedidos />}
         {seccionActiva === "reportar" && <ReportarVendedor />}
+        {seccionActiva === "queja" && <EnviarQueja />}
         {seccionActiva === "privacidad" && <PoliticasDePrivacidad />}
       </div>
     </div>

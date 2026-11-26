@@ -101,14 +101,50 @@
 }
 
 .panel-vendedor__publicar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  max-width: 960px;
+  margin: 0 auto 2.2rem;
 }
 
 .panel-vendedor__publicar .panel-vendedor__boton-publicar {
   margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 52px;
+  padding: 0.8rem 1rem;
+  border: 2px solid #d90429;
+  box-sizing: border-box;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.panel-vendedor__boton-publicar--secundario {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border-color: #1a1a1a !important;
+}
+
+.panel-vendedor__boton-publicar--secundario:hover {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+@media (max-width: 860px) {
+  .panel-vendedor__publicar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .panel-vendedor__publicar {
+    grid-template-columns: 1fr;
+  }
 }
 
 .panel-vendedor__boton-publicar--promocional {
@@ -347,9 +383,9 @@
 
 .panel-vendedor__paypal-aviso {
   margin: 0 0 1rem;
-  background: #e9f7ef;
-  color: #14683a;
-  border: 1px solid #b7e4c7;
+  background: #fdf3de;
+  color: #7a5200;
+  border: 1px solid #f3d9a4;
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
   font-size: 0.85rem;
@@ -777,6 +813,14 @@
   border-radius: 8px;
   background: #f9f9f9;
   font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.panel-vendedor__consulta-mensaje p {
+  margin: 0;
 }
 
 .panel-vendedor__consulta-mensaje--vendedor {

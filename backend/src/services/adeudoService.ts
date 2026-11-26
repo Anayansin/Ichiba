@@ -141,7 +141,7 @@ export async function registrarAdeudo(datos: {
   if (actualizado) {
     await publicarEventoUsuario(
       "adeudo",
-      `Adeudo de $${Number(datos.venta.monto).toFixed(2)} registrado para ${actualizado.nombreCompleto} (RQNF37)`,
+      `Adeudo de $${Number(datos.venta.monto).toFixed(2)} registrado para ${actualizado.nombreCompleto}`,
       resumirUsuario(actualizado),
     );
   }
@@ -286,8 +286,8 @@ export async function liquidarAdeudoAdmin(
     await publicarEventoUsuario(
       "adeudo_liquidado",
       reactivado
-        ? `Se liquidó el adeudo de ${actualizado.nombreCompleto}: la suspensión por saldo quedó levantada (RQNF38)`
-        : `Se liquidó un adeudo de ${actualizado.nombreCompleto}; saldo restante $${saldoNuevo.toFixed(2)} (RQNF38)`,
+        ? `Se liquidó el adeudo de ${actualizado.nombreCompleto}: la suspensión por saldo quedó levantada`
+        : `Se liquidó un adeudo de ${actualizado.nombreCompleto}; saldo restante $${saldoNuevo.toFixed(2)}`,
       resumirUsuario(actualizado),
     );
   }

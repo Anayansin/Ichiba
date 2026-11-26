@@ -117,8 +117,8 @@ function Disputas() {
     const esReembolso = dictamen === "reembolsar";
     const confirmado = window.confirm(
       esReembolso
-        ? `¿Reembolsar ${dinero.format(disputa.monto)} al comprador? El vendedor quedará con un adeudo por el monto (RQNF37) y su cuenta suspendida hasta liquidarlo (RQNF38).`
-        : "¿Rechazar esta disputa? La retención se retirará solo si no quedan reportes ni disputas vivas sobre la venta (RQNF32).",
+        ? `¿Reembolsar ${dinero.format(disputa.monto)} al comprador? El vendedor quedará con un adeudo por el monto y su cuenta suspendida hasta liquidarlo.`
+        : "¿Rechazar esta disputa? La retención se retirará solo si no quedan reportes ni disputas vivas sobre la venta.",
     );
     if (!confirmado) return;
 
@@ -367,13 +367,7 @@ function Disputas() {
       )}
 
       <div className="admin-disputas__retenidas">
-        <h3>Ventas con retención preventiva (RQNF32)</h3>
-        <p className="admin-disputas__nota-retenidas">
-          Estas ventas no pudieron reembolsarse automáticamente o tienen una
-          disputa o reporte en curso: el dinero sigue retenido hasta que la
-          administración las resuelva. Al reembolsar puedes registrar el adeudo
-          del vendedor con su causa (RQNF37).
-        </p>
+        <h3>Ventas con retención preventiva</h3>
 
         {retenidas.length === 0 ? (
           <p className="admin-disputas__vacio">

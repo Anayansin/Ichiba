@@ -1,0 +1,74 @@
+.menu-mensaje {
+  position: relative;
+  display: inline-flex;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.menu-mensaje__puntos {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #8a8a8a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0.55;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s;
+}
+
+.menu-mensaje__puntos svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.menu-mensaje__puntos:hover,
+.menu-mensaje--abierto .menu-mensaje__puntos,
+.menu-mensaje__puntos:focus-visible {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+}
+
+.menu-mensaje__lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 140px;
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  padding: 0.3rem;
+}
+
+.mensaje-otro .menu-mensaje__lista,
+.menu-mensaje--izquierda .menu-mensaje__lista {
+  right: auto;
+  left: 0;
+}
+
+.menu-mensaje__opcion {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.5rem 0.7rem;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #d90429;
+  cursor: pointer;
+}
+
+.menu-mensaje__opcion:hover {
+  background: #fdecef;
+}

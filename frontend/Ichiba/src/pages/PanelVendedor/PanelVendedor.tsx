@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
+import MenuMensaje from "../../components/MenuMensaje/MenuMensaje";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import VerificacionModal from "../../components/VerificacionModal/VerificacionModal";
 import {
@@ -269,8 +270,7 @@ function PanelVendedor() {
     if (!resultado) return;
 
     const mensajes: Record<string, string> = {
-      vinculado:
-        "¡Cuenta de PayPal vinculada! Tus cobros se enviarán a esa cuenta.",
+      vinculado: "",
       denegado:
         "No autorizaste la vinculación con PayPal: tu cuenta quedó sin vincular.",
       "state-invalido": "La vinculación con PayPal expiró.",
@@ -278,7 +278,7 @@ function PanelVendedor() {
       "sin-state": "La vinculación no se completó.",
       error: "No se pudo completar la vinculación con PayPal.",
     };
-    setAvisoPaypal(mensajes[resultado] ?? "Resultado de PayPal desconocido.");
+    setAvisoPaypal(mensajes[resultado] ?? "No se pudo completar la vinculación con PayPal.");
     parametros.delete("paypal");
     setParametros(parametros, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -551,7 +551,7 @@ function PanelVendedor() {
           </p>
           {venta.fechas.confirmacionLimite && (
             <p className="panel-vendedor__venta-plazo">
-              ⏰ Confírmalo o recházalo antes de:{" "}
+              Confírmalo o recházalo antes de:{" "}
               {fechaLimiteTexto(venta.fechas.confirmacionLimite)}
             </p>
           )}
@@ -578,7 +578,7 @@ function PanelVendedor() {
           >
             {accionVentaEnCurso === venta.ventaId
               ? "Procesando..."
-              : "✓ Confirmar comprobante"}
+              : "Confirmar comprobante"}
           </button>
 
           <textarea
@@ -600,7 +600,7 @@ function PanelVendedor() {
             onClick={() => handleRechazarComprobante(venta.ventaId)}
             disabled={accionVentaEnCurso === venta.ventaId}
           >
-            ✕ Rechazar y reembolsar
+            Rechazar y reembolsar
           </button>
           <p className="panel-vendedor__venta-nota">
             Si rechazas, el comprador recibe su reembolso de inmediato y el
@@ -628,7 +628,7 @@ function PanelVendedor() {
           {venta.estadoFondos && <EtiquetaFondos estado={venta.estadoFondos} />}
           {venta.fechas.entregaLimite && (
             <p className="panel-vendedor__venta-plazo">
-              ⏰ Registra la entrega antes de:{" "}
+              Registra la entrega antes de:{" "}
               {fechaLimiteTexto(venta.fechas.entregaLimite)}
             </p>
           )}
@@ -664,7 +664,7 @@ function PanelVendedor() {
           >
             {accionVentaEnCurso === venta.ventaId
               ? "Procesando..."
-              : "📦 Registrar entrega y liberar el dinero"}
+              : "Registrar entrega y liberar el dinero"}
           </button>
           <p className="panel-vendedor__venta-nota">
             El comprador tiene ese código en su cuenta; solo él puede dárselo.
@@ -906,23 +906,14 @@ function PanelVendedor() {
         <p className="panel-vendedor__paypal-aviso">{avisoPaypal}</p>
       )}
 
-      {vinculacion && !cuentaCancelada && (
-        <div
-          className={`panel-vendedor__paypal ${vinculacion.vinculado ? "panel-vendedor__paypal--ok" : ""}`}
-        >
-          {vinculacion.vinculado ? (
-            <p>
-              <strong>PayPal vinculado:</strong> {vinculacion.correoPayPal}
-              {vinculacion.sandbox && " (entorno de pruebas)"}
-            </p>
-          ) : (
+      {vinculacion && !vinculacion.vinculado && !cuentaCancelada && (
+        <div className="panel-vendedor__paypal">
+          {(
             <>
               <p>
                 <strong>Tu cuenta de PayPal aún no está vinculada.</strong>{" "}
                 Mientras tanto, los pagos se envían al correo de PayPal que
                 registraste.
-                {vinculacion.sandbox &&
-                  " Estás en el entorno de pruebas: entra con una cuenta de prueba (sandbox) de PayPal, no con tu cuenta real."}
               </p>
               <button
                 type="button"
@@ -1010,23 +1001,23 @@ function PanelVendedor() {
             to="/panel-vendedor/publicar"
             className="panel-vendedor__boton-publicar"
           >
-            + Publicar nuevo producto
+            Publicar producto
           </Link>
           <Link
             to="/panel-vendedor/promocionar"
             className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--promocional"
           >
-            + Publicar promocional
+            Publicar promocional
           </Link>
           <Link
             to="/panel-vendedor/horario"
-            className="panel-vendedor__boton-publicar"
+            className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--secundario"
           >
             Configurar horario
           </Link>
           <Link
             to="/panel-vendedor/reportar-comprador"
-            className="panel-vendedor__boton-publicar"
+            className="panel-vendedor__boton-publicar panel-vendedor__boton-publicar--secundario"
           >
             Reportar a un comprador
           </Link>
@@ -1121,10 +1112,6 @@ function PanelVendedor() {
 
       <div className="panel-vendedor__filas">
         <h2>Filas de tus publicaciones</h2>
-        <p className="panel-vendedor__informes-nota">
-          Cuántas personas esperan en cada publicación y en qué etapa está el
-          primer lugar. Se actualiza cada 10 segundos.
-        </p>
         {filasPublicaciones.length === 0 ? (
           <p className="panel-vendedor__sin-productos">
             No tienes publicaciones activas.
@@ -1174,11 +1161,6 @@ function PanelVendedor() {
 
       <div className="panel-vendedor__consultas">
         <h2>Consultas de tus promocionales</h2>
-        <p className="panel-vendedor__informes-nota">
-          Mensajes privados de los interesados en tus promocionales con chat
-          de consulta habilitado. Los comentarios públicos se responden desde
-          cada publicación.
-        </p>
         {errorConsultas && (
           <p className="panel-vendedor__error">{errorConsultas}</p>
         )}
@@ -1199,15 +1181,20 @@ function PanelVendedor() {
                 </p>
                 <div className="panel-vendedor__consulta-mensajes">
                   {conversacion.mensajes.map((mensaje) => (
-                    <p
+                    <div
                       key={mensaje._id}
                       className={`panel-vendedor__consulta-mensaje panel-vendedor__consulta-mensaje--${mensaje.remitente}`}
                     >
-                      <strong>
-                        {mensaje.remitente === "vendedor" ? "Tú" : "Interesado"}:
-                      </strong>{" "}
-                      {mensaje.contenido}
-                    </p>
+                      <p>
+                        <strong>
+                          {mensaje.remitente === "vendedor" ? "Tú" : "Interesado"}:
+                        </strong>{" "}
+                        {mensaje.contenido}
+                      </p>
+                      {mensaje.remitente === "comprador" && (
+                        <MenuMensaje mensajeId={mensaje._id} origen="consulta" />
+                      )}
+                    </div>
                   ))}
                 </div>
                 <form
@@ -1246,11 +1233,6 @@ function PanelVendedor() {
 
       <div className="panel-vendedor__disputas">
         <h2>Disputas de reembolso</h2>
-        <p className="panel-vendedor__informes-nota">
-          Cuando un comprador abre una disputa, el pago de esa venta queda
-          retenido hasta que la administración resuelva el caso. Aquí
-          puedes presentar tu versión y adjuntar tus evidencias.
-        </p>
 
         {errorDisputas && (
           <p className="panel-vendedor__error">{errorDisputas}</p>
@@ -1272,11 +1254,6 @@ function PanelVendedor() {
 
       <div className="panel-vendedor__informes">
         <h2>Informes de ventas</h2>
-        <p className="panel-vendedor__informes-nota">
-          Cada mes el sistema genera tu informe de ventas con los productos
-          vendidos, tus ingresos, la tasa de concertación y el tiempo promedio
-          por fila. Puedes consultarlo aquí y descargarlo en PDF.
-        </p>
 
         {errorInformes && (
           <p className="panel-vendedor__error">{errorInformes}</p>
@@ -1331,7 +1308,7 @@ function PanelVendedor() {
                 >
                   {descargandoInforme === informe.periodo
                     ? "Descargando..."
-                    : "⬇ Descargar PDF"}
+                    : "Descargar PDF"}
                 </button>
               </div>
             ))}
@@ -1342,18 +1319,8 @@ function PanelVendedor() {
       {!cuentaCancelada && (
         <div className="panel-vendedor__preferencias">
           <h2>Preferencias de notificaciones</h2>
-          <p className="panel-vendedor__preferencias-nota">
-            Las notificaciones críticas son obligatorias desde tu registro.
-            Solo puedes elegir si quieres recibir el aviso de comentarios.
-          </p>
 
           <div className="panel-vendedor__preferencia panel-vendedor__preferencia--fija">
-            <span
-              className="panel-vendedor__preferencia-candado"
-              aria-hidden="true"
-            >
-              🔒
-            </span>
             <span>
               <strong>Notificaciones críticas (obligatorias):</strong> el estado
               de tu cuenta, la fila virtual y tus pagos.

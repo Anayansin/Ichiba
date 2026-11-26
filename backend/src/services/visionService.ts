@@ -231,7 +231,7 @@ export async function moderarFotosProducto(
 
     if (analisis.motivo === "no-configurada") {
       console.error(
-        "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de fotos está activa y bloquea publicaciones (RQNF7.3).",
+        "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de fotos está activa y bloquea publicaciones.",
       );
       return "La moderación de imágenes no está disponible en este momento; no se puede publicar. Intenta más tarde o contacta al administrador.";
     }
@@ -458,7 +458,7 @@ export async function moderarFotosPromocional(
 
     if (analisis.motivo === "no-configurada") {
       console.error(
-        "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de fotos de promocionales está activa y bloquea publicaciones (RQNF9.3).",
+        "[vision] Falta GOOGLE_VISION_API_KEY: la moderación de fotos de promocionales está activa y bloquea publicaciones.",
       );
       return "La moderación de imágenes no está disponible en este momento; no se puede publicar. Intenta más tarde o contacta al administrador.";
     }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useColas } from "../../context/ColasContext";
 import { salirDeFila } from "../../services/colaService";
 import { URL_BACKEND } from "../../services/api";
@@ -14,7 +15,8 @@ const TEXTO_ESTADO: Record<string, string> = {
 };
 
 const TEXTO_AVISO: Record<string, string> = {
-  vendido_a_otro: "Producto no disponible: un usuario previo ha concretado la compra",
+  vendido_a_otro:
+    "Producto no disponible: un usuario previo ha concretado la compra",
   cuenta_cancelada:
     "Producto no disponible: la cuenta del vendedor fue cancelada y saliste de la fila",
   turno_vencido:
@@ -79,23 +81,32 @@ function ColaBubble() {
 
                 return (
                   <div key={fila._id} className="cola-bubble__item">
-                    <img
-                      src={`${URL_BACKEND}${fila.productoId.imagenes?.[0] ?? ""}`}
-                      alt={fila.productoId.nombre}
-                    />
-                    <div className="cola-bubble__item-info">
-                      <p>{fila.productoId.nombre}</p>
-                      <span className="cola-bubble__posicion">
-                        Posición {fila.posicion}
-                      </span>
-                      {TEXTO_ESTADO[fila.estado] && (
-                        <span className="cola-bubble__espera">
-                          {TEXTO_ESTADO[fila.estado]}
+                    <Link
+                      to={`/producto/${fila.productoId._id}`}
+                      className="cola-bubble__enlace"
+                      onClick={() => setAbierto(false)}
+                      title="Ver producto"
+                    >
+                      <img
+                        src={`${URL_BACKEND}${fila.productoId.imagenes?.[0] ?? ""}`}
+                        alt={fila.productoId.nombre}
+                      />
+                      <div className="cola-bubble__item-info">
+                        <p>{fila.productoId.nombre}</p>
+                        <span className="cola-bubble__posicion">
+                          Posición {fila.posicion}
                         </span>
-                      )}
-                    </div>
+                        {TEXTO_ESTADO[fila.estado] && (
+                          <span className="cola-bubble__espera">
+                            {TEXTO_ESTADO[fila.estado]}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
                     {fila.estado !== "pagada" && fila.estado !== "reposo" && (
-                      <button onClick={() => handleSalir(fila._id)}>Salir</button>
+                      <button onClick={() => handleSalir(fila._id)}>
+                        Salir
+                      </button>
                     )}
                   </div>
                 );

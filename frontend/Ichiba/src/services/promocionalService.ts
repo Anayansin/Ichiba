@@ -64,6 +64,8 @@ export type Comentario = {
   autorNombre: string;
   createdAt: string;
   respuesta?: { texto: string; fecha: string } | null;
+  esMio?: boolean;
+  reportable?: boolean;
 };
 
 export async function fetchComentarios(

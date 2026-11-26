@@ -85,7 +85,7 @@ function Adeudos() {
 
   async function liquidar(adeudo: AdeudoAdmin) {
     const confirmado = window.confirm(
-      `¿Registrar la liquidación de ${dinero.format(adeudo.monto)} de ${adeudo.vendedorNombre || `#${adeudo.usuarioId}`}? Si con esta liquidación su saldo llega a cero, la suspensión por saldo se levantará automáticamente (RQNF38).`,
+      `¿Registrar la liquidación de ${dinero.format(adeudo.monto)} de ${adeudo.vendedorNombre || `#${adeudo.usuarioId}`}? Si con esta liquidación su saldo llega a cero, la suspensión por saldo se levantará automáticamente.`,
     );
     if (!confirmado) return;
 
@@ -141,10 +141,8 @@ function Adeudos() {
       </div>
 
       <p className="admin-adeudos__nota">
-        RQNF37: cada adeudo nace de un reembolso que la plataforma cubrió por
-        culpa directa del vendedor. RQNF38: su cuenta queda suspendida con el
-        saldo pendiente y solo se reactiva al registrar aquí la liquidación
-        total (el cobro se hace por transferencia, fuera de la aplicación).
+        Cada adeudo es un reembolso que la plataforma cubrió por culpa del
+        vendedor. Su cuenta se reactiva al registrar aquí la liquidación total.
       </p>
 
       {error && <p className="admin-adeudos__error">{error}</p>}

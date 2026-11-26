@@ -6,17 +6,17 @@ export type EntradaConocimiento = {
 };
 
 export const SALUDO =
-  "¡Hola! 👋 Soy el asistente automatizado de soporte de Ichiba. Escribe tu duda y te respondo al instante, o toca uno de los temas de abajo.";
+  "¡Hola! Soy el asistente automatizado de soporte de Ichiba. Escribe tu duda y te respondo al instante, o toca uno de los temas de abajo.";
 
 export const PREGUNTA_NO_ENTENDIDA =
-  "No tengo esa información todavía 😅.\n\nPuedo ayudarte con la fila virtual, el tiempo de pago, PayPal, métodos de entrega, tu cuenta de vendedor, reportes, notificaciones y más. Prueba con otras palabras o toca un tema sugerido.";
+  "No tengo esa información todavía.\n\nPuedo ayudarte con la fila virtual, el tiempo de pago, PayPal, métodos de entrega, tu cuenta de vendedor, reportes, notificaciones y más. Prueba con otras palabras o toca un tema sugerido.";
 
 export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
   {
     id: "saludo",
     pregunta: "Saludos",
     respuesta:
-      "¡Hola! 👋 Para ayudarte, cuéntame tu duda: por ejemplo «¿cuánto tiempo tengo para pagar?» o «¿cómo recupero mi contraseña?».",
+      "¡Hola! Para ayudarte, cuéntame tu duda: por ejemplo «¿cuánto tiempo tengo para pagar?» o «¿cómo recupero mi contraseña?».",
     claves: ["hola", "buenas", "que tal", "buenos dias", "buenas tardes", "hey", "ayuda", "soporte"],
   },
   {
@@ -294,7 +294,7 @@ export const BASE_CONOCIMIENTO: EntradaConocimiento[] = [
     id: "reportar-vendedor",
     pregunta: "¿Cómo reporto a alguien?",
     respuesta:
-      "Puedes reportar desde dos lugares:\n1) Ayuda → Reportar un vendedor: selecciona la compra relacionada, elige qué quieres reportar (mensaje, comentario, comprobante, estafa, producto u otro) y una categoría.\n2) Chats: abre la conversación y toca el botón ⚠ Reportar; sirve tanto para el comprador como para el vendedor.\nLas categorías indican si es una falta leve o grave; los reportes por reincidencia generan bloqueos automáticos (3 faltas leves = 7 días, 1 falta grave = 30 días y 2 faltas graves = suspensión indefinida). Las faltas graves de estafa, suplantación de identidad, amenazas o comprobantes falsos suspenden la cuenta y la envían a revisión administrativa.",
+      "Puedes reportar desde dos lugares:\n1) Ayuda → Reportar un vendedor: selecciona la compra relacionada, elige qué quieres reportar (mensaje, comentario, comprobante, estafa, producto u otro) y una categoría.\n2) Chats: abre la conversación y toca el botón Reportar; sirve tanto para el comprador como para el vendedor.\nLas categorías indican si es una falta leve o grave; los reportes por reincidencia generan bloqueos automáticos (3 faltas leves = 7 días, 1 falta grave = 30 días y 2 faltas graves = suspensión indefinida). Las faltas graves de estafa, suplantación de identidad, amenazas o comprobantes falsos suspenden la cuenta y la envían a revisión administrativa.",
     claves: [
       "reportar vendedor",
       "reportar vendedor o comprador",

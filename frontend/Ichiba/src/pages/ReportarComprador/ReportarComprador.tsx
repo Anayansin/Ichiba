@@ -87,10 +87,6 @@ function ReportarComprador() {
   return (
     <div className="reportar">
       <h1>Reportar a un cliente</h1>
-      <p className="reportar__nota">
-        El reporte se aplica al cliente de la compra seleccionada. Los reportes
-        de «Otro motivo» los revisa un administrador.
-      </p>
 
       <form className="reportar__form" onSubmit={enviarReporte}>
         {error && <p className="reportar__error">{error}</p>}

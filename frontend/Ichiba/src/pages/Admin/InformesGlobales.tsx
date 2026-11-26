@@ -50,7 +50,7 @@ function InformesGlobales() {
       let mensaje = `${resultado.message}: ${resultado.vendedores} informe(s) de vendedor con ${resultado.ventasConsideradas} venta(s) y ${resultado.filasConsideradas} fila(s) consideradas.`;
       if (resultado.global.empate) {
         mensaje +=
-          " Hubo empate en la categoría más vendida; el informe no declara un ganador (RQNF14.2).";
+          " Hubo empate en la categoría más vendida; el informe no declara un ganador.";
       } else if (resultado.global.categoriaMasVendida) {
         mensaje += ` Categoría más vendida: ${resultado.global.categoriaMasVendida}.`;
       }
@@ -95,10 +95,7 @@ function InformesGlobales() {
       </div>
 
       <p className="informes-globales__nota">
-        El sistema genera estos informes automáticamente el día 1° de cada mes
-        con los datos del mes anterior (RQNF13.2). También puedes generarlos o
-        regenerarlos manualmente aquí; los reportes y los informes con más de 13
-        meses se eliminan automáticamente (RQNF14.1).
+        Se generan solos el día 1° de cada mes.
       </p>
 
       <div className="informes-globales__generador">
@@ -142,19 +139,19 @@ function InformesGlobales() {
                 >
                   {descargando === informe.periodo
                     ? "Descargando..."
-                    : "⬇ Descargar PDF"}
+                    : "Descargar PDF"}
                 </button>
               </div>
 
               <p className="informes-globales__destacado">
                 {informe.empate ? (
                   <>
-                    🏆 Categoría más vendida: <strong>empate</strong> — ninguna
-                    categoría superó a las demás (RQNF14.2).
+                    Categoría más vendida: <strong>empate</strong> — ninguna
+                    categoría superó a las demás.
                   </>
                 ) : informe.categoriaMasVendida ? (
                   <>
-                    🏆 Categoría más vendida:{" "}
+                    Categoría más vendida:{" "}
                     <strong>{informe.categoriaMasVendida.categoria}</strong> con{" "}
                     {informe.categoriaMasVendida.ventas} venta(s).
                   </>

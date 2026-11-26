@@ -1,0 +1,99 @@
+.enviar-queja {
+  max-width: 640px;
+}
+
+.enviar-queja h2 {
+  margin: 0 0 1rem;
+  color: #1a1a1a;
+}
+
+.enviar-queja form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.enviar-queja label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.enviar-queja input,
+.enviar-queja select,
+.enviar-queja textarea {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d6d6d6;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.enviar-queja__fila {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.enviar-queja__contador {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  color: #14683a;
+  font-weight: 600;
+}
+
+.enviar-queja__contador--falta {
+  color: #999;
+}
+
+.enviar-queja__error {
+  background: #fdecef;
+  color: #d90429;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.enviar-queja__enviar,
+.enviar-queja__exito button {
+  align-self: flex-start;
+  background: #d90429;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.enviar-queja__enviar:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.enviar-queja__exito {
+  background: #e9f7ef;
+  border: 1px solid #b7e4c7;
+  color: #14683a;
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.enviar-queja__exito p {
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .enviar-queja__fila {
+    grid-template-columns: 1fr;
+  }
+}

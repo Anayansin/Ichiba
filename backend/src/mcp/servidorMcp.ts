@@ -82,7 +82,7 @@ export function crearServidorMcp(): McpServer {
     },
     {
       instructions:
-        "Servidor MCP del BackOffice de Ichiba (marketplace). Ofrece al asistente las mismas herramientas del panel de administración: resumen del dashboard, usuarios (suspender y reactivar), reportes y su resolución, disputas de reembolso y ventas con retención preventiva (RQF40 / RQNF32), adeudos de los vendedores y sus liquidaciones (RQNF37 / RQNF38), lista negra, historial de transacciones, auditoría de chats de una venta e informes globales. Los cambios que hagan estas herramientas se reflejan al instante en el BackOffice y respetan las reglas de negocio de la plataforma.",
+        "Servidor MCP del BackOffice de Ichiba (marketplace). Ofrece al asistente las mismas herramientas del panel de administración: resumen del dashboard, usuarios (suspender y reactivar), reportes y su resolución, disputas de reembolso y ventas con retención preventiva, adeudos de los vendedores y sus liquidaciones, lista negra, historial de transacciones, auditoría de chats de una venta e informes globales. Los cambios que hagan estas herramientas se reflejan al instante en el BackOffice y respetan las reglas de negocio de la plataforma.",
     },
   );
 
@@ -221,7 +221,7 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Listar lista negra",
       description:
-        "Lista paginada de personas vetadas (RFC, CURP, código de la INE, correo y motivo). Los registros impiden un nuevo registro en la plataforma (RQNF1.9 / RQNF36).",
+        "Lista paginada de personas vetadas (RFC, CURP, código de la INE, correo y motivo). Los registros impiden un nuevo registro en la plataforma.",
       inputSchema: {
         pagina: z
           .number()
@@ -320,7 +320,7 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Auditar chat de una venta",
       description:
-        "Devuelve todos los mensajes del chat interno de una venta (comprador y vendedor) en orden cronológico, para auditar un conflicto (RQF39). Indica el id de la venta en MongoDB; puedes obtenerlo de `historial_transacciones`.",
+        "Devuelve todos los mensajes del chat interno de una venta (comprador y vendedor) en orden cronológico, para auditar un conflicto. Indica el id de la venta en MongoDB; puedes obtenerlo de `historial_transacciones`.",
       inputSchema: {
         id_venta: z
           .string()
@@ -336,7 +336,7 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Listar disputas y ventas retenidas",
       description:
-        "Bandeja del BackOffice para resolver disputas de reembolso (RQF40): disputas abiertas y resueltas con motivo, evidencias y respuesta del vendedor, más las ventas con retención preventiva de fondos (RQNF32) pendientes de resolver (por reportes o porque el reembolso automático falló).",
+        "Bandeja del BackOffice para resolver disputas de reembolso: disputas abiertas y resueltas con motivo, evidencias y respuesta del vendedor, más las ventas con retención preventiva de fondos pendientes de resolver (por reportes o porque el reembolso automático falló).",
       inputSchema: {
         pagina: z
           .number()
@@ -369,7 +369,7 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Resolver disputa de reembolso",
       description:
-        "Dictamina una disputa (RQF40): 'reembolsar' devuelve el dinero al comprador (aunque la venta esté completada o retenida) y registra el adeudo del vendedor por su culpa directa (RQNF37: queda suspendido con saldo pendiente); 'rechazar' retira la retención preventiva si ya no hay otras irregularidades vivas sobre la venta.",
+        "Dictamina una disputa: 'reembolsar' devuelve el dinero al comprador (aunque la venta esté completada o retenida) y registra el adeudo del vendedor por su culpa directa (queda suspendido con saldo pendiente); 'rechazar' retira la retención preventiva si ya no hay otras irregularidades vivas sobre la venta.",
       inputSchema: {
         id_disputa: z
           .string()
@@ -409,7 +409,7 @@ export function crearServidorMcp(): McpServer {
           .enum(CAUSAS_ADEUDO)
           .optional()
           .describe(
-            "Causa del adeudo si el reembolso es por culpa directa del vendedor (RQNF37). Si se omite, no se registra adeudo.",
+            "Causa del adeudo si el reembolso es por culpa directa del vendedor. Si se omite, no se registra adeudo.",
           ),
         nota: z
           .string()
@@ -433,7 +433,7 @@ export function crearServidorMcp(): McpServer {
     {
       title: "Listar adeudos",
       description:
-        "Lista paginada de adeudos de los vendedores (reembolsos cubiertos por la plataforma por su culpa directa): monto, motivo, causa, estado y el total pendiente de liquidar. La cuenta del vendedor permanece suspendida con saldo pendiente hasta liquidarlo (RQNF38).",
+        "Lista paginada de adeudos de los vendedores (reembolsos cubiertos por la plataforma por su culpa directa): monto, motivo, causa, estado y el total pendiente de liquidar. La cuenta del vendedor permanece suspendida con saldo pendiente hasta liquidarlo.",
       inputSchema: {
         pagina: z
           .number()

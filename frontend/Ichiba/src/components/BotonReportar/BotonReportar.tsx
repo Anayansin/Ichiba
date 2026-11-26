@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CATEGORIAS_REPORTE,
@@ -7,6 +7,7 @@ import {
 } from "../../configuracion/categoriasReporte";
 import {
   crearReporte,
+  type DatosReporte,
   type RespuestaReporte,
 } from "../../services/reporteService";
 import { mensajeDeError } from "../../utils/errores";
@@ -23,8 +24,12 @@ type Props = {
   promocionalId?: string;
   vendedorId?: string;
   mensajeId?: string;
+  origenMensaje?: DatosReporte["origenMensaje"];
   texto?: string;
   className?: string;
+  abiertoExterno?: boolean;
+  onCerrar?: () => void;
+  sinBoton?: boolean;
 };
 
 function textoEstado(estado: RespuestaReporte["estado"]): string {
@@ -41,8 +46,12 @@ function BotonReportar({
   promocionalId,
   vendedorId,
   mensajeId,
+  origenMensaje,
   texto = "Reportar",
   className,
+  abiertoExterno,
+  onCerrar,
+  sinBoton,
 }: Props) {
   const opciones = ELEMENTOS_REPORTE.filter((opcion) =>
     elementos ? elementos.includes(opcion.id) : opcion.id === elemento,
@@ -69,6 +78,16 @@ function BotonReportar({
     setAbierto(true);
   }
 
+  function cerrar() {
+    setAbierto(false);
+    onCerrar?.();
+  }
+
+  useEffect(() => {
+    if (abiertoExterno) abrir();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abiertoExterno]);
+
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     if (!detalleValido) return;
@@ -84,6 +103,7 @@ function BotonReportar({
         promocionalId,
         vendedorId,
         mensajeId,
+        origenMensaje,
       });
       setResultado(respuesta);
     } catch (err) {
@@ -94,7 +114,7 @@ function BotonReportar({
   }
 
   const modal = abierto ? (
-    <div className="reportar-modal__fondo" onClick={() => setAbierto(false)}>
+    <div className="reportar-modal__fondo" onClick={cerrar}>
       <div
         className="reportar-modal"
         role="dialog"
@@ -112,7 +132,7 @@ function BotonReportar({
               <button
                 type="button"
                 className="reportar-modal__enviar"
-                onClick={() => setAbierto(false)}
+                onClick={cerrar}
               >
                 Aceptar
               </button>
@@ -171,7 +191,7 @@ function BotonReportar({
               <button
                 type="button"
                 className="reportar-modal__cancelar"
-                onClick={() => setAbierto(false)}
+                onClick={cerrar}
               >
                 Cancelar
               </button>
@@ -191,13 +211,15 @@ function BotonReportar({
 
   return (
     <>
-      <button
-        type="button"
-        className={className ?? "boton-reportar"}
-        onClick={abrir}
-      >
-        ⚠ {texto}
-      </button>
+      {!sinBoton && (
+        <button
+          type="button"
+          className={className ?? "boton-reportar"}
+          onClick={abrir}
+        >
+          {texto}
+        </button>
+      )}
       {modal && createPortal(modal, document.body)}
     </>
   );

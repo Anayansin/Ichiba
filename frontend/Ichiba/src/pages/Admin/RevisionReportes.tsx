@@ -73,7 +73,7 @@ function RevisionReportes() {
       let mensajeAviso = respuesta.message;
       if (respuesta.cuentaCancelada) {
         mensajeAviso +=
-          " Se envió el correo de cancelación, se dio de alta en la lista negra, se desactivaron sus publicaciones y solo conserva acceso a sus entregas pendientes (RQNF10.3 / RQNF10.6 / RQF12).";
+          " Se envió el correo de cancelación, se dio de alta en la lista negra, se desactivaron sus publicaciones y solo conserva acceso a sus entregas pendientes.";
       } else if (respuesta.puntosReputacion !== undefined) {
         mensajeAviso += ` El vendedor lleva ${respuesta.puntosReputacion}/8 puntos de cancelación.`;
       }
@@ -138,7 +138,7 @@ function RevisionReportes() {
                 Al confirmarlo suma {reporte.puntos} punto(s) · El vendedor lleva{" "}
                 {reporte.puntosReputacion}/{reporte.puntosCancelacion} puntos
                 {reporte.estadoCuenta === "cancelada" &&
-                  " · ⚠ Cuenta cancelada de forma permanente"}
+                  " · Cuenta cancelada de forma permanente"}
               </p>
 
               {reporte.detalle && (

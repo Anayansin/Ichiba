@@ -16,6 +16,7 @@ import { textoPromocional } from "../../configuracion/categorias";
 import { useAuth } from "../../context/AuthContext";
 import { mensajeDeError } from "../../utils/errores";
 import BotonReportar from "../../components/BotonReportar/BotonReportar";
+import MenuMensaje from "../../components/MenuMensaje/MenuMensaje";
 import "./PromocionalDetalle.css";
 
 const MAX_CARACTERES = 500;
@@ -261,16 +262,32 @@ function PromocionalDetalle() {
                     <li key={comentario._id}>
                       <div className="promocional-detalle__comentario-cabecera">
                         <strong>{comentario.autorNombre}</strong>
-                        <span>
+                        <span className="promocional-detalle__comentario-fecha">
                           {new Date(comentario.createdAt).toLocaleDateString(
                             "es-MX",
                           )}
+                          {comentario.reportable &&
+                            !comentario.esMio &&
+                            usuario?.tipo !== "admin" && (
+                              <MenuMensaje
+                                mensajeId={comentario._id}
+                                origen="comentario"
+                              />
+                            )}
                         </span>
                       </div>
                       <p>{comentario.texto}</p>
                       {comentario.respuesta?.texto ? (
                         <div className="promocional-detalle__respuesta">
-                          <strong>Respuesta del vendedor</strong>
+                          <div className="promocional-detalle__comentario-cabecera">
+                            <strong>Respuesta del vendedor</strong>
+                            {!esDueno && usuario?.tipo !== "admin" && (
+                              <MenuMensaje
+                                mensajeId={comentario._id}
+                                origen="respuesta"
+                              />
+                            )}
+                          </div>
                           <p>{comentario.respuesta.texto}</p>
                         </div>
                       ) : (
@@ -388,9 +405,17 @@ function PromocionalDetalle() {
                       key={mensaje._id}
                       className={`promocional-detalle__consulta-mensaje promocional-detalle__consulta-mensaje--${mensaje.remitente}`}
                     >
-                      <strong>
-                        {mensaje.remitente === "vendedor" ? "Vendedor" : "Tú"}
-                      </strong>
+                      <div className="promocional-detalle__comentario-cabecera">
+                        <strong>
+                          {mensaje.remitente === "vendedor" ? "Vendedor" : "Tú"}
+                        </strong>
+                        {mensaje.remitente === "vendedor" && (
+                          <MenuMensaje
+                            mensajeId={mensaje._id}
+                            origen="consulta"
+                          />
+                        )}
+                      </div>
                       <p>{mensaje.contenido}</p>
                       <span>
                         {new Date(mensaje.createdAt).toLocaleString("es-MX", {

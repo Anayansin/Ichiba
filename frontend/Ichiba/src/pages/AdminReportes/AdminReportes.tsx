@@ -62,11 +62,6 @@ function AdminReportes() {
   return (
     <div className="reportar admin-reporte">
       <h1>Reportes de la plataforma</h1>
-      <p className="reportar__nota">
-        Revisa cada reporte y confirma los que procedan. Cada confirmación suma
-        una falta leve al vendedor; al llegar a tres faltas leves se registra
-        una falta grave con su bloqueo.
-      </p>
 
       <label className="admin-reporte__filtro">
         Mostrar

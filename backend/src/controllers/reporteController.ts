@@ -10,6 +10,8 @@ import {
   categoriaReporte,
 } from "../configuracion/categoriasReporte.js";
 import { Promocional } from "../models/Promocional.js";
+import { Comentario } from "../models/Comentario.js";
+import { ConsultaPromocional } from "../models/ConsultaPromocional.js";
 import { ErrorBackoffice } from "../services/errorBackoffice.js";
 import { resolverReporteAdmin } from "../services/backofficeService.js";
 import { registrarFalta } from "../services/sancionService.js";
@@ -30,6 +32,66 @@ type Identidad = { tipo: "usuario" | "comprador"; id: string };
 
 function esObjectId(valor: unknown): valor is string {
   return typeof valor === "string" && /^[0-9a-fA-F]{24}$/.test(valor);
+}
+
+// Mensajes que se pueden reportar desde el menú de cada mensaje, fuera del
+// chat de una venta: comentarios de promocionales, la respuesta del vendedor
+// a un comentario y los mensajes del chat de consulta.
+const ORIGENES_MENSAJE = ["comentario", "respuesta", "consulta"] as const;
+type OrigenMensaje = (typeof ORIGENES_MENSAJE)[number];
+
+type MensajeResuelto = {
+  sujeto: Identidad;
+  vendedorRelacionado: number;
+  promocionalId: string;
+  referencia: string;
+};
+
+async function resolverMensajeReportado(
+  origen: OrigenMensaje,
+  id: string,
+): Promise<MensajeResuelto | null> {
+  if (!esObjectId(id)) return null;
+
+  if (origen === "consulta") {
+    const mensaje = await ConsultaPromocional.findById(id).lean();
+    if (!mensaje) return null;
+    return {
+      sujeto:
+        mensaje.remitente === "vendedor"
+          ? { tipo: "usuario", id: String(mensaje.vendedorId) }
+          : { tipo: "comprador", id: String(mensaje.compradorId) },
+      vendedorRelacionado: Number(mensaje.vendedorId),
+      promocionalId: String(mensaje.promocionalId),
+      referencia: `consulta:${id}`,
+    };
+  }
+
+  const comentario = await Comentario.findById(id).lean();
+  if (!comentario) return null;
+  const promocional = await Promocional.findById(comentario.promocionalId)
+    .select("vendedorId")
+    .lean();
+  if (!promocional) return null;
+  const vendedorRelacionado = Number(promocional.vendedorId);
+
+  if (origen === "respuesta") {
+    if (!comentario.respuesta?.texto) return null;
+    return {
+      sujeto: { tipo: "usuario", id: String(vendedorRelacionado) },
+      vendedorRelacionado,
+      promocionalId: String(comentario.promocionalId),
+      referencia: `respuesta:${id}`,
+    };
+  }
+
+  if (!comentario.compradorId) return null;
+  return {
+    sujeto: { tipo: "comprador", id: String(comentario.compradorId) },
+    vendedorRelacionado,
+    promocionalId: String(comentario.promocionalId),
+    referencia: `comentario:${id}`,
+  };
 }
 
 async function identificarReportero(req: Request): Promise<Identidad | null> {
@@ -194,6 +256,7 @@ export async function crearReporte(req: Request, res: Response) {
       elemento,
       categoria,
       detalle,
+      origenMensaje,
     } = req.body ?? {};
 
     if (!ELEMENTOS_REPORTABLES.includes(elemento)) {
@@ -208,8 +271,23 @@ export async function crearReporte(req: Request, res: Response) {
     let sujeto: Identidad | null = null;
     let ventaRelacionada: any = null;
     let productoRelacionado: string | undefined;
+    let referenciaMensaje: string | undefined =
+      typeof mensajeId === "string" ? mensajeId : undefined;
+    let vendedorDelMensaje: number | null = null;
 
-    if (ventaId) {
+    if (ORIGENES_MENSAJE.includes(origenMensaje)) {
+      const resuelto = await resolverMensajeReportado(
+        origenMensaje as OrigenMensaje,
+        String(mensajeId ?? ""),
+      );
+      if (!resuelto) {
+        return res.status(404).json({ message: "Mensaje no encontrado" });
+      }
+      sujeto = resuelto.sujeto;
+      productoRelacionado = resuelto.promocionalId;
+      referenciaMensaje = resuelto.referencia;
+      vendedorDelMensaje = resuelto.vendedorRelacionado;
+    } else if (ventaId) {
       const venta = await buscarVentaDelReporte(ventaId);
       if (!venta) {
         return res.status(404).json({ message: "Compra no encontrada" });
@@ -267,18 +345,38 @@ export async function crearReporte(req: Request, res: Response) {
       return res.status(400).json({ message: "No puedes reportarte a ti mismo" });
     }
 
-    if (mensajeId) {
+    if (mensajeId && vendedorDelMensaje === null) {
       const mensaje = esObjectId(mensajeId)
-        ? await Mensaje.findById(mensajeId)
+        ? await Mensaje.findById(mensajeId).lean()
         : null;
       if (!mensaje) {
         return res.status(404).json({ message: "Mensaje no encontrado" });
       }
+      if (ventaRelacionada) {
+        const ventaMongo = await Venta.findOne({
+          paypalOrderId: ventaRelacionada.paypalOrderId,
+        })
+          .select("_id")
+          .lean();
+        if (ventaMongo && String(mensaje.ventaId) !== String(ventaMongo._id)) {
+          return res
+            .status(400)
+            .json({ message: "El mensaje no pertenece a esta compra" });
+        }
+        if (String(mensaje.remitenteId) === reportero.id) {
+          return res
+            .status(400)
+            .json({ message: "No puedes reportar tu propio mensaje" });
+        }
+      }
     }
 
-    const vendedorRelacionado = ventaRelacionada
-      ? Number(ventaRelacionada.vendedorId)
-      : Number(sujeto.id);
+    const vendedorRelacionado =
+      vendedorDelMensaje !== null
+        ? vendedorDelMensaje
+        : ventaRelacionada
+          ? Number(ventaRelacionada.vendedorId)
+          : Number(sujeto.id);
 
     const vendedorExiste =
       Number.isInteger(vendedorRelacionado) &&
@@ -300,7 +398,7 @@ export async function crearReporte(req: Request, res: Response) {
       detalle,
       ventaRelacionada,
       productoId: productoRelacionado,
-      mensajeId,
+      mensajeId: referenciaMensaje,
       vendedorRelacionado,
     });
 

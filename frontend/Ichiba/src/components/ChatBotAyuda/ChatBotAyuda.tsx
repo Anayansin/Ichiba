@@ -18,11 +18,11 @@ type MensajeAyuda = {
 const MENSAJE_INICIAL: MensajeAyuda = {
   id: 1,
   autor: "bot",
-  texto: "¡Hola! 👋 Soy el asistente de ayuda de Ichiba. Escribe tu duda y te respondo al instante.",
+  texto: "¡Hola! Soy el asistente de ayuda de Ichiba. Escribe tu duda y te respondo al instante.",
 };
 
 const MENSAJE_SIN_COINCIDENCIA =
-  "No encontré una respuesta para eso 😅. Prueba con otras palabras o visita la sección de Ayuda, donde están las preguntas frecuentes y todo lo relacionado con la plataforma.";
+  "No encontré una respuesta para eso. Prueba con otras palabras o visita la sección de Ayuda, donde están las preguntas frecuentes y todo lo relacionado con la plataforma.";
 
 function palabraCoincide(
   palabra: string,
@@ -115,7 +115,7 @@ function ChatBotAyuda() {
         >
           <header className="chat-ayuda__cabecera">
             <span className="chat-ayuda__avatar" aria-hidden="true">
-              🤖
+              <img src="/favicon.svg" alt="" />
             </span>
             <div className="chat-ayuda__titulo">
               <p>Asistente de ayuda</p>
@@ -183,7 +183,17 @@ function ChatBotAyuda() {
           abierto ? "Cerrar el chat de ayuda" : "Abrir el chat de ayuda"
         }
       >
-        {abierto ? "✕" : "💬"}
+        {abierto ? (
+          "✕"
+        ) : (
+          <svg
+            className="chat-ayuda__icono"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M4 5h16v11H9l-5 4z" />
+          </svg>
+        )}
       </button>
     </div>
   );

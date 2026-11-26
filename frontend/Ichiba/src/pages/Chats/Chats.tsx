@@ -13,6 +13,7 @@ import {
   type Mensaje,
 } from "../../services/mensajeService";
 import BotonReportar from "../../components/BotonReportar/BotonReportar";
+import MenuMensaje from "../../components/MenuMensaje/MenuMensaje";
 import CoordinacionEntrega from "../../components/CoordinacionEntrega/CoordinacionEntrega";
 import { URL_BACKEND } from "../../services/api";
 import { calificarVenta } from "../../services/pagoService";
@@ -276,6 +277,17 @@ function Chats() {
                       : mensaje.remitente === "comprador"
                   }
                   horario={FORMATO_FECHA_CHAT.format(new Date(mensaje.createdAt))}
+                  acciones={
+                    (esVendedor
+                      ? mensaje.remitente !== "vendedor"
+                      : mensaje.remitente !== "comprador") && (
+                      <MenuMensaje
+                        mensajeId={mensaje._id}
+                        origen="venta"
+                        ventaId={ventaActivaId}
+                      />
+                    )
+                  }
                 />
               ))}
             </div>
@@ -283,7 +295,7 @@ function Chats() {
             {ventaActiva?.estado === "en_entrega" && (
               <div className="chats__entrega">
                 <p className="chats__nota-entrega">
-                  📦 Estás en la etapa de entrega.{" "}
+                  Estás en la etapa de entrega.{" "}
                   {esVendedor
                     ? "Cuando el comprador reciba el producto, pídele su código de confirmación de 4 dígitos y regístralo en tu panel, en «Ventas y entregas»."
                     : "Dale tu código de confirmación al vendedor únicamente cuando recibas el producto; con él se libera el dinero retenido."}
@@ -376,7 +388,7 @@ function Chats() {
               </>
             ) : (
               <div className="chats__bloqueado">
-                <p>🔒 {motivoChatBloqueado()}</p>
+                <p>{motivoChatBloqueado()}</p>
 
                 {ventaActiva?.estado === "pendiente_comprobante" &&
                   !esVendedor &&

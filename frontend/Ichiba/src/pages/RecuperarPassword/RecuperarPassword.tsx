@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Boton from "../../components/Boton/Boton";
 import {
   solicitarRecuperacion,
@@ -14,8 +14,11 @@ import "./RecuperarPassword.css";
 
 function RecuperarPassword() {
   const navigate = useNavigate();
+  const ubicacion = useLocation();
+  const correoInicial =
+    (ubicacion.state as { correo?: string } | null)?.correo ?? "";
   const [paso, setPaso] = useState<"correo" | "codigo">("correo");
-  const [correo, setCorreo] = useState("");
+  const [correo, setCorreo] = useState(correoInicial);
   const [codigo, setCodigo] = useState("");
   const [passwordNueva, setPasswordNueva] = useState("");
   const [passwordConfirmar, setPasswordConfirmar] = useState("");

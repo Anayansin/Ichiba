@@ -25,7 +25,7 @@ export async function requiereVendedor(
     if (usuario.estadoCuenta === "cancelada") {
       return res.status(403).json({
         message:
-          "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado (RQNF10.3 / RQF12)",
+          "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado",
       });
     }
 
@@ -73,7 +73,7 @@ export async function rechazarCuentaCancelada(
     if (usuario?.estadoCuenta === "cancelada") {
       return res.status(403).json({
         message:
-          "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado (RQNF10.3 / RQF12)",
+          "Tu cuenta fue cancelada de forma permanente: solo puedes completar las entregas cuyo pago ya está confirmado",
       });
     }
 

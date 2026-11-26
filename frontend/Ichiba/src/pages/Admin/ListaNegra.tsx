@@ -163,11 +163,6 @@ function ListaNegra() {
         <span>{total} registro(s)</span>
       </div>
 
-      <p className="lista-negra__nota">
-        Quien aparezca aquí no podrá crear una cuenta: el sistema compara el
-        RFC, la CURP y el código de la INE contra esta lista en cada registro.
-      </p>
-
       {error && <p className="lista-negra__error">{error}</p>}
       {aviso && <p className="lista-negra__aviso">{aviso}</p>}
 

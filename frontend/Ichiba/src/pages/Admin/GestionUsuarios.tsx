@@ -11,6 +11,7 @@ import {
   suscribirse,
   type EventoUsuario,
 } from "../../services/suscripcionesService";
+import ModalUsuarioAdmin from "./ModalUsuarioAdmin";
 import "./GestionUsuarios.css";
 
 const USUARIOS_POR_PAGINA = 10;
@@ -69,6 +70,7 @@ function GestionUsuarios() {
   const [busqueda, setBusqueda] = useState("");
   const busquedaRef = useRef("");
   const [usuarioEnAccion, setUsuarioEnAccion] = useState<string | null>(null);
+  const [usuarioAbierto, setUsuarioAbierto] = useState<string | null>(null);
 
   const paginaRef = useRef(pagina);
   useEffect(() => {
@@ -334,7 +336,16 @@ function GestionUsuarios() {
           <tbody>
             {usuarios.map((usuario) => (
               <tr key={usuario.id}>
-                <td>{usuario.nombreCompleto}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="gestion-usuarios__nombre"
+                    onClick={() => setUsuarioAbierto(usuario.id)}
+                    title="Ver y editar todos sus datos"
+                  >
+                    {usuario.nombreCompleto}
+                  </button>
+                </td>
                 <td>{usuario.correo}</td>
                 <td>{usuario.tipo}</td>
                 <td>
@@ -391,7 +402,7 @@ function GestionUsuarios() {
                       type="button"
                       className="gestion-usuarios__suspender gestion-usuarios__permanente"
                       disabled
-                      title="La cancelación por 8 puntos es permanente (RQNF10.3)"
+                      title="La cancelación por 8 puntos es permanente"
                     >
                       Permanente
                     </button>
@@ -406,6 +417,13 @@ function GestionUsuarios() {
                     </button>
                   ) : (
                     <div className="gestion-usuarios__acciones">
+                      <button
+                        type="button"
+                        className="gestion-usuarios__ver"
+                        onClick={() => setUsuarioAbierto(usuario.id)}
+                      >
+                        Ver datos
+                      </button>
                       {usuario.tipo !== "admin" && (
                         <button
                           type="button"
@@ -419,7 +437,7 @@ function GestionUsuarios() {
                       <button
                         type="button"
                         className="gestion-usuarios__lista-negra"
-                        title="No suspende la cuenta: bloquea sus datos para nuevas altas (RQNF1.9)"
+                        title="No suspende la cuenta: bloquea sus datos para nuevas altas"
                         disabled={usuarioEnAccion === usuario.id}
                         onClick={() => agregarAListaNegra(usuario)}
                       >
@@ -432,6 +450,14 @@ function GestionUsuarios() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {usuarioAbierto && (
+        <ModalUsuarioAdmin
+          usuarioId={usuarioAbierto}
+          onCerrar={() => setUsuarioAbierto(null)}
+          onGuardado={() => cargar(paginaRef.current, true)}
+        />
       )}
 
       <div className="gestion-usuarios__paginacion">

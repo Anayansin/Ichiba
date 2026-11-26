@@ -146,7 +146,14 @@ function Header({ onOpenLogin }: HeaderProps) {
             className="header__buscador-boton"
             aria-label="Buscar"
           >
-            🔍
+            <svg
+              className="header__lupa-icono"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <line x1="15.5" y1="15.5" x2="21" y2="21" />
+            </svg>
           </button>
           <button
             type="button"
@@ -171,6 +178,9 @@ function Header({ onOpenLogin }: HeaderProps) {
               <p className="header__usuario-nombre">{usuario.nombreCompleto}</p>
               <p className="header__usuario-correo">{usuario.correo}</p>
               <hr />
+              <Link to="/mi-perfil" className="header__menu-item">
+                Mi perfil
+              </Link>
               {usuario.tipo !== "admin" ? (
                 <>
                   <Link to="/panel-vendedor" className="header__menu-item">

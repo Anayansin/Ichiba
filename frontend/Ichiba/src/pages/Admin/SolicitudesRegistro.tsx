@@ -144,13 +144,6 @@ function SolicitudesRegistro() {
         <span>{total} solicitud(es)</span>
       </div>
 
-      <p className="solicitudes-registro__nota">
-        Cuando el sistema deniega un alta porque los datos están en la lista
-        negra o ya pertenecen a otra cuenta, la persona puede pedir que
-        revisemos su caso. Aquí llegan esas solicitudes; la respuesta se le
-        manda por correo a la persona.
-      </p>
-
       {error && <p className="solicitudes-registro__error">{error}</p>}
       {aviso && <p className="solicitudes-registro__aviso">{aviso}</p>}
 

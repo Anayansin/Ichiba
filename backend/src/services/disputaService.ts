@@ -151,7 +151,7 @@ async function retenerVenta(venta: VentaEscrow, origen: string): Promise<void> {
   await actualizarEspejoVenta(venta.paypalOrderId, { retenido: true });
 
   console.log(
-    `[disputas] Retención preventiva (${origen}) sobre la venta ${venta.id} (RQNF32)`,
+    `[disputas] Retención preventiva (${origen}) sobre la venta ${venta.id}`,
   );
 }
 
@@ -176,7 +176,7 @@ export async function marcarVentaRetenidaPorReporte(
 
   await publicarDisputasActualizadas(
     "retencion",
-    `Retención preventiva por un reporte sobre la venta ${venta.id} (RQNF32)`,
+    `Retención preventiva por un reporte sobre la venta ${venta.id}`,
   );
   publicarResumenAdmin();
 
@@ -239,7 +239,7 @@ export async function crearDisputa(datos: {
   if (!ESTADOS_VENTA_DISPUTABLES.includes(String(venta.estado))) {
     throw new ErrorBackoffice(
       400,
-      "Solo puedes abrir una disputa cuando la compra está en entrega o ya fue completada (RQF40)",
+      "Solo puedes abrir una disputa cuando la compra está en entrega o ya fue completada",
     );
   }
 
@@ -323,7 +323,7 @@ export async function crearDisputa(datos: {
 
   return {
     message:
-      "Disputa abierta: el pago queda retenido y la administración revisará las evidencias de ambas partes (RQF40)",
+      "Disputa abierta: el pago queda retenido y la administración revisará las evidencias de ambas partes",
     disputa: serializarDisputa(disputa, {
       vendedorNombre: contacto?.nombre ?? "",
       ventaEstado: String(venta.estado),
@@ -581,7 +581,7 @@ export async function resolverDisputaAdmin(
   await publicarDisputasActualizadas(
     reembolsada ? "reembolsada" : "rechazada",
     reembolsada
-      ? `Disputa reembolsada: se devolvieron $${monto.toFixed(2)} al comprador${adeudoId ? " y se registró el adeudo del vendedor (RQNF37)" : ""}`
+      ? `Disputa reembolsada: se devolvieron $${monto.toFixed(2)} al comprador${adeudoId ? " y se registró el adeudo del vendedor" : ""}`
       : "Se rechazó una disputa de reembolso",
   );
   publicarResumenAdmin();
@@ -592,7 +592,7 @@ export async function resolverDisputaAdmin(
 
   return {
     message: reembolsada
-      ? `Disputa resuelta: se reembolsó $${monto.toFixed(2)} al comprador${adeudoId ? " y se registró el adeudo correspondiente al vendedor (RQNF37)" : ""}`
+      ? `Disputa resuelta: se reembolsó $${monto.toFixed(2)} al comprador${adeudoId ? " y se registró el adeudo correspondiente al vendedor" : ""}`
       : mensajeRechazo,
     dictamen: reembolsada ? "reembolsar" : "rechazar",
     disputa: serializarDisputa(disputa, {
@@ -717,7 +717,7 @@ export async function resolverVentaRetenidaAdmin(
   await publicarDisputasActualizadas(
     "retencion_liberada",
     `Se reembolsó la venta retenida ${venta.id} por revisión administrativa${
-      resultado.adeudoId ? " y se registró el adeudo del vendedor (RQNF37)" : ""
+      resultado.adeudoId ? " y se registró el adeudo del vendedor" : ""
     }`,
   );
   publicarResumenAdmin();
@@ -725,7 +725,7 @@ export async function resolverVentaRetenidaAdmin(
   return {
     message: `Reembolso procesado para la venta ${venta.id}${
       resultado.adeudoId
-        ? "; se registró el adeudo correspondiente al vendedor (RQNF37)"
+        ? "; se registró el adeudo correspondiente al vendedor"
         : ""
     }`,
     ventaId: venta.id,

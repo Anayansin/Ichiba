@@ -10,6 +10,10 @@ import Dashboard from "./Dashboard";
 import Disputas from "./Disputas";
 import Adeudos from "./Adeudos";
 import SolicitudesRegistro from "./SolicitudesRegistro";
+import AdminPublicaciones from "./AdminPublicaciones";
+import AdminTransacciones from "./AdminTransacciones";
+import AdminConversaciones from "./AdminConversaciones";
+import AdminQuejas from "./AdminQuejas";
 import "./Admin.css";
 
 type SeccionAdmin = {
@@ -28,6 +32,26 @@ const SECCIONES: SeccionAdmin[] = [
     id: "usuarios",
     etiqueta: "Gestión de usuarios",
     descripcion: "Cuentas, sanciones y reputación",
+  },
+  {
+    id: "productos",
+    etiqueta: "Productos",
+    descripcion: "Todas las publicaciones",
+  },
+  {
+    id: "transacciones",
+    etiqueta: "Transacciones",
+    descripcion: "Ventas y su motivo",
+  },
+  {
+    id: "conversaciones",
+    etiqueta: "Conversaciones",
+    descripcion: "Chats, consultas y comentarios",
+  },
+  {
+    id: "quejas",
+    etiqueta: "Quejas y reportes",
+    descripcion: "Inconformidades de usuarios",
   },
   {
     id: "reportes",
@@ -89,10 +113,6 @@ function Admin() {
   return (
     <div className="admin">
       <h1>Panel de administrador</h1>
-      <p className="admin__bienvenida">
-        Bienvenido, {usuario.nombreCompleto}. Aquí puedes revisar reportes,
-        usuarios, disputas, adeudos e informes de toda la plataforma.
-      </p>
 
       <nav className="admin__menu" aria-label="Secciones del panel">
         {SECCIONES.map((seccion) => {
@@ -119,6 +139,10 @@ function Admin() {
       <div className="admin__contenido">
         {seccionActiva === "inicio" && <Dashboard />}
         {seccionActiva === "usuarios" && <GestionUsuarios />}
+        {seccionActiva === "productos" && <AdminPublicaciones />}
+        {seccionActiva === "transacciones" && <AdminTransacciones />}
+        {seccionActiva === "conversaciones" && <AdminConversaciones />}
+        {seccionActiva === "quejas" && <AdminQuejas />}
         {seccionActiva === "reportes" && <RevisionReportes />}
         {seccionActiva === "disputas" && <Disputas />}
         {seccionActiva === "adeudos" && <Adeudos />}

@@ -218,15 +218,15 @@ function PagoExitoso() {
         <>
           <h2>
             {etapa === "formulario"
-              ? "¡Pago autorizado! 🎉"
+              ? "¡Pago autorizado!"
               : estadoVenta === "en_entrega"
-                ? "Tu comprobante ya fue confirmado ✅"
+                ? "Tu comprobante ya fue confirmado"
                 : estadoVenta === "completada"
-                  ? "Compra completada ✅"
+                  ? "Compra completada"
                   : estadoVenta === "cancelada" ||
                       estadoVenta === "reembolsada"
                     ? "Compra cancelada"
-                    : "¡Comprobante enviado! 📄"}
+                    : "¡Comprobante enviado!"}
           </h2>
           <p className="pago-exitoso__intro">
             Tu dinero quedó <strong>retenido en la plataforma</strong> y solo
@@ -262,7 +262,7 @@ function PagoExitoso() {
 
           <div className="pago-exitoso__aviso">
             <p>
-              ⏰ <strong>Ten en cuenta:</strong> el vendedor te atenderá
+              <strong>Ten en cuenta:</strong> el vendedor te atenderá
               únicamente dentro de su bloque de horario de atención vigente, y
               tu turno en la fila permanecerá en reposo hasta que revise y
               confirme tu comprobante.
@@ -276,9 +276,8 @@ function PagoExitoso() {
             >
               <h3>Registra tu comprobante de pago</h3>
               <p className="pago-exitoso__formulario-nota">
-                Ingresa la palabra clave, el número de referencia de tu pago y
-                una foto o captura de pantalla del comprobante. La imagen pasa
-                por una revisión automática antes de mostrársela al vendedor.
+                Ingresa la palabra clave, el número de referencia y una foto
+                del comprobante.
               </p>
 
               <label>

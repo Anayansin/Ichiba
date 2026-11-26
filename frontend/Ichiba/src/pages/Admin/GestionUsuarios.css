@@ -310,3 +310,34 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.gestion-usuarios__nombre {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: #111;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gestion-usuarios__nombre:hover {
+  color: #d90429;
+  text-decoration: underline;
+}
+
+.gestion-usuarios__ver {
+  border: 1px solid #d6dde2;
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gestion-usuarios__ver:hover {
+  border-color: #111;
+}

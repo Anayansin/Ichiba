@@ -1,5 +1,7 @@
 import api from "./api";
 
+export type OrigenMensaje = "venta" | "comentario" | "respuesta" | "consulta";
+
 export type DatosReporte = {
   elemento: string;
   categoria: string;
@@ -9,6 +11,7 @@ export type DatosReporte = {
   promocionalId?: string;
   vendedorId?: string;
   mensajeId?: string;
+  origenMensaje?: Exclude<OrigenMensaje, "venta">;
 };
 
 export type RespuestaReporte = {

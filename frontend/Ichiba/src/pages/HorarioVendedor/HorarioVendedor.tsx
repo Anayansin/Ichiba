@@ -75,10 +75,7 @@ function HorarioVendedor() {
 
       <h1>Tu horario de atención</h1>
       <p className="horario-vendedor__intro">
-        Activa los días y las horas en que estarás disponible para atender a
-        los compradores. Fuera de este horario tus publicaciones siguen
-        visibles, pero la fila virtual no abre y las tarjetas del catálogo se
-        muestran con aviso rojo hasta que vuelvas a estar disponible.
+        Fuera de este horario la fila virtual de tus publicaciones no abre.
       </p>
 
       <div className="horario-vendedor__tarjeta">

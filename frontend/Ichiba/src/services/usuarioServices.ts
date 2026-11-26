@@ -85,6 +85,7 @@ export type PerfilUsuario = {
   puntosReputacion?: number;
   puntosCancelacion?: number;
   reputacion?: ReputacionVendedor | null;
+  createdAt?: string;
 };
 
 export async function fetchPerfil(): Promise<PerfilUsuario> {
@@ -120,5 +121,23 @@ export type PerfilPublico = {
 
 export async function fetchPerfilPublico(id: string): Promise<PerfilPublico> {
   const response = await api.get(`/usuarios/${id}/publico`);
+  return response.data;
+}
+
+export type DatosSensibles = {
+  telefono: string;
+  direccion: string;
+  rfc: string;
+  curp: string | null;
+  ineCodigoReverso: string | null;
+  paypalEmail: string;
+};
+
+export async function fetchDatosSensibles(
+  password: string,
+): Promise<DatosSensibles> {
+  const response = await api.post("/usuarios/perfil/datos-sensibles", {
+    password,
+  });
   return response.data;
 }

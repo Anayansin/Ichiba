@@ -137,7 +137,7 @@ export function pdfDeInformeVendedor(
     `Vendedor: ${vendedor.nombreCompleto} (${vendedor.correo})`,
   );
 
-  tituloSeccion(documento, "Totales del período (RQNF13.1)");
+  tituloSeccion(documento, "Totales del período");
   documento.fontSize(11).font("Helvetica").fillColor(COLOR_TEXTO);
   documento.text(`• Total de ventas del período: ${numero(informe.totalVentas)}`);
   documento.text(`• Ingresos del período: ${moneda(informe.ingresos)}`);
@@ -183,7 +183,7 @@ export function pdfDeInformeVendedor(
     .fontSize(8)
     .fillColor(COLOR_GRIS)
     .text(
-      `Informe generado automáticamente el día 1° de cada mes (RQNF13.2)${
+      `Informe generado automáticamente el día 1° de cada mes${
         informe.generadoEn
           ? ` · Generado: ${new Date(informe.generadoEn).toLocaleString("es-MX")}`
           : ""
@@ -218,7 +218,7 @@ export function pdfDeInformeGlobal(informe: InformeGlobalPdf): Promise<Buffer> {
     "Categoría más vendida y tasa de abandono de fila por categoría",
   );
 
-  tituloSeccion(documento, "Categoría más vendida (RQNF14)");
+  tituloSeccion(documento, "Categoría más vendida");
   documento.fontSize(11).font("Helvetica").fillColor(COLOR_TEXTO);
   if (informe.categoriaMasVendida) {
     documento.text(
@@ -228,7 +228,7 @@ export function pdfDeInformeGlobal(informe: InformeGlobalPdf): Promise<Buffer> {
     );
   } else if (informe.empate) {
     documento.text(
-      "• Empate persistente tras el desempate con el mes anterior: no se muestra una categoría ganadora (RQNF14.2).",
+      "• Empate persistente tras el desempate con el mes anterior: no se muestra una categoría ganadora.",
     );
   } else {
     documento.text("• Sin ventas concluidas registradas en el período.");

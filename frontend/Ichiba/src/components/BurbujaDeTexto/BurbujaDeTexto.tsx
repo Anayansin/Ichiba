@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import "./BurbujaDeTexto.css";
 
 interface BurbujaDeTextoProps {
@@ -5,6 +6,7 @@ interface BurbujaDeTextoProps {
   esRemitente: boolean;
   emisor: string;
   horario: string;
+  acciones?: ReactNode;
 }
 
 function BurbujaDeTexto({
@@ -12,6 +14,7 @@ function BurbujaDeTexto({
   esRemitente,
   emisor,
   horario,
+  acciones,
 }: BurbujaDeTextoProps) {
   const claseAlineacion = esRemitente ? "mensaje-mio" : "mensaje-otro";
 
@@ -24,6 +27,7 @@ function BurbujaDeTexto({
           <span className="burbuja__horario">{horario}</span>
         </div>
       </div>
+      {acciones}
     </div>
   );
 }

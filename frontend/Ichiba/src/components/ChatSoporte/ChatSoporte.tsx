@@ -92,7 +92,7 @@ function ChatSoporte() {
     <section className="chat-soporte" aria-label="Asistente automatizado de soporte">
       <header className="chat-soporte__header">
         <span className="chat-soporte__avatar" aria-hidden="true">
-          🤖
+          <img src="/favicon.svg" alt="" />
         </span>
         <div className="chat-soporte__titulo">
           <h2>Asistente de soporte</h2>
@@ -119,7 +119,7 @@ function ChatSoporte() {
           >
             {mensaje.autor === "bot" && (
               <span className="chat-soporte__mini-avatar" aria-hidden="true">
-                🤖
+                <img src="/favicon.svg" alt="" />
               </span>
             )}
             <p>{mensaje.texto}</p>
@@ -129,7 +129,7 @@ function ChatSoporte() {
         {escribiendo && (
           <div className="chat-soporte__mensaje chat-soporte__mensaje--bot">
             <span className="chat-soporte__mini-avatar" aria-hidden="true">
-              🤖
+              <img src="/favicon.svg" alt="" />
             </span>
             <span className="chat-soporte__escribiendo" aria-label="Escribiendo">
               <i />

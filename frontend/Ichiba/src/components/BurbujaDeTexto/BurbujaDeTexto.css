@@ -12,6 +12,8 @@
 
 .mensaje-otro {
   justify-content: flex-start;
+  align-items: center;
+  gap: 4px;
 }
 
 .burbuja {

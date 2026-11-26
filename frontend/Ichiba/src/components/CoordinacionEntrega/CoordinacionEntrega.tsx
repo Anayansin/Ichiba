@@ -103,8 +103,8 @@ function CoordinacionEntrega({ ventaId, esVendedor }: Props) {
     return (
       <div className="coordinacion">
         <p className="coordinacion__recordatorio">
-          Lo que acuerden por mensaje solo queda guardado cuando el vendedor lo
-          registra en el formulario de propuesta y el comprador lo acepta.
+          El acuerdo de entrega se guarda cuando el comprador acepta la
+          propuesta del vendedor.
         </p>
 
         {actual?.estado === "aceptada" && (
