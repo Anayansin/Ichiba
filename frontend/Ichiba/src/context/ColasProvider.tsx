@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, ReactNode } from "react";
 import { ColasContext } from "./ColasContext";
+import { useAuth } from "./AuthContext";
 import {
   fetchAvisosFilas,
   fetchMisFilas,
@@ -19,6 +20,7 @@ function avisosVistos(): string[] {
 }
 
 export function ColasProvider({ children }: { children: ReactNode }) {
+  const { usuario } = useAuth();
   const [filas, setFilas] = useState<Fila[]>([]);
   const [avisos, setAvisos] = useState<AvisoFila[]>([]);
 
@@ -44,10 +46,12 @@ export function ColasProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setFilas([]);
+    setAvisos([]);
     recargarFilas();
     const intervalo = setInterval(recargarFilas, 5000);
     return () => clearInterval(intervalo);
-  }, [recargarFilas]);
+  }, [recargarFilas, usuario?.id]);
 
   return (
     <ColasContext.Provider

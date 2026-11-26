@@ -1,5 +1,6 @@
 import axios from "axios";
 import { obtenerCompradorId } from "../utils/compradorId";
+import { borrarSesion, tokenDeSesion } from "../utils/sesion";
 
 export const URL_BACKEND = "";
 
@@ -8,7 +9,7 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = tokenDeSesion();
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -30,8 +31,7 @@ api.interceptors.response.use(
     );
 
     if (estado === 401 && seEnvioToken && !esInicioDeSesion) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("usuario");
+      borrarSesion();
       window.location.assign("/inicio");
     }
 

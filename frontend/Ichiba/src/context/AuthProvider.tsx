@@ -1,6 +1,12 @@
 import { useState, ReactNode } from "react";
 import { AuthContext } from "./AuthContext";
 import type { Usuario } from "../services/authService";
+import {
+  borrarSesion,
+  guardarSesion,
+  tokenDeSesion,
+  usuarioDeSesion,
+} from "../utils/sesion";
 
 type SesionGuardada = {
   usuario: Usuario | null;
@@ -8,18 +14,9 @@ type SesionGuardada = {
 };
 
 function leerSesionGuardada(): SesionGuardada {
-  try {
-    const token = localStorage.getItem("token");
-    const usuarioGuardado = localStorage.getItem("usuario");
-
-    if (!token || !usuarioGuardado) {
-      return { usuario: null, token: null };
-    }
-
-    return { usuario: JSON.parse(usuarioGuardado) as Usuario, token };
-  } catch {
-    return { usuario: null, token: null };
-  }
+  const token = tokenDeSesion();
+  const usuario = usuarioDeSesion();
+  return token && usuario ? { usuario, token } : { usuario: null, token: null };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -33,15 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function login(usuarioNuevo: Usuario, tokenNuevo: string) {
     setUsuario(usuarioNuevo);
     setToken(tokenNuevo);
-    localStorage.setItem("token", tokenNuevo);
-    localStorage.setItem("usuario", JSON.stringify(usuarioNuevo));
+    guardarSesion(usuarioNuevo, tokenNuevo);
   }
 
   function logout() {
     setUsuario(null);
     setToken(null);
-    localStorage.removeItem("token");
-    localStorage.removeItem("usuario");
+    borrarSesion();
   }
 
   return (

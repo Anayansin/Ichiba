@@ -219,8 +219,8 @@ const ayudante = `<!doctype html><meta charset="utf-8"><title>Iniciando sesión 
 const q = new URLSearchParams(location.search);
 const sesiones = ${JSON.stringify({ vendedor: S.vendedor, admin: S.admin, comprador: S.comprador })};
 const rol = q.get("rol");
-if (rol === "comprador") { localStorage.removeItem("token"); localStorage.removeItem("usuario"); localStorage.setItem("compradorId", sesiones.comprador); }
-else if (sesiones[rol]) { localStorage.setItem("token", sesiones[rol].token); localStorage.setItem("usuario", JSON.stringify(sesiones[rol].usuario)); localStorage.setItem("advertenciaEncuentroVista", "true"); }
+if (rol === "comprador") { localStorage.removeItem("token"); localStorage.removeItem("usuario"); sessionStorage.removeItem("token"); sessionStorage.removeItem("usuario"); sessionStorage.setItem("sesionSembrada", "1"); localStorage.setItem("compradorId", sesiones.comprador); }
+else if (sesiones[rol]) { localStorage.setItem("token", sesiones[rol].token); localStorage.setItem("usuario", JSON.stringify(sesiones[rol].usuario)); sessionStorage.setItem("token", sesiones[rol].token); sessionStorage.setItem("usuario", JSON.stringify(sesiones[rol].usuario)); sessionStorage.setItem("sesionSembrada", "1"); localStorage.setItem("advertenciaEncuentroVista", "true"); }
 location.replace(q.get("ir") || "/inicio");
 </script>`;
 fs.writeFileSync(path.join(RAIZ, "frontend", "Ichiba", "revision-sesion.html"), ayudante);

@@ -1,5 +1,6 @@
 import { createClient } from "graphql-ws";
 import { URL_BACKEND } from "./api";
+import { tokenDeSesion } from "../utils/sesion";
 
 function urlDeSuscripciones(): string {
   const url = new URL(URL_BACKEND || window.location.origin);
@@ -16,7 +17,7 @@ export function suscribirse<T>(
   alRecibir: (dato: T) => void,
   alFallar?: (error: unknown) => void,
 ): () => void {
-  const token = localStorage.getItem("token");
+  const token = tokenDeSesion();
   const cliente = createClient({
     url: urlDeSuscripciones(),
     connectionParams: token ? { Authorization: `Bearer ${token}` } : {},
